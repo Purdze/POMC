@@ -1,5 +1,7 @@
 mod args;
 mod net;
+mod physics;
+mod player;
 mod renderer;
 mod ui;
 mod window;
@@ -37,15 +39,7 @@ fn main() {
             access_token: args.access_token.clone(),
         };
 
-        let (event_tx, event_rx) = crossbeam_channel::bounded(256);
-
-        rt.spawn(async move {
-            if let Err(e) = net::connection::connect_to_server(connect_args, event_tx).await {
-                log::error!("Network error: {e}");
-            }
-        });
-
-        Some(event_rx)
+        Some(net::connection::spawn_connection(&rt, connect_args))
     } else {
         None
     };

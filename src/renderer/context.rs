@@ -47,12 +47,15 @@ impl GpuContext {
         log::info!("GPU adapter: {}", adapter.get_info().name);
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("mc_device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-            }, None)
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("mc_device"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    memory_hints: wgpu::MemoryHints::default(),
+                },
+                None,
+            )
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);

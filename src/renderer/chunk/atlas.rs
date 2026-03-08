@@ -41,7 +41,8 @@ impl TextureAtlas {
         let mut atlas_image = image::RgbaImage::new(atlas_size, atlas_size);
         let mut regions = HashMap::new();
 
-        let missing_region = tile_region(tile_origin(0, grid_size, tile_size), tile_size, atlas_size);
+        let missing_region =
+            tile_region(tile_origin(0, grid_size, tile_size), tile_size, atlas_size);
 
         // Slot 0: magenta/black checkerboard for missing textures
         for py in 0..tile_size {
@@ -134,7 +135,10 @@ impl TextureAtlas {
             ..Default::default()
         });
 
-        log::info!("Built {atlas_size}x{atlas_size} texture atlas with {} textures", regions.len());
+        log::info!(
+            "Built {atlas_size}x{atlas_size} texture atlas with {} textures",
+            regions.len()
+        );
 
         Ok(Self {
             texture_view,
@@ -150,7 +154,10 @@ impl TextureAtlas {
 }
 
 fn tile_origin(slot: u32, grid_size: u32, tile_size: u32) -> (u32, u32) {
-    ((slot % grid_size) * tile_size, (slot / grid_size) * tile_size)
+    (
+        (slot % grid_size) * tile_size,
+        (slot / grid_size) * tile_size,
+    )
 }
 
 fn tile_region(origin: (u32, u32), tile_size: u32, atlas_size: u32) -> AtlasRegion {

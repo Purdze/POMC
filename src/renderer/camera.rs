@@ -1,20 +1,18 @@
 use glam::{Mat4, Vec3};
-use winit::keyboard::KeyCode;
 
 use crate::window::input::InputState;
 
 const UP: Vec3 = Vec3::Y;
-const DEFAULT_FOV: f32 = 1.2217; // ~70 degrees
+const DEFAULT_FOV: f32 = 1.2217;
 const NEAR: f32 = 0.1;
 const FAR: f32 = 1000.0;
 const SENSITIVITY: f32 = 0.003;
-const MOVE_SPEED: f32 = 5.0;
 const PITCH_LIMIT: f32 = std::f32::consts::FRAC_PI_2 - 0.01;
 
 pub struct Camera {
     pub position: Vec3,
-    yaw: f32,
-    pitch: f32,
+    pub yaw: f32,
+    pub pitch: f32,
     aspect_ratio: f32,
 }
 
@@ -28,34 +26,11 @@ impl Camera {
         }
     }
 
-    pub fn update(&mut self, input: &mut InputState, dt: f32) {
+    pub fn update_look(&mut self, input: &mut InputState) {
         if input.is_cursor_captured() {
             let (dx, dy) = input.consume_mouse_delta();
             self.yaw -= dx as f32 * SENSITIVITY;
             self.pitch = (self.pitch - dy as f32 * SENSITIVITY).clamp(-PITCH_LIMIT, PITCH_LIMIT);
-        }
-
-        let forward = Vec3::new(-self.yaw.sin(), 0.0, -self.yaw.cos()).normalize();
-        let right = forward.cross(UP).normalize();
-
-        let speed = MOVE_SPEED * dt;
-        if input.key_pressed(KeyCode::KeyW) {
-            self.position += forward * speed;
-        }
-        if input.key_pressed(KeyCode::KeyS) {
-            self.position -= forward * speed;
-        }
-        if input.key_pressed(KeyCode::KeyA) {
-            self.position -= right * speed;
-        }
-        if input.key_pressed(KeyCode::KeyD) {
-            self.position += right * speed;
-        }
-        if input.key_pressed(KeyCode::Space) {
-            self.position += UP * speed;
-        }
-        if input.key_pressed(KeyCode::ShiftLeft) {
-            self.position -= UP * speed;
         }
     }
 

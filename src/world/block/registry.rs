@@ -44,8 +44,9 @@ impl BlockRegistry {
         let mut textures = HashMap::new();
 
         let all = |name: &'static str| FaceTextures::all(name);
-        let tbs =
-            |t: &'static str, b: &'static str, s: &'static str| FaceTextures::top_bottom_side(t, b, s);
+        let tbs = |t: &'static str, b: &'static str, s: &'static str| {
+            FaceTextures::top_bottom_side(t, b, s)
+        };
 
         textures.insert("stone", all("stone"));
         textures.insert("granite", all("granite"));
@@ -54,7 +55,10 @@ impl BlockRegistry {
         textures.insert("polished_diorite", all("polished_diorite"));
         textures.insert("andesite", all("andesite"));
         textures.insert("polished_andesite", all("polished_andesite"));
-        textures.insert("grass_block", tbs("grass_block_top", "dirt", "grass_block_side"));
+        textures.insert(
+            "grass_block",
+            tbs("grass_block_top", "dirt", "grass_block_side"),
+        );
         textures.insert("dirt", all("dirt"));
         textures.insert("coarse_dirt", all("coarse_dirt"));
         textures.insert("cobblestone", all("cobblestone"));
@@ -70,7 +74,10 @@ impl BlockRegistry {
         textures.insert("iron_ore", all("iron_ore"));
         textures.insert("gold_ore", all("gold_ore"));
         textures.insert("diamond_ore", all("diamond_ore"));
-        textures.insert("deepslate", tbs("deepslate_top", "deepslate_top", "deepslate"));
+        textures.insert(
+            "deepslate",
+            tbs("deepslate_top", "deepslate_top", "deepslate"),
+        );
         textures.insert("cobbled_deepslate", all("cobbled_deepslate"));
         textures.insert("tuff", all("tuff"));
         textures.insert("water", all("water_still"));
@@ -89,8 +96,8 @@ impl BlockRegistry {
     }
 
     pub fn texture_names(&self) -> impl Iterator<Item = &'static str> + '_ {
-        self.textures.values().flat_map(|ft| {
-            [ft.top, ft.bottom, ft.north, ft.south, ft.east, ft.west]
-        })
+        self.textures
+            .values()
+            .flat_map(|ft| [ft.top, ft.bottom, ft.north, ft.south, ft.east, ft.west])
     }
 }

@@ -2,8 +2,8 @@ use azalea_core::position::ChunkPos;
 use azalea_protocol::packets::game::{ClientboundGamePacket, ServerboundGamePacket};
 use crossbeam_channel::Sender;
 
-use super::NetworkEvent;
 use super::sender::PacketSender;
+use super::NetworkEvent;
 
 pub fn handle_game_packet(
     packet: &ClientboundGamePacket,
@@ -12,7 +12,12 @@ pub fn handle_game_packet(
 ) {
     match packet {
         ClientboundGamePacket::LevelChunkWithLight(p) => {
-            log::debug!("Chunk [{}, {}] ({} block entities)", p.x, p.z, p.chunk_data.block_entities.len());
+            log::debug!(
+                "Chunk [{}, {}] ({} block entities)",
+                p.x,
+                p.z,
+                p.chunk_data.block_entities.len()
+            );
             let _ = event_tx.try_send(NetworkEvent::ChunkLoaded {
                 pos: ChunkPos::new(p.x, p.z),
                 data: p.chunk_data.data.clone(),

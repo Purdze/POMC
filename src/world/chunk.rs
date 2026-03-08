@@ -70,9 +70,11 @@ impl ChunkStore {
         let local_y = (y - OVERWORLD_MIN_Y).rem_euclid(16) as u8;
         let local_z = z.rem_euclid(16) as u8;
 
-        chunk.sections[section_idx].get_block_state(
-            azalea_core::position::ChunkSectionBlockPos { x: local_x, y: local_y, z: local_z },
-        )
+        chunk.sections[section_idx].get_block_state(azalea_core::position::ChunkSectionBlockPos {
+            x: local_x,
+            y: local_y,
+            z: local_z,
+        })
     }
 
     pub fn height(&self) -> u32 {

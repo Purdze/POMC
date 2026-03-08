@@ -12,6 +12,8 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
 
 use crate::net::NetworkEvent;
+use crate::physics::movement;
+use crate::player::LocalPlayer;
 use crate::renderer::Renderer;
 use crate::ui::menu::{MainMenu, MenuAction};
 use crate::world::chunk::ChunkStore;
@@ -34,6 +36,8 @@ enum GameState {
     InGame,
 }
 
+const TICK_RATE: f32 = 1.0 / 20.0;
+
 struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
@@ -46,6 +50,9 @@ struct App {
     state: GameState,
     menu: MainMenu,
     tokio_rt: Arc<tokio::runtime::Runtime>,
+    player: LocalPlayer,
+    tick_accumulator: f32,
+    prev_player_pos: glam::Vec3,
 }
 
 impl App {
@@ -72,6 +79,9 @@ impl App {
             state,
             menu: MainMenu::new(),
             tokio_rt,
+            player: LocalPlayer::new(),
+            tick_accumulator: 0.0,
+            prev_player_pos: glam::Vec3::ZERO,
         }
     }
 
@@ -95,17 +105,12 @@ impl App {
             access_token: None,
         };
 
-        let (event_tx, event_rx) = crossbeam_channel::bounded(256);
-
-        self.tokio_rt.spawn(async move {
-            if let Err(e) = crate::net::connection::connect_to_server(connect_args, event_tx).await
-            {
-                log::error!("Network error: {e}");
-            }
-        });
-
-        self.net_events = Some(event_rx);
+        self.net_events = Some(crate::net::connection::spawn_connection(
+            &self.tokio_rt,
+            connect_args,
+        ));
         self.state = GameState::InGame;
+        self.apply_cursor_grab();
     }
 
     fn drain_network_events(&mut self) {
@@ -147,6 +152,10 @@ impl App {
                     ..
                 } => {
                     if !self.position_set {
+                        self.player.position = glam::Vec3::new(x as f32, y as f32, z as f32);
+                        self.player.yaw = yaw.to_radians();
+                        self.player.pitch = pitch.to_radians();
+                        self.prev_player_pos = self.player.position;
                         if let Some(renderer) = &mut self.renderer {
                             renderer.set_camera_position(x, y, z, yaw, pitch);
                         }
@@ -166,6 +175,16 @@ impl App {
                 renderer.upload_chunk_mesh(&mesh);
             }
         }
+    }
+
+    fn tick_physics(&mut self) {
+        if let Some(renderer) = &self.renderer {
+            self.player.yaw = renderer.camera_yaw();
+            self.player.pitch = renderer.camera_pitch();
+        }
+
+        self.prev_player_pos = self.player.position;
+        movement::tick(&mut self.player, &self.input, &self.chunk_store);
     }
 }
 
@@ -208,10 +227,12 @@ impl ApplicationHandler for App {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
-            let response = renderer.handle_window_event(window, &event);
-            if response.consumed && !matches!(event, WindowEvent::RedrawRequested) {
-                return;
+        if matches!(self.state, GameState::Menu) {
+            if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
+                let response = renderer.handle_window_event(window, &event);
+                if response.consumed && !matches!(event, WindowEvent::RedrawRequested) {
+                    return;
+                }
             }
         }
 
@@ -240,7 +261,8 @@ impl ApplicationHandler for App {
                 let dt = self
                     .last_frame
                     .map(|last| now.duration_since(last).as_secs_f32())
-                    .unwrap_or(0.0);
+                    .unwrap_or(0.0)
+                    .min(0.1);
                 self.last_frame = Some(now);
 
                 match self.state {
@@ -269,7 +291,26 @@ impl ApplicationHandler for App {
                         self.drain_network_events();
 
                         if let Some(renderer) = &mut self.renderer {
-                            renderer.update(&mut self.input, dt);
+                            renderer.update_camera(&mut self.input);
+                        }
+
+                        self.tick_accumulator += dt;
+                        while self.tick_accumulator >= TICK_RATE {
+                            self.tick_physics();
+                            self.tick_accumulator -= TICK_RATE;
+                        }
+
+                        let alpha = self.tick_accumulator / TICK_RATE;
+                        let interp_pos = self.prev_player_pos.lerp(self.player.position, alpha);
+                        let eye_pos = interp_pos + glam::Vec3::new(0.0, 1.62, 0.0);
+
+                        if let Some(renderer) = &mut self.renderer {
+                            renderer.sync_camera_to_player(
+                                eye_pos,
+                                renderer.camera_yaw(),
+                                renderer.camera_pitch(),
+                            );
+
                             if let Err(e) = renderer.render_world() {
                                 log::error!("Render error: {e}");
                             }

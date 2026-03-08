@@ -50,6 +50,19 @@ pub struct ConnectArgs {
     pub access_token: Option<String>,
 }
 
+pub fn spawn_connection(
+    rt: &tokio::runtime::Runtime,
+    args: ConnectArgs,
+) -> crossbeam_channel::Receiver<NetworkEvent> {
+    let (event_tx, event_rx) = crossbeam_channel::bounded(256);
+    rt.spawn(async move {
+        if let Err(e) = connect_to_server(args, event_tx).await {
+            log::error!("Network error: {e}");
+        }
+    });
+    event_rx
+}
+
 pub async fn connect_to_server(
     args: ConnectArgs,
     event_tx: Sender<NetworkEvent>,
@@ -104,20 +117,29 @@ async fn login_sequence(
             }
             ClientboundLoginPacket::LoginCompression(p) => {
                 conn.set_compression_threshold(p.compression_threshold);
-                log::info!("Compression enabled (threshold: {})", p.compression_threshold);
+                log::info!(
+                    "Compression enabled (threshold: {})",
+                    p.compression_threshold
+                );
             }
             ClientboundLoginPacket::LoginFinished(p) => {
-                log::info!("Login success: {} ({})", p.game_profile.name, p.game_profile.uuid);
+                log::info!(
+                    "Login success: {} ({})",
+                    p.game_profile.name,
+                    p.game_profile.uuid
+                );
                 return Ok(());
             }
             ClientboundLoginPacket::LoginDisconnect(p) => {
                 return Err(ConnectionError::Disconnected(format!("{}", p.reason)));
             }
             ClientboundLoginPacket::CookieRequest(p) => {
-                conn.write(azalea_protocol::packets::login::s_cookie_response::ServerboundCookieResponse {
-                    key: p.key,
-                    payload: None,
-                })
+                conn.write(
+                    azalea_protocol::packets::login::s_cookie_response::ServerboundCookieResponse {
+                        key: p.key,
+                        payload: None,
+                    },
+                )
                 .await?;
             }
             _ => {
@@ -136,14 +158,17 @@ async fn handle_encryption(
         .map_err(ConnectionError::Encryption)?;
 
     if hello.should_authenticate {
-        let access_token = args
-            .access_token
-            .as_deref()
-            .ok_or_else(|| ConnectionError::Auth("server requires authentication but no access token provided".into()))?;
+        let access_token = args.access_token.as_deref().ok_or_else(|| {
+            ConnectionError::Auth(
+                "server requires authentication but no access token provided".into(),
+            )
+        })?;
 
         conn.authenticate(access_token, &args.uuid, e.secret_key, hello, None)
             .await
-            .map_err(|e: azalea_auth::sessionserver::ClientSessionServerError| ConnectionError::Auth(e.to_string()))?;
+            .map_err(|e: azalea_auth::sessionserver::ClientSessionServerError| {
+                ConnectionError::Auth(e.to_string())
+            })?;
     }
 
     conn.write(ServerboundKey {

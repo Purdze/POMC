@@ -100,10 +100,26 @@ impl Renderer {
         self.egui_state.on_window_event(window, event)
     }
 
-    pub fn update(&mut self, input: &mut InputState, dt: f32) {
-        self.camera.update(input, dt);
+    pub fn update_camera(&mut self, input: &mut InputState) {
+        self.camera.update_look(input);
         let uniform = CameraUniform::from_camera(&self.camera);
         self.chunk_pipeline.update_camera(&self.ctx.queue, &uniform);
+    }
+
+    pub fn sync_camera_to_player(&mut self, eye_pos: glam::Vec3, yaw: f32, pitch: f32) {
+        self.camera.position = eye_pos;
+        self.camera.yaw = yaw;
+        self.camera.pitch = pitch;
+        let uniform = CameraUniform::from_camera(&self.camera);
+        self.chunk_pipeline.update_camera(&self.ctx.queue, &uniform);
+    }
+
+    pub fn camera_yaw(&self) -> f32 {
+        self.camera.yaw
+    }
+
+    pub fn camera_pitch(&self) -> f32 {
+        self.camera.pitch
     }
 
     pub fn set_camera_position(&mut self, x: f64, y: f64, z: f64, yaw: f32, pitch: f32) {
