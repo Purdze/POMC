@@ -53,6 +53,7 @@ struct App {
     chat_sender: Option<crossbeam_channel::Sender<String>>,
     chunk_store: ChunkStore,
     assets_dir: PathBuf,
+    asset_index: Option<crate::assets::AssetIndex>,
     position_set: bool,
     state: GameState,
     menu: MainMenu,
@@ -66,12 +67,14 @@ struct App {
     paused: bool,
     inventory_open: bool,
     chat: ChatState,
+    panorama_scroll: f32,
 }
 
 impl App {
     fn new(
         connection: Option<crate::net::connection::ConnectionHandle>,
         assets_dir: PathBuf,
+        game_dir: PathBuf,
         tokio_rt: Arc<tokio::runtime::Runtime>,
     ) -> Self {
         let (net_events, chat_sender) = match connection {
@@ -92,6 +95,7 @@ impl App {
             net_events,
             chat_sender,
             chunk_store: ChunkStore::new(VIEW_DISTANCE),
+            asset_index: crate::assets::AssetIndex::load(&game_dir),
             assets_dir,
             position_set: false,
             state,
@@ -106,6 +110,7 @@ impl App {
             paused: false,
             inventory_open: false,
             chat: ChatState::new(),
+            panorama_scroll: 0.0,
         }
     }
 
@@ -253,7 +258,7 @@ impl ApplicationHandler for App {
             }
         };
 
-        let renderer = match Renderer::new(Arc::clone(&window), &self.assets_dir) {
+        let renderer = match Renderer::new(Arc::clone(&window), &self.assets_dir, &self.asset_index) {
             Ok(r) => r,
             Err(e) => {
                 log::error!("Failed to create renderer: {e}");
@@ -265,7 +270,14 @@ impl ApplicationHandler for App {
         self.hud_textures = Some(hud::HudTextures::load(
             renderer.egui_ctx(),
             &self.assets_dir,
+            &self.asset_index,
         ));
+        crate::ui::font::McFont::load(
+            renderer.egui_ctx(),
+            &self.assets_dir,
+            &self.asset_index,
+        );
+        self.menu.load_splash(&self.assets_dir, &self.asset_index);
         self.inventory_textures = Some(InventoryTextures::load(
             renderer.egui_ctx(),
             &self.assets_dir,
@@ -360,11 +372,16 @@ impl ApplicationHandler for App {
 
                 match self.state {
                     GameState::Menu => {
+                        self.panorama_scroll += dt * 0.01;
+                        if self.panorama_scroll > 1.0 {
+                            self.panorama_scroll -= 1.0;
+                        }
+
                         if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
                             let menu = &mut self.menu;
                             let hud_textures = &self.hud_textures;
                             let mut action = MenuAction::None;
-                            if let Err(e) = renderer.render_ui(window, |ctx| {
+                            if let Err(e) = renderer.render_ui(window, self.panorama_scroll, |ctx| {
                                 if let Some(textures) = hud_textures {
                                     action = menu.draw(ctx, textures);
                                 }
@@ -509,10 +526,11 @@ impl ApplicationHandler for App {
 pub fn run(
     connection: Option<crate::net::connection::ConnectionHandle>,
     assets_dir: PathBuf,
+    game_dir: PathBuf,
     tokio_rt: Arc<tokio::runtime::Runtime>,
 ) -> Result<(), WindowError> {
     let event_loop = EventLoop::new()?;
-    let mut app = App::new(connection, assets_dir, tokio_rt);
+    let mut app = App::new(connection, assets_dir, game_dir, tokio_rt);
     event_loop.run_app(&mut app)?;
     Ok(())
 }

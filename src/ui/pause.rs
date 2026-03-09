@@ -1,5 +1,6 @@
 use egui::{Color32, Pos2, Sense, Vec2};
 
+use super::font::mc_text_centered;
 use super::hud::{mc_button, HudTextures, BUTTON_GAP};
 
 pub enum PauseAction {
@@ -29,11 +30,11 @@ pub fn draw_pause_menu(ctx: &egui::Context, textures: &HudTextures) -> PauseActi
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(8.0);
-                ui.label(
-                    egui::RichText::new("Game Menu")
-                        .size(20.0)
-                        .color(Color32::WHITE),
-                );
+
+                let scale = 20.0;
+                let (rect, _) = ui.allocate_exact_size(Vec2::new(200.0, scale), Sense::hover());
+                mc_text_centered(ui.painter(), ui.ctx(), rect.center(), "Game Menu", scale, Color32::WHITE, true);
+
                 ui.add_space(16.0);
 
                 if mc_button(ui, textures, "Back to Game") {

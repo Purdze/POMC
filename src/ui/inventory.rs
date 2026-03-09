@@ -4,7 +4,7 @@ use azalea_inventory::ItemStack;
 use egui::{Color32, Pos2, Rect, TextureHandle, Vec2};
 
 use crate::player::inventory::{item_display_name, Inventory};
-use crate::ui::hud::{load_texture, GUI_SCALE, NEAREST_FILTER, UV_FULL};
+use crate::ui::hud::{gui_scale, load_texture, NEAREST_FILTER, UV_FULL};
 
 const SLOT_SIZE: f32 = 18.0;
 const INV_TEX_W: f32 = 176.0;
@@ -42,7 +42,7 @@ pub fn draw_inventory(
 ) -> bool {
     let mut close = false;
     let screen = ctx.screen_rect();
-    let scale = GUI_SCALE
+    let scale = gui_scale(ctx)
         .min(screen.width() / INV_TEX_W)
         .min(screen.height() / INV_TEX_H);
     let inv_w = INV_TEX_W * scale;

@@ -1917,6 +1917,7 @@ dependencies = [
  "parking_lot",
  "pollster",
  "rayon",
+ "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "uuid",

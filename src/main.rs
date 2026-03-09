@@ -1,4 +1,5 @@
 mod args;
+mod assets;
 mod net;
 mod physics;
 mod player;
@@ -14,6 +15,25 @@ use clap::Parser;
 
 use net::connection::ConnectArgs;
 
+fn default_minecraft_dir() -> PathBuf {
+    if cfg!(target_os = "windows") {
+        std::env::var("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_default()
+            .join(".minecraft")
+    } else if cfg!(target_os = "macos") {
+        std::env::var("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default()
+            .join("Library/Application Support/minecraft")
+    } else {
+        std::env::var("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default()
+            .join(".minecraft")
+    }
+}
+
 fn main() {
     env_logger::init();
 
@@ -24,6 +44,12 @@ fn main() {
         .as_deref()
         .unwrap_or("reference/assets")
         .into();
+
+    let game_dir: PathBuf = args
+        .game_dir
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(default_minecraft_dir);
 
     let rt = Arc::new(tokio::runtime::Runtime::new().expect("failed to create tokio runtime"));
 
@@ -44,7 +70,7 @@ fn main() {
         None
     };
 
-    if let Err(e) = window::run(connection, assets_dir, rt) {
+    if let Err(e) = window::run(connection, assets_dir, game_dir, rt) {
         log::error!("Fatal: {e}");
         std::process::exit(1);
     }

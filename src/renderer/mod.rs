@@ -16,7 +16,9 @@ use chunk::atlas::TextureAtlas;
 use chunk::mesher::{ChunkMeshData, MeshDispatcher};
 use context::GpuContext;
 use pipelines::chunk::ChunkPipeline;
+use pipelines::panorama::PanoramaPipeline;
 
+use crate::assets::AssetIndex;
 use crate::window::input::InputState;
 use crate::world::block::registry::BlockRegistry;
 
@@ -42,10 +44,11 @@ pub struct Renderer {
     egui_renderer: egui_wgpu::Renderer,
     egui_state: egui_winit::State,
     egui_ctx: egui::Context,
+    panorama_pipeline: Option<PanoramaPipeline>,
 }
 
 impl Renderer {
-    pub fn new(window: Arc<Window>, assets_dir: &Path) -> Result<Self, RendererError> {
+    pub fn new(window: Arc<Window>, assets_dir: &Path, asset_index: &Option<AssetIndex>) -> Result<Self, RendererError> {
         let ctx = pollster::block_on(GpuContext::new(Arc::clone(&window)))?;
         let aspect = ctx.config.width as f32 / ctx.config.height as f32;
         let camera = Camera::new(aspect);
@@ -69,6 +72,9 @@ impl Renderer {
         let egui_renderer =
             egui_wgpu::Renderer::new(&ctx.device, ctx.config.format, None, 1, false);
 
+        let panorama_pipeline =
+            PanoramaPipeline::new(&ctx.device, &ctx.queue, ctx.config.format, asset_index);
+
         Ok(Self {
             ctx,
             camera,
@@ -79,6 +85,7 @@ impl Renderer {
             egui_renderer,
             egui_state,
             egui_ctx,
+            panorama_pipeline,
         })
     }
 
@@ -207,6 +214,7 @@ impl Renderer {
     pub fn render_ui(
         &mut self,
         window: &Window,
+        scroll: f32,
         ui_fn: impl FnMut(&egui::Context),
     ) -> Result<(), RendererError> {
         let prepared = self.prepare_egui(window, ui_fn);
@@ -215,21 +223,45 @@ impl Renderer {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let encoder = self
+        let mut encoder = self
             .ctx
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("egui_encoder"),
             });
 
-        self.finish_egui(
-            prepared,
-            &view,
-            wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-            encoder,
-        );
-        output.present();
+        if let Some(panorama) = &self.panorama_pipeline {
+            panorama.update_scroll(&self.ctx.queue, scroll);
 
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("panorama_pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                });
+                panorama.draw(&mut pass);
+            }
+
+            self.finish_egui(prepared, &view, wgpu::LoadOp::Load, encoder);
+        } else {
+            self.finish_egui(
+                prepared,
+                &view,
+                wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                encoder,
+            );
+        }
+
+        output.present();
         Ok(())
     }
 
