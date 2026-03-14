@@ -81,7 +81,8 @@ impl ChunkPipeline {
 
         for &set in &camera_sets {
             let (buf, alloc) = util::create_uniform_buffer(
-                device, allocator,
+                device,
+                allocator,
                 std::mem::size_of::<CameraUniform>() as u64,
                 "camera_uniform",
             );
@@ -151,10 +152,11 @@ impl ChunkPipeline {
         let mut alloc = allocator.lock().unwrap();
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             unsafe { device.destroy_buffer(self.camera_buffers[i], None) };
-            alloc.free(std::mem::replace(
-                &mut self.camera_allocations[i],
-                unsafe { std::mem::zeroed() },
-            )).ok();
+            alloc
+                .free(std::mem::replace(&mut self.camera_allocations[i], unsafe {
+                    std::mem::zeroed()
+                }))
+                .ok();
         }
         drop(alloc);
 

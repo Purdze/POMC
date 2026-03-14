@@ -30,11 +30,7 @@ pub fn collect_block_aabbs(chunk_store: &ChunkStore, region: &Aabb) -> Vec<Aabb>
     aabbs
 }
 
-fn collide_along_axes(
-    block_aabbs: &[Aabb],
-    player_aabb: Aabb,
-    mut velocity: Vec3,
-) -> (Vec3, bool) {
+fn collide_along_axes(block_aabbs: &[Aabb], player_aabb: Aabb, mut velocity: Vec3) -> (Vec3, bool) {
     let original_y = velocity.y;
 
     for block in block_aabbs {
@@ -83,7 +79,9 @@ pub fn resolve_collision(
     let horizontal_blocked = resolved.x != velocity.x || resolved.z != velocity.z;
     if step_height > 0.0 && on_ground && horizontal_blocked {
         let step_up = Vec3::new(velocity.x, step_height, velocity.z);
-        let step_expanded = player_aabb.expand(step_up).expand(Vec3::new(0.0, -step_height, 0.0));
+        let step_expanded = player_aabb
+            .expand(step_up)
+            .expand(Vec3::new(0.0, -step_height, 0.0));
         let step_aabbs = collect_block_aabbs(chunk_store, &step_expanded);
 
         let mut up_vel = step_height;

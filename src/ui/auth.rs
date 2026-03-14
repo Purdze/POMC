@@ -39,7 +39,11 @@ pub enum AuthStatus {
 const CLIENT_ID: &str = "00000000441cc96b";
 const SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
 
-pub fn spawn_auth(rt: &tokio::runtime::Runtime, status: Arc<Mutex<AuthStatus>>, cache_file: PathBuf) {
+pub fn spawn_auth(
+    rt: &tokio::runtime::Runtime,
+    status: Arc<Mutex<AuthStatus>>,
+    cache_file: PathBuf,
+) {
     *status.lock() = AuthStatus::OpeningBrowser;
     rt.spawn(async move {
         match run_auth_flow(cache_file, Arc::clone(&status)).await {
@@ -117,10 +121,15 @@ async fn run_auth_flow(
             ("client_id", CLIENT_ID),
             ("response_type", "device_code"),
         ])
-        .send().await?
-        .json().await?;
+        .send()
+        .await?
+        .json()
+        .await?;
 
-    let login_url = format!("{}?otc={}", device_code.verification_uri, device_code.user_code);
+    let login_url = format!(
+        "{}?otc={}",
+        device_code.verification_uri, device_code.user_code
+    );
     let _ = open::that(&login_url);
     *status.lock() = AuthStatus::WaitingForBrowser;
 
@@ -133,13 +142,16 @@ async fn run_auth_flow(
             return Err("Authentication timed out".into());
         }
         let resp = client
-            .post(format!("https://login.live.com/oauth20_token.srf?client_id={CLIENT_ID}"))
+            .post(format!(
+                "https://login.live.com/oauth20_token.srf?client_id={CLIENT_ID}"
+            ))
             .form(&[
                 ("client_id", CLIENT_ID),
                 ("device_code", &device_code.device_code),
                 ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             ])
-            .send().await?;
+            .send()
+            .await?;
         if let Ok(token) = resp.json::<MsaTokenResponse>().await {
             break token;
         }
@@ -158,8 +170,10 @@ async fn run_auth_flow(
             "RelyingParty": "http://auth.xboxlive.com",
             "TokenType": "JWT",
         }))
-        .send().await?
-        .json().await?;
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let user_hash = &xbl.display_claims.xui[0].uhs;
 
@@ -173,22 +187,28 @@ async fn run_auth_flow(
             "RelyingParty": "rp://api.minecraftservices.com/",
             "TokenType": "JWT",
         }))
-        .send().await?
-        .json().await?;
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let mc_auth: McAuthResponse = client
         .post("https://api.minecraftservices.com/authentication/login_with_xbox")
         .json(&serde_json::json!({
             "identityToken": format!("XBL3.0 x={};{}", user_hash, xsts.token),
         }))
-        .send().await?
-        .json().await?;
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let profile: McProfileResponse = client
         .get("https://api.minecraftservices.com/minecraft/profile")
         .bearer_auth(&mc_auth.access_token)
-        .send().await?
-        .json().await?;
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let uuid = parse_uuid(&profile.id);
 

@@ -12,7 +12,14 @@ pub fn create_gpu_image(
     height: u32,
     name: &str,
 ) -> (vk::Image, vk::ImageView, Allocation) {
-    create_gpu_image_with_format(device, allocator, width, height, vk::Format::R8G8B8A8_SRGB, name)
+    create_gpu_image_with_format(
+        device,
+        allocator,
+        width,
+        height,
+        vk::Format::R8G8B8A8_SRGB,
+        name,
+    )
 }
 
 pub fn create_gpu_image_with_format(
@@ -26,15 +33,18 @@ pub fn create_gpu_image_with_format(
     let image_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
         .format(format)
-        .extent(vk::Extent3D { width, height, depth: 1 })
+        .extent(vk::Extent3D {
+            width,
+            height,
+            depth: 1,
+        })
         .mip_levels(1)
         .array_layers(1)
         .samples(vk::SampleCountFlags::TYPE_1)
         .tiling(vk::ImageTiling::OPTIMAL)
         .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED);
 
-    let image = unsafe { device.create_image(&image_info, None) }
-        .expect("failed to create image");
+    let image = unsafe { device.create_image(&image_info, None) }.expect("failed to create image");
     let mem_reqs = unsafe { device.get_image_memory_requirements(image) };
 
     let allocation = allocator
@@ -60,8 +70,8 @@ pub fn create_gpu_image_with_format(
         .view_type(vk::ImageViewType::TYPE_2D)
         .format(format)
         .subresource_range(COLOR_SUBRESOURCE_RANGE);
-    let view = unsafe { device.create_image_view(&view_info, None) }
-        .expect("failed to create image view");
+    let view =
+        unsafe { device.create_image_view(&view_info, None) }.expect("failed to create image view");
 
     (image, view, allocation)
 }
@@ -78,8 +88,8 @@ pub fn create_mapped_buffer(
         .usage(usage)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
-    let buffer = unsafe { device.create_buffer(&buffer_info, None) }
-        .expect("failed to create buffer");
+    let buffer =
+        unsafe { device.create_buffer(&buffer_info, None) }.expect("failed to create buffer");
     let mem_reqs = unsafe { device.get_buffer_memory_requirements(buffer) };
 
     let mut allocation = allocator
@@ -111,7 +121,13 @@ pub fn create_staging_buffer(
     data: &[u8],
     name: &str,
 ) -> (vk::Buffer, Allocation) {
-    create_mapped_buffer(device, allocator, data, vk::BufferUsageFlags::TRANSFER_SRC, name)
+    create_mapped_buffer(
+        device,
+        allocator,
+        data,
+        vk::BufferUsageFlags::TRANSFER_SRC,
+        name,
+    )
 }
 
 pub fn create_host_buffer(
@@ -126,8 +142,8 @@ pub fn create_host_buffer(
         .usage(usage)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
-    let buffer = unsafe { device.create_buffer(&buffer_info, None) }
-        .expect("failed to create buffer");
+    let buffer =
+        unsafe { device.create_buffer(&buffer_info, None) }.expect("failed to create buffer");
     let mem_reqs = unsafe { device.get_buffer_memory_requirements(buffer) };
 
     let allocation = allocator
@@ -157,7 +173,13 @@ pub fn create_uniform_buffer(
     size: u64,
     name: &str,
 ) -> (vk::Buffer, Allocation) {
-    create_host_buffer(device, allocator, size, vk::BufferUsageFlags::UNIFORM_BUFFER, name)
+    create_host_buffer(
+        device,
+        allocator,
+        size,
+        vk::BufferUsageFlags::UNIFORM_BUFFER,
+        name,
+    )
 }
 
 pub fn upload_image(
@@ -212,7 +234,11 @@ pub fn upload_image(
             layer_count: 1,
         },
         image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
-        image_extent: vk::Extent3D { width, height, depth: 1 },
+        image_extent: vk::Extent3D {
+            width,
+            height,
+            depth: 1,
+        },
     };
 
     unsafe {
@@ -244,14 +270,18 @@ pub fn upload_image(
             &[barrier_to_shader],
         );
 
-        device.end_command_buffer(cmd).expect("failed to end command buffer");
+        device
+            .end_command_buffer(cmd)
+            .expect("failed to end command buffer");
 
         let cmd_buffers = [cmd];
         let submit_info = vk::SubmitInfo::default().command_buffers(&cmd_buffers);
         device
             .queue_submit(queue, &[submit_info], vk::Fence::null())
             .expect("failed to submit upload");
-        device.queue_wait_idle(queue).expect("failed to wait for upload");
+        device
+            .queue_wait_idle(queue)
+            .expect("failed to wait for upload");
         device.free_command_buffers(command_pool, &[cmd]);
     }
 }
@@ -341,7 +371,9 @@ pub unsafe fn create_nearest_sampler(device: &ash::Device) -> vk::Sampler {
         .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
         .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
         .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE);
-    device.create_sampler(&info, None).expect("failed to create nearest sampler")
+    device
+        .create_sampler(&info, None)
+        .expect("failed to create nearest sampler")
 }
 
 pub unsafe fn create_linear_sampler(device: &ash::Device) -> vk::Sampler {
@@ -351,5 +383,7 @@ pub unsafe fn create_linear_sampler(device: &ash::Device) -> vk::Sampler {
         .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
         .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
         .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE);
-    device.create_sampler(&info, None).expect("failed to create linear sampler")
+    device
+        .create_sampler(&info, None)
+        .expect("failed to create linear sampler")
 }

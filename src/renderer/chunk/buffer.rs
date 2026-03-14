@@ -41,10 +41,18 @@ impl ChunkBufferStore {
         let vertex_bytes = bytemuck::cast_slice(&mesh.vertices);
         let index_bytes = bytemuck::cast_slice(&mesh.indices);
 
-        let (vertex_buffer, vertex_alloc) =
-            create_device_buffer(device, allocator, vertex_bytes, vk::BufferUsageFlags::VERTEX_BUFFER);
-        let (index_buffer, index_alloc) =
-            create_device_buffer(device, allocator, index_bytes, vk::BufferUsageFlags::INDEX_BUFFER);
+        let (vertex_buffer, vertex_alloc) = create_device_buffer(
+            device,
+            allocator,
+            vertex_bytes,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+        );
+        let (index_buffer, index_alloc) = create_device_buffer(
+            device,
+            allocator,
+            index_bytes,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+        );
 
         if let Some(old) = self.meshes.insert(
             mesh.pos,
@@ -86,7 +94,6 @@ impl ChunkBufferStore {
             }
         }
     }
-
 }
 
 fn destroy_mesh(device: &ash::Device, allocator: &Arc<Mutex<Allocator>>, mesh: ChunkMesh) {
@@ -110,8 +117,8 @@ fn create_device_buffer(
         .usage(usage)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
-    let buffer = unsafe { device.create_buffer(&buffer_info, None) }
-        .expect("failed to create buffer");
+    let buffer =
+        unsafe { device.create_buffer(&buffer_info, None) }.expect("failed to create buffer");
     let mem_reqs = unsafe { device.get_buffer_memory_requirements(buffer) };
 
     let mut allocation = allocator

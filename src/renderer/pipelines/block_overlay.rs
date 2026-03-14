@@ -122,8 +122,14 @@ impl BlockOverlayPipeline {
             camera_allocations.push(alloc);
         }
 
-        let (atlas_image, atlas_view, atlas_allocation) =
-            load_destroy_atlas(device, queue, command_pool, allocator, assets_dir, asset_index);
+        let (atlas_image, atlas_view, atlas_allocation) = load_destroy_atlas(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            assets_dir,
+            asset_index,
+        );
 
         let atlas_sampler = unsafe { util::create_nearest_sampler(device) };
 
@@ -187,8 +193,7 @@ impl BlockOverlayPipeline {
     ) {
         let vertices = build_overlay_vertices(block_pos, stage);
         let bytes = bytemuck::cast_slice::<OverlayVertex, u8>(&vertices);
-        self.vertex_allocation.mapped_slice_mut().unwrap()[..bytes.len()]
-            .copy_from_slice(bytes);
+        self.vertex_allocation.mapped_slice_mut().unwrap()[..bytes.len()].copy_from_slice(bytes);
 
         unsafe {
             device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
@@ -215,19 +220,17 @@ impl BlockOverlayPipeline {
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             unsafe { device.destroy_buffer(self.camera_buffers[i], None) };
             alloc
-                .free(std::mem::replace(
-                    &mut self.camera_allocations[i],
-                    unsafe { std::mem::zeroed() },
-                ))
+                .free(std::mem::replace(&mut self.camera_allocations[i], unsafe {
+                    std::mem::zeroed()
+                }))
                 .ok();
         }
 
         unsafe { device.destroy_buffer(self.vertex_buffer, None) };
         alloc
-            .free(std::mem::replace(
-                &mut self.vertex_allocation,
-                unsafe { std::mem::zeroed() },
-            ))
+            .free(std::mem::replace(&mut self.vertex_allocation, unsafe {
+                std::mem::zeroed()
+            }))
             .ok();
 
         unsafe {
@@ -235,10 +238,9 @@ impl BlockOverlayPipeline {
             device.destroy_image_view(self.atlas_view, None);
         }
         alloc
-            .free(std::mem::replace(
-                &mut self.atlas_allocation,
-                unsafe { std::mem::zeroed() },
-            ))
+            .free(std::mem::replace(&mut self.atlas_allocation, unsafe {
+                std::mem::zeroed()
+            }))
             .ok();
         unsafe { device.destroy_image(self.atlas_image, None) };
 
@@ -310,7 +312,10 @@ fn load_destroy_atlas(
             tile_size = w;
             atlas_pixels.extend_from_slice(&pixels);
         } else {
-            atlas_pixels.extend(std::iter::repeat_n(0u8, (tile_size * tile_size * 4) as usize));
+            atlas_pixels.extend(std::iter::repeat_n(
+                0u8,
+                (tile_size * tile_size * 4) as usize,
+            ));
         }
     }
 
@@ -322,7 +327,15 @@ fn load_destroy_atlas(
     let (staging_buf, staging_alloc) =
         util::create_staging_buffer(device, allocator, &atlas_pixels, "destroy_atlas_staging");
 
-    util::upload_image(device, queue, command_pool, staging_buf, image, atlas_w, atlas_h);
+    util::upload_image(
+        device,
+        queue,
+        command_pool,
+        staging_buf,
+        image,
+        atlas_w,
+        atlas_h,
+    );
 
     unsafe { device.destroy_buffer(staging_buf, None) };
     allocator.lock().unwrap().free(staging_alloc).ok();

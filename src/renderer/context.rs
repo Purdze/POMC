@@ -109,8 +109,7 @@ impl VulkanContext {
                 )
                 .pfn_user_callback(Some(vulkan_debug_callback));
 
-            let messenger =
-                unsafe { loader.create_debug_utils_messenger(&messenger_info, None)? };
+            let messenger = unsafe { loader.create_debug_utils_messenger(&messenger_info, None)? };
             (Some(loader), Some(messenger))
         } else {
             (None, None)
@@ -193,8 +192,7 @@ impl VulkanContext {
         let mut in_flight_fences = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
 
         let sem_info = vk::SemaphoreCreateInfo::default();
-        let fence_info =
-            vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
+        let fence_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
 
         for _ in 0..MAX_FRAMES_IN_FLIGHT {
             unsafe {
@@ -304,8 +302,7 @@ fn find_queue_families(
     surface: vk::SurfaceKHR,
     physical_device: vk::PhysicalDevice,
 ) -> Option<(u32, u32)> {
-    let families =
-        unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
+    let families = unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
 
     let mut graphics = None;
     let mut present = None;

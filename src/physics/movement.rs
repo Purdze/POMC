@@ -92,7 +92,12 @@ pub fn tick(player: &mut LocalPlayer, input: &InputState, chunk_store: &ChunkSto
     player.was_forward_pressed = forward_pressed;
 }
 
-fn update_sprint_state(player: &mut LocalPlayer, input: &InputState, forward: f32, forward_pressed: bool) {
+fn update_sprint_state(
+    player: &mut LocalPlayer,
+    input: &InputState,
+    forward: f32,
+    forward_pressed: bool,
+) {
     if player.sprint_toggle_timer > 0 {
         player.sprint_toggle_timer -= 1;
     }
@@ -125,8 +130,10 @@ fn world_movement(forward: f32, strafe: f32, sin_yaw: f32, cos_yaw: f32) -> (f32
 }
 
 fn is_minor_horizontal_collision(
-    forward: f32, strafe: f32,
-    sin_yaw: f32, cos_yaw: f32,
+    forward: f32,
+    strafe: f32,
+    sin_yaw: f32,
+    cos_yaw: f32,
     resolved: &glam::Vec3,
 ) -> bool {
     let (intent_x, intent_z) = world_movement(forward, strafe, sin_yaw, cos_yaw);

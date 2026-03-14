@@ -106,14 +106,18 @@ pub fn handle_game_packet(
             });
         }
         ClientboundGamePacket::SectionBlocksUpdate(p) => {
-            let updates: Vec<_> = p.states.iter().map(|s| {
-                let block_pos = azalea_core::position::BlockPos {
-                    x: p.section_pos.x * 16 + s.pos.x as i32,
-                    y: p.section_pos.y * 16 + s.pos.y as i32,
-                    z: p.section_pos.z * 16 + s.pos.z as i32,
-                };
-                (block_pos, s.state)
-            }).collect();
+            let updates: Vec<_> = p
+                .states
+                .iter()
+                .map(|s| {
+                    let block_pos = azalea_core::position::BlockPos {
+                        x: p.section_pos.x * 16 + s.pos.x as i32,
+                        y: p.section_pos.y * 16 + s.pos.y as i32,
+                        z: p.section_pos.z * 16 + s.pos.z as i32,
+                    };
+                    (block_pos, s.state)
+                })
+                .collect();
             let _ = event_tx.try_send(NetworkEvent::SectionBlocksUpdate { updates });
         }
         ClientboundGamePacket::BlockChangedAck(p) => {

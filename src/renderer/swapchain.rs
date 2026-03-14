@@ -65,19 +65,14 @@ impl SwapchainState {
 
         let extent = vk::Extent2D {
             width: width.clamp(caps.min_image_extent.width, caps.max_image_extent.width),
-            height: height.clamp(
-                caps.min_image_extent.height,
-                caps.max_image_extent.height,
-            ),
+            height: height.clamp(caps.min_image_extent.height, caps.max_image_extent.height),
         };
 
-        let image_count = (caps.min_image_count + 1).min(
-            if caps.max_image_count == 0 {
-                u32::MAX
-            } else {
-                caps.max_image_count
-            },
-        );
+        let image_count = (caps.min_image_count + 1).min(if caps.max_image_count == 0 {
+            u32::MAX
+        } else {
+            caps.max_image_count
+        });
 
         let (sharing_mode, queue_families) = if graphics_family != present_family {
             (
@@ -157,7 +152,9 @@ impl SwapchainState {
         swapchain_loader: &swapchain::Device,
         allocator: &Arc<Mutex<Allocator>>,
     ) {
-        unsafe { let _ = device.device_wait_idle(); }
+        unsafe {
+            let _ = device.device_wait_idle();
+        }
 
         for &fb in &self.framebuffers {
             unsafe { device.destroy_framebuffer(fb, None) };

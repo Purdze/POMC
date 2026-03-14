@@ -105,11 +105,15 @@ async fn ping_server(address: String, results: PingResults) {
     let result = async {
         use azalea_protocol::address::ServerAddr;
 
-        let server_addr: ServerAddr = address.as_str().try_into()
+        let server_addr: ServerAddr = address
+            .as_str()
+            .try_into()
             .map_err(|_| format!("Invalid address: {address}"))?;
-        let addr = azalea_protocol::resolve::resolve_address(&server_addr).await
+        let addr = azalea_protocol::resolve::resolve_address(&server_addr)
+            .await
             .map_err(|e| format!("{address}: {e}"))?;
-        let mut conn: Connection<_, _> = Connection::new(&addr).await
+        let mut conn: Connection<_, _> = Connection::new(&addr)
+            .await
             .map_err(|e| format!("Connection failed: {e}"))?;
 
         conn.write(ServerboundIntention {
@@ -179,8 +183,9 @@ fn format_motd_spans(text: &azalea_chat::FormattedText) -> Vec<MotdSpan> {
     use azalea_chat::style::Style;
     use std::cell::RefCell;
 
-    let white: azalea_chat::style::TextColor =
-        azalea_chat::style::ChatFormatting::White.try_into().unwrap();
+    let white: azalea_chat::style::TextColor = azalea_chat::style::ChatFormatting::White
+        .try_into()
+        .unwrap();
     let white_style = Style::default().color(white);
 
     let spans: RefCell<Vec<MotdSpan>> = RefCell::new(Vec::new());
@@ -254,5 +259,8 @@ pub fn is_valid_address(address: &str) -> bool {
     }
     let with_port = with_default_port(address);
     with_port.parse::<std::net::SocketAddr>().is_ok()
-        || with_port.split(':').next().is_some_and(|host| !host.is_empty())
+        || with_port
+            .split(':')
+            .next()
+            .is_some_and(|host| !host.is_empty())
 }

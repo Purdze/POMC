@@ -115,12 +115,7 @@ async fn fetch_version_metadata(
         .ok_or_else(|| DownloadError::VersionNotFound(version.to_string()))?;
 
     log::info!("Fetching version JSON for {version}...");
-    let version_json: VersionJson = client
-        .get(&version_entry.url)
-        .send()
-        .await?
-        .json()
-        .await?;
+    let version_json: VersionJson = client.get(&version_entry.url).send().await?.json().await?;
 
     log::info!("Fetching asset index...");
     let index_content = client
@@ -162,7 +157,10 @@ async fn download_asset_objects(
 
         let actual_hash = format!("{}", sha1_smol::Sha1::from(&bytes).digest());
         if actual_hash != obj.hash {
-            log::warn!("Hash mismatch for {name}: expected {}, got {actual_hash}", obj.hash);
+            log::warn!(
+                "Hash mismatch for {name}: expected {}, got {actual_hash}",
+                obj.hash
+            );
             continue;
         }
 
@@ -216,18 +214,19 @@ async fn download_client_jar(
     };
 
     let jar_path = data.versions_dir.join(format!("{version}.jar"));
-    if !jar_path.exists()
-        || std::fs::metadata(&jar_path)
-            .map(|m| m.len())
-            .unwrap_or(0)
-            != dl.size
-    {
-        log::info!("Downloading client JAR ({:.1} MB)...", dl.size as f64 / 1_048_576.0);
+    if !jar_path.exists() || std::fs::metadata(&jar_path).map(|m| m.len()).unwrap_or(0) != dl.size {
+        log::info!(
+            "Downloading client JAR ({:.1} MB)...",
+            dl.size as f64 / 1_048_576.0
+        );
         let bytes = download_with_retry(client, &dl.url, 3).await?;
 
         let actual_hash = format!("{}", sha1_smol::Sha1::from(&bytes).digest());
         if actual_hash != dl.sha1 {
-            log::warn!("Client JAR hash mismatch: expected {}, got {actual_hash}", dl.sha1);
+            log::warn!(
+                "Client JAR hash mismatch: expected {}, got {actual_hash}",
+                dl.sha1
+            );
         }
 
         std::fs::create_dir_all(&data.versions_dir)?;

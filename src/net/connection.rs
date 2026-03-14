@@ -55,16 +55,15 @@ pub struct ConnectionHandle {
     pub packet_tx: mpsc::UnboundedSender<ServerboundGamePacket>,
 }
 
-pub fn spawn_connection(
-    rt: &tokio::runtime::Runtime,
-    args: ConnectArgs,
-) -> ConnectionHandle {
+pub fn spawn_connection(rt: &tokio::runtime::Runtime, args: ConnectArgs) -> ConnectionHandle {
     let (event_tx, event_rx) = crossbeam_channel::bounded(256);
     let (chat_tx, chat_rx) = crossbeam_channel::bounded::<String>(64);
     let (packet_tx, packet_rx) = mpsc::unbounded_channel::<ServerboundGamePacket>();
     let game_packet_tx = packet_tx.clone();
     rt.spawn(async move {
-        if let Err(e) = connect_to_server(args, event_tx.clone(), chat_rx, game_packet_tx, packet_rx).await {
+        if let Err(e) =
+            connect_to_server(args, event_tx.clone(), chat_rx, game_packet_tx, packet_rx).await
+        {
             log::error!("Network error: {e}");
             let reason = friendly_error_reason(&e);
             let _ = event_tx.try_send(NetworkEvent::Disconnected { reason });
@@ -84,9 +83,13 @@ pub async fn connect_to_server(
     game_packet_tx: mpsc::UnboundedSender<ServerboundGamePacket>,
     game_packet_rx: mpsc::UnboundedReceiver<ServerboundGamePacket>,
 ) -> Result<(), ConnectionError> {
-    let server_addr: ServerAddr = args.server.as_str().try_into()
+    let server_addr: ServerAddr = args
+        .server
+        .as_str()
+        .try_into()
         .map_err(|_| ConnectionError::InvalidAddress(args.server.clone()))?;
-    let addr = azalea_protocol::resolve::resolve_address(&server_addr).await
+    let addr = azalea_protocol::resolve::resolve_address(&server_addr)
+        .await
         .map_err(|e| ConnectionError::InvalidAddress(format!("{}: {e}", args.server)))?;
     log::info!("Connecting to {} (resolved: {addr})...", args.server);
 
@@ -122,7 +125,15 @@ pub async fn connect_to_server(
     log::info!("Entering game state");
     let _ = event_tx.try_send(NetworkEvent::Connected);
 
-    game_loop(conn, &event_tx, chat_rx, game_packet_tx, game_packet_rx, registry_holder).await
+    game_loop(
+        conn,
+        &event_tx,
+        chat_rx,
+        game_packet_tx,
+        game_packet_rx,
+        registry_holder,
+    )
+    .await
 }
 
 async fn login_sequence(
@@ -356,7 +367,6 @@ async fn game_loop(
     }
 }
 
-
 fn is_recoverable_read_error(err: &Box<ReadPacketError>) -> bool {
     matches!(
         err.as_ref(),
@@ -370,7 +380,10 @@ fn friendly_error_reason(err: &ConnectionError) -> String {
     let msg = err.to_string();
     if msg.contains("connection refused") || msg.contains("Connection refused") {
         "Connection refused".to_string()
-    } else if msg.contains("Connection closed") || msg.contains("connection reset") || msg.contains("broken pipe") {
+    } else if msg.contains("Connection closed")
+        || msg.contains("connection reset")
+        || msg.contains("broken pipe")
+    {
         "Server closed".to_string()
     } else if msg.contains("timed out") || msg.contains("Timed out") {
         "Connection timed out".to_string()

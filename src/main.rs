@@ -34,10 +34,7 @@ fn main() {
     let rt = Arc::new(tokio::runtime::Runtime::new().expect("failed to create tokio runtime"));
 
     if downloader::needs_download(&data) {
-        let version = args
-            .version
-            .as_deref()
-            .unwrap_or(DEFAULT_VERSION);
+        let version = args.version.as_deref().unwrap_or(DEFAULT_VERSION);
         log::info!("Assets not found, downloading for version {version}...");
         if let Err(e) = rt.block_on(downloader::download_assets(&data, version)) {
             log::error!("Asset download failed: {e}");
@@ -62,7 +59,12 @@ fn main() {
         None
     };
 
-    if let Err(e) = window::run(connection, data.assets_dir.clone(), data.instance_dir.clone(), rt) {
+    if let Err(e) = window::run(
+        connection,
+        data.assets_dir.clone(),
+        data.instance_dir.clone(),
+        rt,
+    ) {
         log::error!("Fatal: {e}");
         std::process::exit(1);
     }

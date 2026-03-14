@@ -52,7 +52,11 @@ enum RenderMode {
         destroy_info: Option<(BlockPos, u32)>,
         sky: SkyState,
     },
-    MainMenu { scroll: f32, blur: f32, elements: Vec<MenuElement> },
+    MainMenu {
+        scroll: f32,
+        blur: f32,
+        elements: Vec<MenuElement>,
+    },
 }
 
 pub struct Renderer {
@@ -106,7 +110,9 @@ impl Renderer {
         )?;
 
         let camera = Camera::new(swapchain_state.aspect_ratio());
-        let registry = registry_handle.join().expect("block registry thread panicked");
+        let registry = registry_handle
+            .join()
+            .expect("block registry thread panicked");
 
         let texture_names: HashSet<&str> = registry.texture_names().collect();
         let atlas = TextureAtlas::build(
@@ -209,9 +215,12 @@ impl Renderer {
     }
 
     fn recreate_swapchain(&mut self) -> Result<(), RendererError> {
-        unsafe { let _ = self.ctx.device.device_wait_idle(); }
+        unsafe {
+            let _ = self.ctx.device.device_wait_idle();
+        }
 
-        self.chunk_pipeline.destroy(&self.ctx.device, &self.ctx.allocator);
+        self.chunk_pipeline
+            .destroy(&self.ctx.device, &self.ctx.allocator);
 
         self.swapchain.destroy(
             &self.ctx.device,
@@ -238,11 +247,16 @@ impl Renderer {
             &self.atlas,
         );
 
-        self.hand_pipeline.recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.block_overlay_pipeline.recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.sky_pipeline.recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.panorama_pipeline.recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.menu_pipeline.recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
+        self.hand_pipeline
+            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
+        self.block_overlay_pipeline
+            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
+        self.sky_pipeline
+            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
+        self.panorama_pipeline
+            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
+        self.menu_pipeline
+            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
 
         self.swapchain_dirty = false;
         Ok(())
@@ -285,9 +299,10 @@ impl Renderer {
 
     pub fn wait_for_all_frames(&self) {
         unsafe {
-            let _ = self.ctx.device.wait_for_fences(
-                &self.ctx.in_flight_fences, true, u64::MAX,
-            );
+            let _ = self
+                .ctx
+                .device
+                .wait_for_fences(&self.ctx.in_flight_fences, true, u64::MAX);
         }
     }
 
@@ -324,7 +339,12 @@ impl Renderer {
             window,
             hide_cursor,
             [0.0, 0.0, 0.0, 1.0],
-            RenderMode::World { overlay, swing_progress, destroy_info, sky },
+            RenderMode::World {
+                overlay,
+                swing_progress,
+                destroy_info,
+                sky,
+            },
         )
     }
 
@@ -335,10 +355,23 @@ impl Renderer {
         blur: f32,
         elements: Vec<MenuElement>,
     ) -> Result<(), RendererError> {
-        self.render_frame(window, false, [0.0, 0.0, 0.0, 1.0], RenderMode::MainMenu { scroll, blur, elements })
+        self.render_frame(
+            window,
+            false,
+            [0.0, 0.0, 0.0, 1.0],
+            RenderMode::MainMenu {
+                scroll,
+                blur,
+                elements,
+            },
+        )
     }
 
-    pub fn reload_panorama(&mut self, assets_dir: &Path, asset_index: &Option<crate::assets::AssetIndex>) {
+    pub fn reload_panorama(
+        &mut self,
+        assets_dir: &Path,
+        asset_index: &Option<crate::assets::AssetIndex>,
+    ) {
         self.panorama_pipeline.reload_cubemap(
             &self.ctx.device,
             self.ctx.graphics_queue,
@@ -371,9 +404,7 @@ impl Renderer {
         let cmd = self.ctx.command_buffers[frame];
 
         unsafe {
-            self.ctx
-                .device
-                .wait_for_fences(&[fence], true, u64::MAX)?;
+            self.ctx.device.wait_for_fences(&[fence], true, u64::MAX)?;
         }
 
         let image_index = match unsafe {
@@ -404,10 +435,9 @@ impl Renderer {
 
         unsafe {
             self.ctx.device.reset_fences(&[fence])?;
-            self.ctx.device.reset_command_buffer(
-                cmd,
-                vk::CommandBufferResetFlags::empty(),
-            )?;
+            self.ctx
+                .device
+                .reset_command_buffer(cmd, vk::CommandBufferResetFlags::empty())?;
 
             let begin_info = vk::CommandBufferBeginInfo::default()
                 .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -462,9 +492,18 @@ impl Renderer {
             let sh = self.swapchain.extent.height as f32;
 
             match &mode {
-                RenderMode::World { overlay, swing_progress, destroy_info, sky } => {
+                RenderMode::World {
+                    overlay,
+                    swing_progress,
+                    destroy_info,
+                    sky,
+                } => {
                     self.sky_pipeline.update_and_draw(
-                        &self.ctx.device, cmd, frame, &self.camera, sky,
+                        &self.ctx.device,
+                        cmd,
+                        frame,
+                        &self.camera,
+                        sky,
                     );
 
                     self.chunk_pipeline.bind(&self.ctx.device, cmd, frame);
@@ -472,7 +511,11 @@ impl Renderer {
 
                     if let Some((block_pos, stage)) = destroy_info {
                         self.block_overlay_pipeline.draw(
-                            &self.ctx.device, cmd, frame, block_pos, *stage,
+                            &self.ctx.device,
+                            cmd,
+                            frame,
+                            block_pos,
+                            *stage,
                         );
                     }
 
@@ -491,11 +534,9 @@ impl Renderer {
                         base_array_layer: 0,
                         layer_count: 1,
                     };
-                    self.ctx.device.cmd_clear_attachments(
-                        cmd,
-                        &[clear_attachment],
-                        &[clear_rect],
-                    );
+                    self.ctx
+                        .device
+                        .cmd_clear_attachments(cmd, &[clear_attachment], &[clear_rect]);
 
                     let aspect = sw / sh.max(1.0);
                     self.hand_pipeline.update_and_draw(
@@ -506,12 +547,19 @@ impl Renderer {
                         *swing_progress,
                     );
 
-                    self.menu_pipeline.draw(&self.ctx.device, cmd, sw, sh, overlay);
+                    self.menu_pipeline
+                        .draw(&self.ctx.device, cmd, sw, sh, overlay);
                 }
-                RenderMode::MainMenu { scroll, blur, elements } => {
+                RenderMode::MainMenu {
+                    scroll,
+                    blur,
+                    elements,
+                } => {
                     let aspect = sw / sh.max(1.0);
-                    self.panorama_pipeline.draw(&self.ctx.device, cmd, *scroll, aspect, *blur);
-                    self.menu_pipeline.draw(&self.ctx.device, cmd, sw, sh, elements);
+                    self.panorama_pipeline
+                        .draw(&self.ctx.device, cmd, *scroll, aspect, *blur);
+                    self.menu_pipeline
+                        .draw(&self.ctx.device, cmd, sw, sh, elements);
                 }
             }
 
@@ -560,7 +608,9 @@ impl Renderer {
 
 impl Drop for Renderer {
     fn drop(&mut self) {
-        unsafe { let _ = self.ctx.device.device_wait_idle(); }
+        unsafe {
+            let _ = self.ctx.device.device_wait_idle();
+        }
         self.chunk_buffers
             .clear(&self.ctx.device, &self.ctx.allocator);
         self.chunk_pipeline
@@ -575,8 +625,7 @@ impl Drop for Renderer {
             .destroy(&self.ctx.device, &self.ctx.allocator);
         self.menu_pipeline
             .destroy(&self.ctx.device, &self.ctx.allocator);
-        self.atlas
-            .destroy(&self.ctx.device, &self.ctx.allocator);
+        self.atlas.destroy(&self.ctx.device, &self.ctx.allocator);
         self.swapchain.destroy(
             &self.ctx.device,
             &self.ctx.swapchain_loader,

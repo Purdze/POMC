@@ -88,7 +88,8 @@ impl PanoramaPipeline {
         let cube_set = unsafe { device.allocate_descriptor_sets(&cube_alloc) }
             .expect("failed to allocate cube descriptor set")[0];
 
-        let (params_buffer, params_allocation) = util::create_uniform_buffer(device, allocator, 16, "panorama_params");
+        let (params_buffer, params_allocation) =
+            util::create_uniform_buffer(device, allocator, 16, "panorama_params");
 
         let buffer_info = [vk::DescriptorBufferInfo {
             buffer: params_buffer,
@@ -102,8 +103,22 @@ impl PanoramaPipeline {
             .buffer_info(&buffer_info);
         unsafe { device.update_descriptor_sets(&[write], &[]) };
 
-        let (cube_image, cube_view, cube_sampler, cube_alloc_mem, staging_buffer, staging_alloc_mem, has_cubemap) =
-            load_cubemap(device, queue, command_pool, allocator, assets_dir, asset_index);
+        let (
+            cube_image,
+            cube_view,
+            cube_sampler,
+            cube_alloc_mem,
+            staging_buffer,
+            staging_alloc_mem,
+            has_cubemap,
+        ) = load_cubemap(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            assets_dir,
+            asset_index,
+        );
 
         let image_info = [vk::DescriptorImageInfo {
             sampler: cube_sampler,
@@ -137,13 +152,24 @@ impl PanoramaPipeline {
         }
     }
 
-    pub fn draw(&mut self, device: &ash::Device, cmd: vk::CommandBuffer, scroll: f32, aspect: f32, blur: f32) {
+    pub fn draw(
+        &mut self,
+        device: &ash::Device,
+        cmd: vk::CommandBuffer,
+        scroll: f32,
+        aspect: f32,
+        blur: f32,
+    ) {
         if !self.has_cubemap {
             return;
         }
 
         let data: [f32; 4] = [scroll, aspect, blur, 0.0];
-        self.params_allocation.as_mut().unwrap().mapped_slice_mut().unwrap()[..16]
+        self.params_allocation
+            .as_mut()
+            .unwrap()
+            .mapped_slice_mut()
+            .unwrap()[..16]
             .copy_from_slice(bytemuck::cast_slice(&data));
 
         unsafe {
@@ -169,20 +195,48 @@ impl PanoramaPipeline {
         assets_dir: &std::path::Path,
         asset_index: &Option<AssetIndex>,
     ) {
-        unsafe { let _ = device.device_wait_idle(); }
+        unsafe {
+            let _ = device.device_wait_idle();
+        }
 
         {
             let mut alloc = allocator.lock().unwrap();
-            unsafe { device.destroy_sampler(self.cube_sampler, None); }
-            unsafe { device.destroy_image_view(self.cube_view, None); }
-            if let Some(a) = self.cube_allocation.take() { alloc.free(a).ok(); }
-            unsafe { device.destroy_image(self.cube_image, None); }
-            if let Some(a) = self.staging_allocation.take() { alloc.free(a).ok(); }
-            unsafe { device.destroy_buffer(self.staging_buffer, None); }
+            unsafe {
+                device.destroy_sampler(self.cube_sampler, None);
+            }
+            unsafe {
+                device.destroy_image_view(self.cube_view, None);
+            }
+            if let Some(a) = self.cube_allocation.take() {
+                alloc.free(a).ok();
+            }
+            unsafe {
+                device.destroy_image(self.cube_image, None);
+            }
+            if let Some(a) = self.staging_allocation.take() {
+                alloc.free(a).ok();
+            }
+            unsafe {
+                device.destroy_buffer(self.staging_buffer, None);
+            }
         }
 
-        let (cube_image, cube_view, cube_sampler, cube_alloc, staging_buffer, staging_alloc, has_cubemap) =
-            load_cubemap(device, queue, command_pool, allocator, assets_dir, asset_index);
+        let (
+            cube_image,
+            cube_view,
+            cube_sampler,
+            cube_alloc,
+            staging_buffer,
+            staging_alloc,
+            has_cubemap,
+        ) = load_cubemap(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            assets_dir,
+            asset_index,
+        );
 
         self.cube_image = cube_image;
         self.cube_view = cube_view;
@@ -278,7 +332,15 @@ fn load_cubemap(
     allocator: &Arc<Mutex<Allocator>>,
     assets_dir: &std::path::Path,
     asset_index: &Option<AssetIndex>,
-) -> (vk::Image, vk::ImageView, vk::Sampler, Allocation, vk::Buffer, Allocation, bool) {
+) -> (
+    vk::Image,
+    vk::ImageView,
+    vk::Sampler,
+    Allocation,
+    vk::Buffer,
+    Allocation,
+    bool,
+) {
     let mut faces: Vec<Vec<u8>> = Vec::new();
     let mut face_w = 0u32;
     let mut face_h = 0u32;
@@ -310,15 +372,22 @@ fn load_cubemap(
     for (panorama_idx, face_data) in faces.iter().enumerate() {
         let layer = FACE_TO_LAYER[panorama_idx] as usize;
         let flipped = flip_horizontal(face_data, face_w, face_h);
-        staging_data[layer * face_bytes..(layer + 1) * face_bytes]
-            .copy_from_slice(&flipped);
+        staging_data[layer * face_bytes..(layer + 1) * face_bytes].copy_from_slice(&flipped);
     }
 
     let (image, allocation) = create_cubemap_image(device, allocator, face_w, face_h);
     let (staging_buffer, staging_allocation) =
         util::create_staging_buffer(device, allocator, &staging_data, "panorama_cubemap_staging");
 
-    upload_cubemap(device, queue, command_pool, staging_buffer, image, face_w, face_h);
+    upload_cubemap(
+        device,
+        queue,
+        command_pool,
+        staging_buffer,
+        image,
+        face_w,
+        face_h,
+    );
 
     let mip_levels = mip_levels_for(face_w, face_h);
     let view = create_cubemap_view(device, image, mip_levels);
@@ -336,7 +405,15 @@ fn load_cubemap(
 
     log::info!("Panorama cubemap loaded: {face_w}x{face_h} per face, {mip_levels} mip levels");
 
-    (image, view, sampler, allocation, staging_buffer, staging_allocation, true)
+    (
+        image,
+        view,
+        sampler,
+        allocation,
+        staging_buffer,
+        staging_allocation,
+        true,
+    )
 }
 
 fn mip_levels_for(w: u32, h: u32) -> u32 {
@@ -353,16 +430,24 @@ fn create_cubemap_image(
     let image_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
         .format(vk::Format::R8G8B8A8_SRGB)
-        .extent(vk::Extent3D { width, height, depth: 1 })
+        .extent(vk::Extent3D {
+            width,
+            height,
+            depth: 1,
+        })
         .mip_levels(mip_levels)
         .array_layers(6)
         .samples(vk::SampleCountFlags::TYPE_1)
         .tiling(vk::ImageTiling::OPTIMAL)
-        .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::SAMPLED)
+        .usage(
+            vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::TRANSFER_SRC
+                | vk::ImageUsageFlags::SAMPLED,
+        )
         .flags(vk::ImageCreateFlags::CUBE_COMPATIBLE);
 
-    let image = unsafe { device.create_image(&image_info, None) }
-        .expect("failed to create cubemap image");
+    let image =
+        unsafe { device.create_image(&image_info, None) }.expect("failed to create cubemap image");
     let mem_reqs = unsafe { device.get_image_memory_requirements(image) };
 
     let allocation = allocator
@@ -398,8 +483,7 @@ fn create_cubemap_view(device: &ash::Device, image: vk::Image, mip_levels: u32) 
             base_array_layer: 0,
             layer_count: 6,
         });
-    unsafe { device.create_image_view(&view_info, None) }
-        .expect("failed to create cubemap view")
+    unsafe { device.create_image_view(&view_info, None) }.expect("failed to create cubemap view")
 }
 
 fn upload_cubemap(
@@ -420,8 +504,8 @@ fn upload_cubemap(
     let cmd = unsafe { device.allocate_command_buffers(&alloc_info) }
         .expect("failed to allocate upload cmd")[0];
 
-    let begin = vk::CommandBufferBeginInfo::default()
-        .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+    let begin =
+        vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
     unsafe { device.begin_command_buffer(cmd, &begin) }.expect("failed to begin cmd");
 
     let all_mips_range = vk::ImageSubresourceRange {
@@ -454,24 +538,22 @@ fn upload_cubemap(
 
     let face_bytes = (face_w * face_h * 4) as u64;
     let regions: Vec<vk::BufferImageCopy> = (0..6)
-        .map(|layer| {
-            vk::BufferImageCopy {
-                buffer_offset: layer as u64 * face_bytes,
-                buffer_row_length: 0,
-                buffer_image_height: 0,
-                image_subresource: vk::ImageSubresourceLayers {
-                    aspect_mask: vk::ImageAspectFlags::COLOR,
-                    mip_level: 0,
-                    base_array_layer: layer,
-                    layer_count: 1,
-                },
-                image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
-                image_extent: vk::Extent3D {
-                    width: face_w,
-                    height: face_h,
-                    depth: 1,
-                },
-            }
+        .map(|layer| vk::BufferImageCopy {
+            buffer_offset: layer as u64 * face_bytes,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: layer,
+                layer_count: 1,
+            },
+            image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+            image_extent: vk::Extent3D {
+                width: face_w,
+                height: face_h,
+                depth: 1,
+            },
         })
         .collect();
 
@@ -527,7 +609,11 @@ fn upload_cubemap(
             },
             src_offsets: [
                 vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D { x: mip_w, y: mip_h, z: 1 },
+                vk::Offset3D {
+                    x: mip_w,
+                    y: mip_h,
+                    z: 1,
+                },
             ],
             dst_subresource: vk::ImageSubresourceLayers {
                 aspect_mask: vk::ImageAspectFlags::COLOR,
@@ -537,7 +623,11 @@ fn upload_cubemap(
             },
             dst_offsets: [
                 vk::Offset3D { x: 0, y: 0, z: 0 },
-                vk::Offset3D { x: next_w, y: next_h, z: 1 },
+                vk::Offset3D {
+                    x: next_w,
+                    y: next_h,
+                    z: 1,
+                },
             ],
         };
 
@@ -613,9 +703,12 @@ fn upload_cubemap(
     let cmd_buffers = [cmd];
     let submit = vk::SubmitInfo::default().command_buffers(&cmd_buffers);
     unsafe {
-        device.queue_submit(queue, &[submit], vk::Fence::null())
+        device
+            .queue_submit(queue, &[submit], vk::Fence::null())
             .expect("failed to submit cubemap upload");
-        device.queue_wait_idle(queue).expect("failed to wait for cubemap upload");
+        device
+            .queue_wait_idle(queue)
+            .expect("failed to wait for cubemap upload");
         device.free_command_buffers(command_pool, &cmd_buffers);
     }
 }
@@ -623,7 +716,15 @@ fn upload_cubemap(
 fn create_fallback_cubemap(
     device: &ash::Device,
     allocator: &Arc<Mutex<Allocator>>,
-) -> (vk::Image, vk::ImageView, vk::Sampler, Allocation, vk::Buffer, Allocation, bool) {
+) -> (
+    vk::Image,
+    vk::ImageView,
+    vk::Sampler,
+    Allocation,
+    vk::Buffer,
+    Allocation,
+    bool,
+) {
     let pixels = vec![0u8; 4 * 6];
     let (image, allocation) = create_cubemap_image(device, allocator, 1, 1);
     let view = create_cubemap_view(device, image, 1);
@@ -636,7 +737,15 @@ fn create_fallback_cubemap(
     let sampler = unsafe { device.create_sampler(&sampler_info, None) }
         .expect("failed to create fallback sampler");
 
-    (image, view, sampler, allocation, staging_buffer, staging_allocation, false)
+    (
+        image,
+        view,
+        sampler,
+        allocation,
+        staging_buffer,
+        staging_allocation,
+        false,
+    )
 }
 
 fn create_pipeline(

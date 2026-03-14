@@ -55,7 +55,8 @@ impl TextureAtlas {
         let mut atlas_pixels = vec![0u8; (atlas_size * atlas_size * 4) as usize];
         let mut regions = HashMap::new();
 
-        let missing_region = tile_region(tile_origin(0, grid_size, tile_size), tile_size, atlas_size);
+        let missing_region =
+            tile_region(tile_origin(0, grid_size, tile_size), tile_size, atlas_size);
 
         for py in 0..tile_size {
             for px in 0..tile_size {
@@ -106,10 +107,20 @@ impl TextureAtlas {
             missing: missing_region,
         };
 
-        let (image, view, allocation) = util::create_gpu_image(device, allocator, atlas_size, atlas_size, "atlas_image");
-        let (staging_buffer, staging_allocation) = util::create_staging_buffer(device, allocator, &atlas_pixels, "atlas_staging");
+        let (image, view, allocation) =
+            util::create_gpu_image(device, allocator, atlas_size, atlas_size, "atlas_image");
+        let (staging_buffer, staging_allocation) =
+            util::create_staging_buffer(device, allocator, &atlas_pixels, "atlas_staging");
 
-        util::upload_image(device, queue, command_pool, staging_buffer, image, atlas_size, atlas_size);
+        util::upload_image(
+            device,
+            queue,
+            command_pool,
+            staging_buffer,
+            image,
+            atlas_size,
+            atlas_size,
+        );
 
         let sampler = unsafe { util::create_nearest_sampler(device) };
 
@@ -134,12 +145,16 @@ impl TextureAtlas {
         if let Some(alloc) = self.allocation.take() {
             allocator.lock().unwrap().free(alloc).ok();
         }
-        unsafe { device.destroy_image(self.image, None); }
+        unsafe {
+            device.destroy_image(self.image, None);
+        }
 
         if let Some(alloc) = self.staging_allocation.take() {
             allocator.lock().unwrap().free(alloc).ok();
         }
-        unsafe { device.destroy_buffer(self.staging_buffer, None); }
+        unsafe {
+            device.destroy_buffer(self.staging_buffer, None);
+        }
     }
 }
 

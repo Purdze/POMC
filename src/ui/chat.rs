@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use crate::renderer::pipelines::menu_overlay::MenuElement;
 use super::common::{self, WHITE};
+use crate::renderer::pipelines::menu_overlay::MenuElement;
 
 const MAX_MESSAGES: usize = 100;
 const VISIBLE_MESSAGES: usize = 10;
@@ -65,7 +65,12 @@ impl ChatState {
         self.cursor_blink = Instant::now();
     }
 
-    pub fn handle_key_input(&mut self, typed_chars: &[char], backspace: bool, enter: bool) -> Option<String> {
+    pub fn handle_key_input(
+        &mut self,
+        typed_chars: &[char],
+        backspace: bool,
+        enter: bool,
+    ) -> Option<String> {
         if !self.open {
             return None;
         }
@@ -79,7 +84,11 @@ impl ChatState {
             self.cursor_blink = Instant::now();
         }
         if enter {
-            let msg = if self.input.is_empty() { None } else { Some(self.input.clone()) };
+            let msg = if self.input.is_empty() {
+                None
+            } else {
+                Some(self.input.clone())
+            };
             self.input.clear();
             self.open = false;
             return msg;
@@ -117,13 +126,20 @@ impl ChatState {
         for (i, line) in visible.iter().enumerate() {
             let y = chat_bottom - (i as f32 + 1.0) * lh;
             elements.push(MenuElement::Rect {
-                x: chat_x, y, w: chat_w, h: lh,
-                corner_radius: 0.0, color: MSG_BG,
+                x: chat_x,
+                y,
+                w: chat_w,
+                h: lh,
+                corner_radius: 0.0,
+                color: MSG_BG,
             });
             elements.push(MenuElement::Text {
-                x: chat_x + pad, y: y + (lh - fs) / 2.0,
-                text: line.text.clone(), scale: fs,
-                color: WHITE, centered: false,
+                x: chat_x + pad,
+                y: y + (lh - fs) / 2.0,
+                text: line.text.clone(),
+                scale: fs,
+                color: WHITE,
+                centered: false,
             });
         }
 
@@ -132,19 +148,31 @@ impl ChatState {
             let text_y = chat_bottom + (input_h - fs) / 2.0;
 
             elements.push(MenuElement::Rect {
-                x: chat_x, y: chat_bottom, w: chat_w, h: input_h,
-                corner_radius: 0.0, color: INPUT_BG,
+                x: chat_x,
+                y: chat_bottom,
+                w: chat_w,
+                h: input_h,
+                corner_radius: 0.0,
+                color: INPUT_BG,
             });
             elements.push(MenuElement::Text {
-                x: chat_x + pad, y: text_y,
-                text: self.input.clone(), scale: fs,
-                color: WHITE, centered: false,
+                x: chat_x + pad,
+                y: text_y,
+                text: self.input.clone(),
+                scale: fs,
+                color: WHITE,
+                centered: false,
             });
 
             let tw = text_width_fn(&self.input, fs);
             common::push_cursor_blink(
-                elements, &self.cursor_blink,
-                chat_x + pad, text_y, gs, fs, tw,
+                elements,
+                &self.cursor_blink,
+                chat_x + pad,
+                text_y,
+                gs,
+                fs,
+                tw,
             );
         }
     }

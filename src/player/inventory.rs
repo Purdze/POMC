@@ -70,4 +70,3 @@ pub fn item_resource_name(kind: ItemKind) -> String {
         .unwrap_or("air")
         .to_string()
 }
-

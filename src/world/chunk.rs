@@ -60,7 +60,9 @@ impl ChunkStore {
 
     pub fn set_block_state(&self, x: i32, y: i32, z: i32, state: BlockState) {
         let chunk_pos = ChunkPos::new(x.div_euclid(16), z.div_euclid(16));
-        let Some(chunk_lock) = self.get_chunk(&chunk_pos) else { return };
+        let Some(chunk_lock) = self.get_chunk(&chunk_pos) else {
+            return;
+        };
         let mut chunk = chunk_lock.write();
         let block_pos = azalea_core::position::ChunkBlockPos {
             x: x.rem_euclid(16) as u8,
@@ -88,13 +90,7 @@ impl ChunkStore {
     }
 }
 
-pub fn block_state_from_section(
-    chunk: &Chunk,
-    x: i32,
-    y: i32,
-    z: i32,
-    min_y: i32,
-) -> BlockState {
+pub fn block_state_from_section(chunk: &Chunk, x: i32, y: i32, z: i32, min_y: i32) -> BlockState {
     let section_idx = ((y - min_y) / 16) as usize;
     if section_idx >= chunk.sections.len() {
         return BlockState::AIR;

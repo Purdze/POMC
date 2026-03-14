@@ -1,5 +1,5 @@
-use crate::renderer::pipelines::menu_overlay::MenuElement;
 use super::common::{self, WHITE};
+use crate::renderer::pipelines::menu_overlay::MenuElement;
 
 const FULL_W: f32 = 204.0;
 const HALF_W: f32 = 98.0;
@@ -41,30 +41,121 @@ pub fn build_pause_menu(
     let col2_x = col1_x + half_w + pad * 2.0;
     let full_x = col1_x;
 
-    let row_y = |row: u32| -> f32 {
-        grid_y + top_pad + row as f32 * (btn_h + pad)
-    };
+    let row_y = |row: u32| -> f32 { grid_y + top_pad + row as f32 * (btn_h + pad) };
 
     elements.push(MenuElement::Text {
-        x: screen_w / 2.0, y: grid_y + 40.0 * gs - top_pad,
-        text: "Game Menu".into(), scale: fs,
-        color: WHITE, centered: true,
+        x: screen_w / 2.0,
+        y: grid_y + 40.0 * gs - top_pad,
+        text: "Game Menu".into(),
+        scale: fs,
+        color: WHITE,
+        centered: true,
     });
 
-    if common::push_button(elements, cursor, full_x, row_y(0), full_w, btn_h, gs, fs, "Back to Game", true) && clicked {
+    if common::push_button(
+        elements,
+        cursor,
+        full_x,
+        row_y(0),
+        full_w,
+        btn_h,
+        gs,
+        fs,
+        "Back to Game",
+        true,
+    ) && clicked
+    {
         action = PauseAction::Resume;
     }
 
-    common::push_button(elements, cursor, col1_x, row_y(1), half_w, btn_h, gs, fs, "Advancements", false);
-    common::push_button(elements, cursor, col2_x, row_y(1), half_w, btn_h, gs, fs, "Statistics", false);
+    common::push_button(
+        elements,
+        cursor,
+        col1_x,
+        row_y(1),
+        half_w,
+        btn_h,
+        gs,
+        fs,
+        "Advancements",
+        false,
+    );
+    common::push_button(
+        elements,
+        cursor,
+        col2_x,
+        row_y(1),
+        half_w,
+        btn_h,
+        gs,
+        fs,
+        "Statistics",
+        false,
+    );
 
-    common::push_button(elements, cursor, col1_x, row_y(2), half_w, btn_h, gs, fs, "Give Feedback", false);
-    common::push_button(elements, cursor, col2_x, row_y(2), half_w, btn_h, gs, fs, "Report Bugs", false);
+    common::push_button(
+        elements,
+        cursor,
+        col1_x,
+        row_y(2),
+        half_w,
+        btn_h,
+        gs,
+        fs,
+        "Give Feedback",
+        false,
+    );
+    common::push_button(
+        elements,
+        cursor,
+        col2_x,
+        row_y(2),
+        half_w,
+        btn_h,
+        gs,
+        fs,
+        "Report Bugs",
+        false,
+    );
 
-    common::push_button(elements, cursor, col1_x, row_y(3), half_w, btn_h, gs, fs, "Options...", false);
-    common::push_button(elements, cursor, col2_x, row_y(3), half_w, btn_h, gs, fs, "Player Reporting", false);
+    common::push_button(
+        elements,
+        cursor,
+        col1_x,
+        row_y(3),
+        half_w,
+        btn_h,
+        gs,
+        fs,
+        "Options...",
+        false,
+    );
+    common::push_button(
+        elements,
+        cursor,
+        col2_x,
+        row_y(3),
+        half_w,
+        btn_h,
+        gs,
+        fs,
+        "Player Reporting",
+        false,
+    );
 
-    if common::push_button(elements, cursor, full_x, row_y(4), full_w, btn_h, gs, fs, "Disconnect", true) && clicked {
+    if common::push_button(
+        elements,
+        cursor,
+        full_x,
+        row_y(4),
+        full_w,
+        btn_h,
+        gs,
+        fs,
+        "Disconnect",
+        true,
+    ) && clicked
+    {
         action = PauseAction::Disconnect;
     }
 

@@ -29,8 +29,14 @@ pub struct FaceTextures {
 
 impl FaceTextures {
     pub fn new(
-        top: &str, bottom: &str, north: &str, south: &str, east: &str, west: &str,
-        side_overlay: Option<&str>, tint: Tint,
+        top: &str,
+        bottom: &str,
+        north: &str,
+        south: &str,
+        east: &str,
+        west: &str,
+        side_overlay: Option<&str>,
+        tint: Tint,
     ) -> Self {
         Self {
             top: top.into(),
@@ -66,13 +72,18 @@ impl BlockRegistry {
         } else {
             let mut textures = model::load_all_block_textures(assets_dir, asset_index);
 
-            textures.entry("water".into())
+            textures
+                .entry("water".into())
                 .or_insert_with(|| FaceTextures::uniform("water_still", Tint::None));
-            textures.entry("lava".into())
+            textures
+                .entry("lava".into())
                 .or_insert_with(|| FaceTextures::uniform("lava_still", Tint::None));
 
             save_cache(&cache_path, &textures);
-            log::info!("Block registry: {} blocks (built and cached)", textures.len());
+            log::info!(
+                "Block registry: {} blocks (built and cached)",
+                textures.len()
+            );
             textures
         };
 
@@ -95,13 +106,16 @@ impl BlockRegistry {
         }
 
         let variant_key = build_variant_key(&*block);
-        variants.get(&variant_key)
+        variants
+            .get(&variant_key)
             .or_else(|| variants.get(""))
             .or_else(|| variants.values().next())
     }
 
     pub fn is_opaque_full_cube(&self, state: BlockState) -> bool {
-        if state.is_air() { return false; }
+        if state.is_air() {
+            return false;
+        }
         self.get_baked_model(state)
             .map(|m| m.is_full_cube)
             .unwrap_or(false)
@@ -109,16 +123,18 @@ impl BlockRegistry {
 
     pub fn texture_names(&self) -> impl Iterator<Item = &str> + '_ {
         let face_textures = self.textures.values().flat_map(|ft| {
-            let base = [&ft.top, &ft.bottom, &ft.north, &ft.south, &ft.east, &ft.west];
+            let base = [
+                &ft.top, &ft.bottom, &ft.north, &ft.south, &ft.east, &ft.west,
+            ];
             base.into_iter()
                 .map(|s| s.as_str())
                 .chain(ft.side_overlay.as_deref())
         });
 
         let baked_textures = self.baked.values().flat_map(|variants| {
-            variants.values().flat_map(|model| {
-                model.quads.iter().map(|q| q.texture.as_str())
-            })
+            variants
+                .values()
+                .flat_map(|model| model.quads.iter().map(|q| q.texture.as_str()))
         });
 
         face_textures.chain(baked_textures)
@@ -132,7 +148,8 @@ fn build_variant_key(block: &dyn azalea_block::BlockTrait) -> String {
     }
     let mut entries: Vec<_> = props.iter().collect();
     entries.sort_by_key(|(k, _)| *k);
-    entries.iter()
+    entries
+        .iter()
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(",")

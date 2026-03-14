@@ -47,7 +47,11 @@ impl InteractionState {
             seq: 0,
             pending_predictions: HashMap::new(),
             is_destroying: false,
-            destroy_pos: BlockPos { x: -1, y: -1, z: -1 },
+            destroy_pos: BlockPos {
+                x: -1,
+                y: -1,
+                z: -1,
+            },
             destroy_progress: 0.0,
             destroy_ticks: 0.0,
             destroy_delay: 0,
@@ -188,8 +192,19 @@ impl InteractionState {
         if progress >= 1.0 {
             self.seq += 1;
             let seq = self.seq;
-            send_action(sender, Action::StartDestroyBlock, hit.block_pos, hit.face, seq);
-            chunks.set_block_state(hit.block_pos.x, hit.block_pos.y, hit.block_pos.z, BlockState::AIR);
+            send_action(
+                sender,
+                Action::StartDestroyBlock,
+                hit.block_pos,
+                hit.face,
+                seq,
+            );
+            chunks.set_block_state(
+                hit.block_pos.x,
+                hit.block_pos.y,
+                hit.block_pos.z,
+                BlockState::AIR,
+            );
             self.pending_predictions.insert(hit.block_pos, seq);
             mark_dirty(&hit.block_pos, dirty_chunks);
             self.destroy_delay = DESTROY_COOLDOWN;
@@ -201,12 +216,24 @@ impl InteractionState {
         }
 
         if self.is_destroying {
-            send_action(sender, Action::AbortDestroyBlock, self.destroy_pos, hit.face, 0);
+            send_action(
+                sender,
+                Action::AbortDestroyBlock,
+                self.destroy_pos,
+                hit.face,
+                0,
+            );
         }
 
         self.seq += 1;
         let seq = self.seq;
-        send_action(sender, Action::StartDestroyBlock, hit.block_pos, hit.face, seq);
+        send_action(
+            sender,
+            Action::StartDestroyBlock,
+            hit.block_pos,
+            hit.face,
+            seq,
+        );
 
         self.is_destroying = true;
         self.destroy_pos = hit.block_pos;
@@ -244,8 +271,19 @@ impl InteractionState {
         if self.destroy_progress >= 1.0 {
             self.seq += 1;
             let seq = self.seq;
-            send_action(sender, Action::StopDestroyBlock, hit.block_pos, hit.face, seq);
-            chunks.set_block_state(hit.block_pos.x, hit.block_pos.y, hit.block_pos.z, BlockState::AIR);
+            send_action(
+                sender,
+                Action::StopDestroyBlock,
+                hit.block_pos,
+                hit.face,
+                seq,
+            );
+            chunks.set_block_state(
+                hit.block_pos.x,
+                hit.block_pos.y,
+                hit.block_pos.z,
+                BlockState::AIR,
+            );
             self.pending_predictions.insert(hit.block_pos, seq);
             mark_dirty(&hit.block_pos, dirty_chunks);
             self.is_destroying = false;
@@ -257,7 +295,13 @@ impl InteractionState {
 
     fn stop_destroying(&mut self, sender: Option<&PacketSender>) {
         if self.is_destroying {
-            send_action(sender, Action::AbortDestroyBlock, self.destroy_pos, Direction::Down, 0);
+            send_action(
+                sender,
+                Action::AbortDestroyBlock,
+                self.destroy_pos,
+                Direction::Down,
+                0,
+            );
             self.is_destroying = false;
             self.destroy_progress = 0.0;
         }
@@ -281,18 +325,17 @@ fn destroy_progress(state: BlockState, on_ground: bool) -> f32 {
         speed /= 5.0;
     }
 
-    let divisor = if behavior.requires_correct_tool_for_drops { 100.0 } else { 30.0 };
+    let divisor = if behavior.requires_correct_tool_for_drops {
+        100.0
+    } else {
+        30.0
+    };
     speed / hardness / divisor
 }
 
-fn mark_dirty(
-    pos: &BlockPos,
-    dirty: &mut Vec<azalea_core::position::ChunkPos>,
-) {
-    let chunk_pos = azalea_core::position::ChunkPos::new(
-        pos.x.div_euclid(16),
-        pos.z.div_euclid(16),
-    );
+fn mark_dirty(pos: &BlockPos, dirty: &mut Vec<azalea_core::position::ChunkPos>) {
+    let chunk_pos =
+        azalea_core::position::ChunkPos::new(pos.x.div_euclid(16), pos.z.div_euclid(16));
     if !dirty.contains(&chunk_pos) {
         dirty.push(chunk_pos);
     }
@@ -325,14 +368,22 @@ fn look_direction(yaw: f32, pitch: f32) -> Vec3 {
 
 fn raycast(origin: Vec3, dir: Vec3, max_dist: f32, chunks: &ChunkStore) -> Option<HitResult> {
     let mut t = 0.0;
-    let mut prev_block = BlockPos { x: i32::MAX, y: i32::MAX, z: i32::MAX };
+    let mut prev_block = BlockPos {
+        x: i32::MAX,
+        y: i32::MAX,
+        z: i32::MAX,
+    };
 
     while t <= max_dist {
         let point = origin + dir * t;
         let bx = point.x.floor() as i32;
         let by = point.y.floor() as i32;
         let bz = point.z.floor() as i32;
-        let block_pos = BlockPos { x: bx, y: by, z: bz };
+        let block_pos = BlockPos {
+            x: bx,
+            y: by,
+            z: bz,
+        };
 
         if block_pos != prev_block {
             let state = chunks.get_block_state(bx, by, bz);
@@ -399,9 +450,14 @@ fn send_action(
     seq: u32,
 ) {
     if let Some(sender) = sender {
-        sender.send(ServerboundGamePacket::PlayerAction(ServerboundPlayerAction {
-            action, pos, direction, seq,
-        }));
+        sender.send(ServerboundGamePacket::PlayerAction(
+            ServerboundPlayerAction {
+                action,
+                pos,
+                direction,
+                seq,
+            },
+        ));
     }
 }
 

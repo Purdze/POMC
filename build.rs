@@ -7,7 +7,10 @@ fn main() {
 
     let compiler = shaderc::Compiler::new().expect("failed to create shaderc compiler");
     let mut options = shaderc::CompileOptions::new().expect("failed to create compile options");
-    options.set_target_env(shaderc::TargetEnv::Vulkan, shaderc::EnvVersion::Vulkan1_0 as u32);
+    options.set_target_env(
+        shaderc::TargetEnv::Vulkan,
+        shaderc::EnvVersion::Vulkan1_0 as u32,
+    );
     options.set_source_language(shaderc::SourceLanguage::GLSL);
 
     let shaders = [

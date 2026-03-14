@@ -76,10 +76,7 @@ impl MeshDispatcher {
 
         rayon::spawn(move || {
             let snapshot = ChunkStoreSnapshot {
-                chunks: chunks_needed
-                    .into_iter()
-                    .zip(chunk_arcs)
-                    .collect(),
+                chunks: chunks_needed.into_iter().zip(chunk_arcs).collect(),
                 min_y,
                 height,
             };
@@ -94,7 +91,10 @@ impl MeshDispatcher {
 }
 
 struct ChunkStoreSnapshot {
-    chunks: Vec<(ChunkPos, Option<Arc<parking_lot::RwLock<azalea_world::chunk_storage::Chunk>>>)>,
+    chunks: Vec<(
+        ChunkPos,
+        Option<Arc<parking_lot::RwLock<azalea_world::chunk_storage::Chunk>>>,
+    )>,
     min_y: i32,
     height: u32,
 }
@@ -154,15 +154,29 @@ fn mesh_chunk_snapshot(
 
                 if let Some(baked) = registry.get_baked_model(state) {
                     emit_baked_model(
-                        &mut vertices, &mut indices,
-                        block_pos, baked, snapshot, registry, uv_map,
-                        bx, by, bz,
+                        &mut vertices,
+                        &mut indices,
+                        block_pos,
+                        baked,
+                        snapshot,
+                        registry,
+                        uv_map,
+                        bx,
+                        by,
+                        bz,
                     );
                 } else if let Some(textures) = registry.get_textures(state) {
                     emit_cube_faces(
-                        &mut vertices, &mut indices,
-                        block_pos, textures, snapshot, registry, uv_map,
-                        bx, by, bz,
+                        &mut vertices,
+                        &mut indices,
+                        block_pos,
+                        textures,
+                        snapshot,
+                        registry,
+                        uv_map,
+                        bx,
+                        by,
+                        bz,
                     );
                 }
             }
@@ -184,14 +198,14 @@ fn emit_baked_model(
     snapshot: &ChunkStoreSnapshot,
     registry: &BlockRegistry,
     uv_map: &AtlasUVMap,
-    bx: i32, by: i32, bz: i32,
+    bx: i32,
+    by: i32,
+    bz: i32,
 ) {
     for quad in &model.quads {
         if let Some(cullface) = quad.cullface {
             let offset = cullface.offset();
-            let neighbor = snapshot.get_block_state(
-                bx + offset[0], by + offset[1], bz + offset[2],
-            );
+            let neighbor = snapshot.get_block_state(bx + offset[0], by + offset[1], bz + offset[2]);
             if registry.is_opaque_full_cube(neighbor) {
                 continue;
             }
@@ -199,7 +213,16 @@ fn emit_baked_model(
 
         let region = uv_map.get_region(&quad.texture);
         let tint = if quad.tinted { GRASS_TINT } else { WHITE };
-        emit_face(vertices, indices, block_pos, &quad.positions, &quad.uvs, quad.shade_light, region, tint);
+        emit_face(
+            vertices,
+            indices,
+            block_pos,
+            &quad.positions,
+            &quad.uvs,
+            quad.shade_light,
+            region,
+            tint,
+        );
     }
 }
 
@@ -211,15 +234,15 @@ fn emit_cube_faces(
     snapshot: &ChunkStoreSnapshot,
     registry: &BlockRegistry,
     uv_map: &AtlasUVMap,
-    bx: i32, by: i32, bz: i32,
+    bx: i32,
+    by: i32,
+    bz: i32,
 ) {
     let tint = tint_color(textures.tint);
 
     for (i, dir) in CUBE_FACE_DIRS.iter().enumerate() {
         let offset = dir.offset();
-        let neighbor = snapshot.get_block_state(
-            bx + offset[0], by + offset[1], bz + offset[2],
-        );
+        let neighbor = snapshot.get_block_state(bx + offset[0], by + offset[1], bz + offset[2]);
         if registry.is_opaque_full_cube(neighbor) {
             continue;
         }
@@ -237,22 +260,38 @@ fn emit_cube_faces(
 
         let is_side = i >= 2;
         if let Some(overlay) = textures.side_overlay.as_deref().filter(|_| is_side) {
-            emit_face(vertices, indices, block_pos, &positions, &uvs, light, region, WHITE);
+            emit_face(
+                vertices, indices, block_pos, &positions, &uvs, light, region, WHITE,
+            );
             let overlay_region = uv_map.get_region(overlay);
-            emit_face(vertices, indices, block_pos, &positions, &uvs, light, overlay_region, tint);
+            emit_face(
+                vertices,
+                indices,
+                block_pos,
+                &positions,
+                &uvs,
+                light,
+                overlay_region,
+                tint,
+            );
         } else {
-            let is_tinted = !matches!(textures.tint, Tint::None)
-                && (textures.side_overlay.is_none() || i == 0);
+            let is_tinted =
+                !matches!(textures.tint, Tint::None) && (textures.side_overlay.is_none() || i == 0);
             let face_tint = if is_tinted { tint } else { WHITE };
-            emit_face(vertices, indices, block_pos, &positions, &uvs, light, region, face_tint);
+            emit_face(
+                vertices, indices, block_pos, &positions, &uvs, light, region, face_tint,
+            );
         }
     }
 }
 
 const CUBE_FACE_DIRS: [Direction; 6] = [
-    Direction::Up, Direction::Down,
-    Direction::North, Direction::South,
-    Direction::East, Direction::West,
+    Direction::Up,
+    Direction::Down,
+    Direction::North,
+    Direction::South,
+    Direction::East,
+    Direction::West,
 ];
 
 fn emit_face(
@@ -291,32 +330,62 @@ fn emit_face(
 fn cube_face_geometry(dir: Direction) -> ([[f32; 3]; 4], [[f32; 2]; 4], f32) {
     match dir {
         Direction::Up => (
-            [[0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]],
+            [
+                [0.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
             [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]],
             1.0,
         ),
         Direction::Down => (
-            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [0.0, 0.0, 1.0]],
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0],
+            ],
             [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
             0.5,
         ),
         Direction::North => (
-            [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]],
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [1.0, 0.0, 0.0],
+            ],
             [[0.0, 1.0], [0.0, 0.0], [1.0, 0.0], [1.0, 1.0]],
             0.7,
         ),
         Direction::South => (
-            [[1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]],
+            [
+                [1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0],
+                [0.0, 0.0, 1.0],
+            ],
             [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]],
             0.7,
         ),
         Direction::East => (
-            [[1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]],
+            [
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0],
+            ],
             [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]],
             0.8,
         ),
         Direction::West => (
-            [[0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]],
+            [
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 1.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
             [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]],
             0.8,
         ),

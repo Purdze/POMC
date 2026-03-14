@@ -11,7 +11,6 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
 
-use azalea_protocol::packets::game::ServerboundGamePacket;
 use crate::net::NetworkEvent;
 use crate::physics::movement;
 use crate::player::interaction::InteractionState;
@@ -25,6 +24,7 @@ use crate::ui::hud;
 use crate::ui::menu::{MainMenu, MenuAction, MenuInput, PanoramaTheme};
 use crate::ui::pause::{self, PauseAction};
 use crate::world::chunk::ChunkStore;
+use azalea_protocol::packets::game::ServerboundGamePacket;
 use input::InputState;
 
 #[derive(Error, Debug)]
@@ -107,7 +107,11 @@ struct FpsCounter {
 
 impl FpsCounter {
     fn new() -> Self {
-        Self { frame_count: 0, elapsed: 0.0, display_fps: 0 }
+        Self {
+            frame_count: 0,
+            elapsed: 0.0,
+            display_fps: 0,
+        }
     }
 
     fn update(&mut self, dt: f32) {
@@ -189,7 +193,8 @@ impl App {
             && !self.chat.is_open()
             && self.input.is_cursor_captured();
         if captured {
-            let _ = window.set_cursor_grab(CursorGrabMode::Locked)
+            let _ = window
+                .set_cursor_grab(CursorGrabMode::Locked)
                 .or_else(|_| window.set_cursor_grab(CursorGrabMode::Confined));
             window.set_cursor_visible(false);
         } else {
@@ -302,7 +307,11 @@ impl App {
                         log::info!("Player position set to ({x:.1}, {y:.1}, {z:.1})");
                     }
                 }
-                NetworkEvent::PlayerHealth { health, food, saturation } => {
+                NetworkEvent::PlayerHealth {
+                    health,
+                    food,
+                    saturation,
+                } => {
                     self.player.health = health;
                     self.player.food = food;
                     self.player.saturation = saturation;
@@ -322,7 +331,8 @@ impl App {
                     }
                     self.chunk_store.set_block_state(pos.x, pos.y, pos.z, state);
                     let chunk_pos = azalea_core::position::ChunkPos::new(
-                        pos.x.div_euclid(16), pos.z.div_euclid(16),
+                        pos.x.div_euclid(16),
+                        pos.z.div_euclid(16),
                     );
                     chunks_to_mesh.push(chunk_pos);
                 }
@@ -330,7 +340,8 @@ impl App {
                     for (pos, state) in updates {
                         self.chunk_store.set_block_state(pos.x, pos.y, pos.z, state);
                         let chunk_pos = azalea_core::position::ChunkPos::new(
-                            pos.x.div_euclid(16), pos.z.div_euclid(16),
+                            pos.x.div_euclid(16),
+                            pos.z.div_euclid(16),
                         );
                         if !chunks_to_mesh.contains(&chunk_pos) {
                             chunks_to_mesh.push(chunk_pos);
@@ -340,7 +351,10 @@ impl App {
                 NetworkEvent::BlockChangedAck { seq } => {
                     self.interaction.acknowledge(seq);
                 }
-                NetworkEvent::TimeUpdate { game_time, day_time } => {
+                NetworkEvent::TimeUpdate {
+                    game_time,
+                    day_time,
+                } => {
                     self.sky_state.game_time = game_time;
                     self.sky_state.day_time = day_time;
                 }
@@ -384,8 +398,12 @@ impl App {
 
         if !self.paused && !self.inventory_open && !self.chat.is_open() {
             let eye_pos = self.player.position + glam::Vec3::new(0.0, 1.62, 0.0);
-            self.interaction
-                .update_target(eye_pos, self.player.yaw, self.player.pitch, &self.chunk_store);
+            self.interaction.update_target(
+                eye_pos,
+                self.player.yaw,
+                self.player.pitch,
+                &self.chunk_store,
+            );
 
             let dirty = self.interaction.tick(
                 &self.input,
@@ -466,8 +484,8 @@ impl App {
         self.position_send_counter += 1;
         let pos_changed = dx * dx + dy * dy + dz * dz > POSITION_THRESHOLD_SQ
             || self.position_send_counter >= POSITION_SEND_INTERVAL;
-        let rot_changed = (yaw - self.last_sent_yaw) != 0.0
-            || (pitch - self.last_sent_pitch) != 0.0;
+        let rot_changed =
+            (yaw - self.last_sent_yaw) != 0.0 || (pitch - self.last_sent_pitch) != 0.0;
 
         let flags = MoveFlags {
             on_ground: self.player.on_ground,
@@ -475,26 +493,32 @@ impl App {
         };
 
         let net_pos = azalea_core::position::Vec3 {
-            x: pos.x as f64, y: pos.y as f64, z: pos.z as f64,
+            x: pos.x as f64,
+            y: pos.y as f64,
+            z: pos.z as f64,
         };
         let look = azalea_entity::LookDirection::new(yaw, pitch);
 
         if pos_changed && rot_changed {
             sender.send(ServerboundGamePacket::MovePlayerPosRot(
                 s_move_player_pos_rot::ServerboundMovePlayerPosRot {
-                    pos: net_pos, look_direction: look, flags,
+                    pos: net_pos,
+                    look_direction: look,
+                    flags,
                 },
             ));
         } else if pos_changed {
             sender.send(ServerboundGamePacket::MovePlayerPos(
                 s_move_player_pos::ServerboundMovePlayerPos {
-                    pos: net_pos, flags,
+                    pos: net_pos,
+                    flags,
                 },
             ));
         } else if rot_changed {
             sender.send(ServerboundGamePacket::MovePlayerRot(
                 s_move_player_rot::ServerboundMovePlayerRot {
-                    look_direction: look, flags,
+                    look_direction: look,
+                    flags,
                 },
             ));
         } else if self.player.on_ground != self.last_sent_on_ground
@@ -537,7 +561,12 @@ impl ApplicationHandler for App {
             }
         };
 
-        let renderer = match Renderer::new(Arc::clone(&window), &self.assets_dir, &self.asset_index, &self.game_dir) {
+        let renderer = match Renderer::new(
+            Arc::clone(&window),
+            &self.assets_dir,
+            &self.asset_index,
+            &self.game_dir,
+        ) {
             Ok(r) => r,
             Err(e) => {
                 log::error!("Failed to create renderer: {e}");
@@ -590,19 +619,23 @@ impl ApplicationHandler for App {
                                     }
                                     self.apply_cursor_grab();
                                 }
-                                KeyCode::KeyE
-                                    if !self.paused && !self.chat.is_open() =>
-                                {
+                                KeyCode::KeyE if !self.paused && !self.chat.is_open() => {
                                     self.inventory_open = !self.inventory_open;
                                     self.apply_cursor_grab();
                                 }
                                 KeyCode::KeyT | KeyCode::Enter
-                                    if !self.paused && !self.chat.is_open() && !self.inventory_open =>
+                                    if !self.paused
+                                        && !self.chat.is_open()
+                                        && !self.inventory_open =>
                                 {
                                     self.chat.open();
                                     self.apply_cursor_grab();
                                 }
-                                KeyCode::Slash if !self.paused && !self.chat.is_open() && !self.inventory_open => {
+                                KeyCode::Slash
+                                    if !self.paused
+                                        && !self.chat.is_open()
+                                        && !self.inventory_open =>
+                                {
                                     self.chat.open_with_slash();
                                     self.apply_cursor_grab();
                                 }
@@ -630,7 +663,8 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                self.input.on_cursor_moved(position.x as f32, position.y as f32);
+                self.input
+                    .on_cursor_moved(position.x as f32, position.y as f32);
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 if matches!(self.state, GameState::Menu | GameState::Connecting)
@@ -652,258 +686,310 @@ impl ApplicationHandler for App {
                 self.fps_counter.update(dt);
 
                 'redraw: {
-                match self.state {
-                    GameState::Menu => {
-                        self.panorama_scroll += dt * 0.01;
-                        if self.panorama_scroll > 1.0 {
-                            self.panorama_scroll -= 1.0;
-                        }
-
-                        if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
-                            let sw = renderer.screen_width() as f32;
-                            let sh = renderer.screen_height() as f32;
-
-                            let menu_input = MenuInput {
-                                cursor: self.input.cursor_pos(),
-                                clicked: self.input.left_just_pressed(),
-                                typed_chars: self.input.drain_typed_chars(),
-                                backspace: self.input.backspace_pressed(),
-                                enter: self.input.enter_pressed(),
-                                escape: self.input.escape_pressed(),
-                                tab: self.input.tab_pressed(),
-                                f5: self.input.f5_pressed(),
-                                scroll_delta: self.input.consume_menu_scroll(),
-                            };
-
-                            let result = self.menu.build(sw, sh, &menu_input, |t, s| {
-                                renderer.menu_text_width(t, s)
-                            });
-                            let action = result.action;
-
-                            let cursor_icon = if result.cursor_pointer {
-                                winit::window::CursorIcon::Pointer
-                            } else {
-                                winit::window::CursorIcon::Default
-                            };
-                            window.set_cursor(cursor_icon);
-
-                            if let Err(e) = renderer.render_menu(window, self.panorama_scroll, result.blur, result.elements) {
-                                log::error!("Render error: {e}");
+                    match self.state {
+                        GameState::Menu => {
+                            self.panorama_scroll += dt * 0.01;
+                            if self.panorama_scroll > 1.0 {
+                                self.panorama_scroll -= 1.0;
                             }
 
-                            self.input.clear_click_events();
+                            if let (Some(renderer), Some(window)) =
+                                (&mut self.renderer, &self.window)
+                            {
+                                let sw = renderer.screen_width() as f32;
+                                let sh = renderer.screen_height() as f32;
 
-                            match action {
-                                MenuAction::Connect { server, username } => {
-                                    self.connect_to_server(server, username);
+                                let menu_input = MenuInput {
+                                    cursor: self.input.cursor_pos(),
+                                    clicked: self.input.left_just_pressed(),
+                                    typed_chars: self.input.drain_typed_chars(),
+                                    backspace: self.input.backspace_pressed(),
+                                    enter: self.input.enter_pressed(),
+                                    escape: self.input.escape_pressed(),
+                                    tab: self.input.tab_pressed(),
+                                    f5: self.input.f5_pressed(),
+                                    scroll_delta: self.input.consume_menu_scroll(),
+                                };
+
+                                let result = self.menu.build(sw, sh, &menu_input, |t, s| {
+                                    renderer.menu_text_width(t, s)
+                                });
+                                let action = result.action;
+
+                                let cursor_icon = if result.cursor_pointer {
+                                    winit::window::CursorIcon::Pointer
+                                } else {
+                                    winit::window::CursorIcon::Default
+                                };
+                                window.set_cursor(cursor_icon);
+
+                                if let Err(e) = renderer.render_menu(
+                                    window,
+                                    self.panorama_scroll,
+                                    result.blur,
+                                    result.elements,
+                                ) {
+                                    log::error!("Render error: {e}");
                                 }
-                                MenuAction::ChangeTheme(theme) => {
-                                    if let Some(renderer) = &mut self.renderer {
-                                        let panorama_dir = match theme {
-                                            PanoramaTheme::Default => self.assets_dir.clone(),
-                                            PanoramaTheme::Pomc => self.game_dir.join("pomc_panorama"),
-                                        };
-                                        renderer.reload_panorama(&panorama_dir, &self.asset_index);
+
+                                self.input.clear_click_events();
+
+                                match action {
+                                    MenuAction::Connect { server, username } => {
+                                        self.connect_to_server(server, username);
                                     }
-                                    self.menu.start_transition_open();
-                                }
-                                MenuAction::None => {}
-                            }
-                        }
-                    }
-                    GameState::Connecting => {
-                        self.drain_network_events();
-
-                        self.panorama_scroll += dt * 0.01;
-                        if self.panorama_scroll > 1.0 {
-                            self.panorama_scroll -= 1.0;
-                        }
-
-                        let mut cancel = false;
-
-                        if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
-                            let sw = renderer.screen_width() as f32;
-                            let sh = renderer.screen_height() as f32;
-                            let gs = (sh / 400.0).max(1.0);
-                            let fs = 11.0 * gs;
-                            let btn_h = 30.0 * gs;
-                            let btn_w = 160.0 * gs;
-
-                            let cx = sw / 2.0;
-                            let cy = sh / 2.0;
-
-                            let mut elements = Vec::new();
-
-                            elements.push(MenuElement::Text {
-                                x: cx, y: cy - fs,
-                                text: "Connecting to the server...".into(),
-                                scale: fs,
-                                color: WHITE,
-                                centered: true,
-                            });
-
-                            let btn_y = cy + fs;
-                            let clicked = self.input.left_just_pressed();
-                            let cursor = self.input.cursor_pos();
-                            if common::push_button(
-                                &mut elements, cursor,
-                                cx - btn_w / 2.0, btn_y, btn_w, btn_h,
-                                gs, fs, "Cancel", true,
-                            ) && clicked {
-                                cancel = true;
-                            }
-
-                            self.input.clear_click_events();
-
-                            if let Err(e) = renderer.render_menu(window, self.panorama_scroll, 2.0, elements) {
-                                log::error!("Render error: {e}");
-                            }
-                        }
-
-                        if cancel {
-                            self.disconnect_to_menu(None);
-                        }
-                    }
-                    GameState::InGame => {
-                        self.drain_network_events();
-                        if !matches!(self.state, GameState::InGame) {
-                            break 'redraw;
-                        }
-
-                        if let (Some(dispatcher), Some(renderer)) =
-                            (&self.mesh_dispatcher, &mut self.renderer)
-                        {
-                            let results: Vec<_> = dispatcher.drain_results().collect();
-                            if !results.is_empty() {
-                                renderer.wait_for_all_frames();
-                                for mesh in &results {
-                                    renderer.upload_chunk_mesh(mesh);
+                                    MenuAction::ChangeTheme(theme) => {
+                                        if let Some(renderer) = &mut self.renderer {
+                                            let panorama_dir = match theme {
+                                                PanoramaTheme::Default => self.assets_dir.clone(),
+                                                PanoramaTheme::Pomc => {
+                                                    self.game_dir.join("pomc_panorama")
+                                                }
+                                            };
+                                            renderer
+                                                .reload_panorama(&panorama_dir, &self.asset_index);
+                                        }
+                                        self.menu.start_transition_open();
+                                    }
+                                    MenuAction::None => {}
                                 }
                             }
                         }
+                        GameState::Connecting => {
+                            self.drain_network_events();
 
-                        if !self.paused && !self.inventory_open && !self.chat.is_open() {
-                            if let Some(renderer) = &mut self.renderer {
-                                renderer.update_camera(&mut self.input);
+                            self.panorama_scroll += dt * 0.01;
+                            if self.panorama_scroll > 1.0 {
+                                self.panorama_scroll -= 1.0;
                             }
 
-                            self.tick_accumulator += dt;
-                            while self.tick_accumulator >= TICK_RATE {
-                                self.tick_physics();
-                                self.tick_accumulator -= TICK_RATE;
-                            }
-                        }
+                            let mut cancel = false;
 
-                        let alpha = self.tick_accumulator / TICK_RATE;
-                        let interp_pos = self.prev_player_pos.lerp(self.player.position, alpha);
-                        let eye_pos = interp_pos + glam::Vec3::new(0.0, 1.62, 0.0);
+                            if let (Some(renderer), Some(window)) =
+                                (&mut self.renderer, &self.window)
+                            {
+                                let sw = renderer.screen_width() as f32;
+                                let sh = renderer.screen_height() as f32;
+                                let gs = (sh / 400.0).max(1.0);
+                                let fs = 11.0 * gs;
+                                let btn_h = 30.0 * gs;
+                                let btn_w = 160.0 * gs;
 
-                        if !self.paused && !self.inventory_open && !self.chat.is_open() {
-                            let (yaw, pitch) = if let Some(r) = &self.renderer {
-                                (r.camera_yaw(), r.camera_pitch())
-                            } else {
-                                (self.player.yaw, self.player.pitch)
-                            };
-                            self.interaction.update_target(eye_pos, yaw, pitch, &self.chunk_store);
-                        }
+                                let cx = sw / 2.0;
+                                let cy = sh / 2.0;
 
-                        let typed = self.input.drain_typed_chars();
-                        let backspace = self.input.backspace_pressed();
-                        let enter = self.input.enter_pressed();
-                        if let Some(msg) = self.chat.handle_key_input(&typed, backspace, enter) {
-                            self.send_chat_message(msg);
-                            self.apply_cursor_grab();
-                        }
+                                let mut elements = Vec::new();
 
-                        let mut close_inventory = false;
-                        let mut pause_action = PauseAction::None;
+                                elements.push(MenuElement::Text {
+                                    x: cx,
+                                    y: cy - fs,
+                                    text: "Connecting to the server...".into(),
+                                    scale: fs,
+                                    color: WHITE,
+                                    centered: true,
+                                });
 
-                        if let (Some(renderer), Some(window)) = (&mut self.renderer, &self.window) {
-                            renderer.sync_camera_to_player(
-                                eye_pos,
-                                renderer.camera_yaw(),
-                                renderer.camera_pitch(),
-                            );
-
-                            let sw = renderer.screen_width() as f32;
-                            let sh = renderer.screen_height() as f32;
-                            let gs = hud::gui_scale(sw, sh);
-
-                            let mut elements: Vec<MenuElement> = Vec::new();
-                            let hide_cursor = !self.paused && !self.inventory_open
-                                && !self.chat.is_open() && self.input.is_cursor_captured();
-
-                            let fps = if self.show_debug {
-                                Some(self.fps_counter.display_fps)
-                            } else {
-                                None
-                            };
-                            hud::build_hud(
-                                &mut elements, sw, sh,
-                                self.input.selected_slot(),
-                                self.player.health,
-                                self.player.food,
-                                fps,
-                            );
-
-                            if self.paused {
-                                let cursor = self.input.cursor_pos();
+                                let btn_y = cy + fs;
                                 let clicked = self.input.left_just_pressed();
-                                pause_action = pause::build_pause_menu(
-                                    &mut elements, sw, sh, cursor, clicked, gs,
-                                );
-                                self.input.clear_click_events();
-                            }
-
-                            if self.inventory_open {
                                 let cursor = self.input.cursor_pos();
-                                let clicked = self.input.left_just_pressed();
-                                close_inventory = crate::ui::inventory::build_inventory(
-                                    &mut elements, sw, sh, cursor, clicked,
-                                    &self.player.inventory, gs,
-                                );
+                                if common::push_button(
+                                    &mut elements,
+                                    cursor,
+                                    cx - btn_w / 2.0,
+                                    btn_y,
+                                    btn_w,
+                                    btn_h,
+                                    gs,
+                                    fs,
+                                    "Cancel",
+                                    true,
+                                ) && clicked
+                                {
+                                    cancel = true;
+                                }
+
                                 self.input.clear_click_events();
+
+                                if let Err(e) = renderer.render_menu(
+                                    window,
+                                    self.panorama_scroll,
+                                    2.0,
+                                    elements,
+                                ) {
+                                    log::error!("Render error: {e}");
+                                }
                             }
 
-                            self.chat.build(&mut elements, sh, gs, &|t, s| {
-                                renderer.menu_text_width(t, s)
-                            });
-
-                            let swing_progress = self.interaction.get_swing_progress(
-                                self.tick_accumulator / TICK_RATE,
-                            );
-                            let destroy_info = self.interaction.destroy_stage();
-
-                            let sky = crate::renderer::SkyState {
-                                day_time: self.sky_state.day_time,
-                                game_time: self.sky_state.game_time,
-                                rain_level: self.sky_state.rain_level,
-                            };
-                            if let Err(e) = renderer.render_world(
-                                window, hide_cursor, elements,
-                                swing_progress, destroy_info, sky,
-                            ) {
-                                log::error!("Render error: {e}");
-                            }
-                        }
-
-                        if close_inventory {
-                            self.inventory_open = false;
-                            self.apply_cursor_grab();
-                        }
-
-                        match pause_action {
-                            PauseAction::Resume => {
-                                self.paused = false;
-                                self.apply_cursor_grab();
-                            }
-                            PauseAction::Disconnect => {
+                            if cancel {
                                 self.disconnect_to_menu(None);
                             }
-                            PauseAction::None => {}
+                        }
+                        GameState::InGame => {
+                            self.drain_network_events();
+                            if !matches!(self.state, GameState::InGame) {
+                                break 'redraw;
+                            }
+
+                            if let (Some(dispatcher), Some(renderer)) =
+                                (&self.mesh_dispatcher, &mut self.renderer)
+                            {
+                                let results: Vec<_> = dispatcher.drain_results().collect();
+                                if !results.is_empty() {
+                                    renderer.wait_for_all_frames();
+                                    for mesh in &results {
+                                        renderer.upload_chunk_mesh(mesh);
+                                    }
+                                }
+                            }
+
+                            if !self.paused && !self.inventory_open && !self.chat.is_open() {
+                                if let Some(renderer) = &mut self.renderer {
+                                    renderer.update_camera(&mut self.input);
+                                }
+
+                                self.tick_accumulator += dt;
+                                while self.tick_accumulator >= TICK_RATE {
+                                    self.tick_physics();
+                                    self.tick_accumulator -= TICK_RATE;
+                                }
+                            }
+
+                            let alpha = self.tick_accumulator / TICK_RATE;
+                            let interp_pos = self.prev_player_pos.lerp(self.player.position, alpha);
+                            let eye_pos = interp_pos + glam::Vec3::new(0.0, 1.62, 0.0);
+
+                            if !self.paused && !self.inventory_open && !self.chat.is_open() {
+                                let (yaw, pitch) = if let Some(r) = &self.renderer {
+                                    (r.camera_yaw(), r.camera_pitch())
+                                } else {
+                                    (self.player.yaw, self.player.pitch)
+                                };
+                                self.interaction.update_target(
+                                    eye_pos,
+                                    yaw,
+                                    pitch,
+                                    &self.chunk_store,
+                                );
+                            }
+
+                            let typed = self.input.drain_typed_chars();
+                            let backspace = self.input.backspace_pressed();
+                            let enter = self.input.enter_pressed();
+                            if let Some(msg) = self.chat.handle_key_input(&typed, backspace, enter)
+                            {
+                                self.send_chat_message(msg);
+                                self.apply_cursor_grab();
+                            }
+
+                            let mut close_inventory = false;
+                            let mut pause_action = PauseAction::None;
+
+                            if let (Some(renderer), Some(window)) =
+                                (&mut self.renderer, &self.window)
+                            {
+                                renderer.sync_camera_to_player(
+                                    eye_pos,
+                                    renderer.camera_yaw(),
+                                    renderer.camera_pitch(),
+                                );
+
+                                let sw = renderer.screen_width() as f32;
+                                let sh = renderer.screen_height() as f32;
+                                let gs = hud::gui_scale(sw, sh);
+
+                                let mut elements: Vec<MenuElement> = Vec::new();
+                                let hide_cursor = !self.paused
+                                    && !self.inventory_open
+                                    && !self.chat.is_open()
+                                    && self.input.is_cursor_captured();
+
+                                let fps = if self.show_debug {
+                                    Some(self.fps_counter.display_fps)
+                                } else {
+                                    None
+                                };
+                                hud::build_hud(
+                                    &mut elements,
+                                    sw,
+                                    sh,
+                                    self.input.selected_slot(),
+                                    self.player.health,
+                                    self.player.food,
+                                    fps,
+                                );
+
+                                if self.paused {
+                                    let cursor = self.input.cursor_pos();
+                                    let clicked = self.input.left_just_pressed();
+                                    pause_action = pause::build_pause_menu(
+                                        &mut elements,
+                                        sw,
+                                        sh,
+                                        cursor,
+                                        clicked,
+                                        gs,
+                                    );
+                                    self.input.clear_click_events();
+                                }
+
+                                if self.inventory_open {
+                                    let cursor = self.input.cursor_pos();
+                                    let clicked = self.input.left_just_pressed();
+                                    close_inventory = crate::ui::inventory::build_inventory(
+                                        &mut elements,
+                                        sw,
+                                        sh,
+                                        cursor,
+                                        clicked,
+                                        &self.player.inventory,
+                                        gs,
+                                    );
+                                    self.input.clear_click_events();
+                                }
+
+                                self.chat.build(&mut elements, sh, gs, &|t, s| {
+                                    renderer.menu_text_width(t, s)
+                                });
+
+                                let swing_progress = self
+                                    .interaction
+                                    .get_swing_progress(self.tick_accumulator / TICK_RATE);
+                                let destroy_info = self.interaction.destroy_stage();
+
+                                let sky = crate::renderer::SkyState {
+                                    day_time: self.sky_state.day_time,
+                                    game_time: self.sky_state.game_time,
+                                    rain_level: self.sky_state.rain_level,
+                                };
+                                if let Err(e) = renderer.render_world(
+                                    window,
+                                    hide_cursor,
+                                    elements,
+                                    swing_progress,
+                                    destroy_info,
+                                    sky,
+                                ) {
+                                    log::error!("Render error: {e}");
+                                }
+                            }
+
+                            if close_inventory {
+                                self.inventory_open = false;
+                                self.apply_cursor_grab();
+                            }
+
+                            match pause_action {
+                                PauseAction::Resume => {
+                                    self.paused = false;
+                                    self.apply_cursor_grab();
+                                }
+                                PauseAction::Disconnect => {
+                                    self.disconnect_to_menu(None);
+                                }
+                                PauseAction::None => {}
+                            }
                         }
                     }
-                }
                 } // 'redraw
 
                 if let Some(window) = &self.window {
@@ -921,7 +1007,11 @@ impl ApplicationHandler for App {
         event: DeviceEvent,
     ) {
         if let DeviceEvent::MouseMotion { delta } = event {
-            if self.input.is_cursor_captured() && !self.paused && !self.inventory_open && !self.chat.is_open() {
+            if self.input.is_cursor_captured()
+                && !self.paused
+                && !self.inventory_open
+                && !self.chat.is_open()
+            {
                 self.input.on_mouse_motion(delta);
             }
         }

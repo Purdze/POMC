@@ -11,7 +11,9 @@ use crate::renderer::pipelines::menu_overlay::{
 
 use super::auth::{self, AuthAccount, AuthStatus};
 use super::common::{self, WHITE};
-use super::server_list::{is_valid_address, ping_all_servers, PingResults, PingState, ServerEntry, ServerList};
+use super::server_list::{
+    is_valid_address, ping_all_servers, PingResults, PingState, ServerEntry, ServerList,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PanoramaTheme {
@@ -126,7 +128,8 @@ impl MainMenu {
         ping_all_servers(&rt, &server_list.servers, &ping_results);
         let cache_file = game_dir.join("auth_cache.json");
         let auth_account = auth::try_restore_cached(&cache_file);
-        let username = auth_account.as_ref()
+        let username = auth_account
+            .as_ref()
             .map(|a| a.username.clone())
             .unwrap_or_else(|| "Steve".into());
         Self {
@@ -173,13 +176,23 @@ impl MainMenu {
     ) -> MainMenuResult {
         match self.screen {
             Screen::Main => self.build_main(screen_w, screen_h, input, text_width_fn),
-            Screen::AuthPrompt { .. } => self.build_auth_prompt(screen_w, screen_h, input, &text_width_fn),
+            Screen::AuthPrompt { .. } => {
+                self.build_auth_prompt(screen_w, screen_h, input, &text_width_fn)
+            }
             Screen::Auth { .. } => self.build_auth(screen_w, screen_h, input, &text_width_fn),
             Screen::ServerList => self.build_server_list(screen_w, screen_h, input, &text_width_fn),
-            Screen::ConfirmDelete(_) => self.build_confirm_delete(screen_w, screen_h, input, &text_width_fn),
-            Screen::DirectConnect => self.build_direct_connect(screen_w, screen_h, input, &text_width_fn),
-            Screen::AddServer | Screen::EditServer(_) => self.build_edit_server(screen_w, screen_h, input, &text_width_fn),
-            Screen::Disconnected(_) => self.build_disconnected(screen_w, screen_h, input, &text_width_fn),
+            Screen::ConfirmDelete(_) => {
+                self.build_confirm_delete(screen_w, screen_h, input, &text_width_fn)
+            }
+            Screen::DirectConnect => {
+                self.build_direct_connect(screen_w, screen_h, input, &text_width_fn)
+            }
+            Screen::AddServer | Screen::EditServer(_) => {
+                self.build_edit_server(screen_w, screen_h, input, &text_width_fn)
+            }
+            Screen::Disconnected(_) => {
+                self.build_disconnected(screen_w, screen_h, input, &text_width_fn)
+            }
         }
     }
 
@@ -211,8 +224,14 @@ impl MainMenu {
             id: u8,
         }
         let buttons = [
-            BtnDef { label: "Singleplayer", id: 0 },
-            BtnDef { label: "Multiplayer", id: 1 },
+            BtnDef {
+                label: "Singleplayer",
+                id: 0,
+            },
+            BtnDef {
+                label: "Multiplayer",
+                id: 1,
+            },
         ];
 
         let title_size = 32.0 * gs;
@@ -231,22 +250,31 @@ impl MainMenu {
         let mut any_hovered = false;
 
         elements.push(MenuElement::Text {
-            x: screen_w / 2.0, y: start_y,
-            text: "Java Edition".into(), scale: subtitle_size,
-            color: [0.39, 0.63, 1.0, 0.45], centered: true,
+            x: screen_w / 2.0,
+            y: start_y,
+            text: "Java Edition".into(),
+            scale: subtitle_size,
+            color: [0.39, 0.63, 1.0, 0.45],
+            centered: true,
         });
         elements.push(MenuElement::Text {
-            x: screen_w / 2.0, y: start_y + subtitle_size + subtitle_gap,
-            text: "POMC".into(), scale: title_size,
-            color: [0.86, 0.92, 1.0, 0.95], centered: true,
+            x: screen_w / 2.0,
+            y: start_y + subtitle_size + subtitle_gap,
+            text: "POMC".into(),
+            scale: title_size,
+            color: [0.86, 0.92, 1.0, 0.95],
+            centered: true,
         });
 
         let div_y = start_y + subtitle_size + subtitle_gap + title_size + divider_gap / 2.0;
         let div_margin = 30.0 * gs;
         elements.push(MenuElement::Rect {
-            x: start_x + div_margin, y: div_y,
-            w: panel_w - div_margin * 2.0, h: 1.0,
-            corner_radius: 0.0, color: [0.39, 0.63, 1.0, 0.2],
+            x: start_x + div_margin,
+            y: div_y,
+            w: panel_w - div_margin * 2.0,
+            h: 1.0,
+            corner_radius: 0.0,
+            color: [0.39, 0.63, 1.0, 0.2],
         });
 
         let btns_y = start_y + title_block_h;
@@ -257,21 +285,34 @@ impl MainMenu {
             any_hovered |= hovered;
 
             elements.push(MenuElement::Rect {
-                x: rect[0], y: rect[1], w: rect[2], h: rect[3],
+                x: rect[0],
+                y: rect[1],
+                w: rect[2],
+                h: rect[3],
                 corner_radius: radius,
                 color: if hovered { glass_hover } else { glass_normal },
             });
             let bar_margin = btn_h * 0.15;
             elements.push(MenuElement::Rect {
-                x: rect[0], y: rect[1] + bar_margin,
-                w: accent_w, h: rect[3] - bar_margin * 2.0,
+                x: rect[0],
+                y: rect[1] + bar_margin,
+                w: accent_w,
+                h: rect[3] - bar_margin * 2.0,
                 corner_radius: accent_w * 0.5,
-                color: [accent_blue[0], accent_blue[1], accent_blue[2], if hovered { 0.7 } else { 0.2 }],
+                color: [
+                    accent_blue[0],
+                    accent_blue[1],
+                    accent_blue[2],
+                    if hovered { 0.7 } else { 0.2 },
+                ],
             });
             elements.push(MenuElement::Text {
-                x: rect[0] + pad_x, y: rect[1] + (rect[3] - font_size) / 2.0,
-                text: def.label.into(), scale: font_size,
-                color: if hovered { text_hover } else { text_normal }, centered: false,
+                x: rect[0] + pad_x,
+                y: rect[1] + (rect[3] - font_size) / 2.0,
+                text: def.label.into(),
+                scale: font_size,
+                color: if hovered { text_hover } else { text_normal },
+                centered: false,
             });
 
             if clicked && hovered {
@@ -306,7 +347,10 @@ impl MainMenu {
             (corner_pad, ICON_USER),
             (corner_pad + corner_size + corner_gap, ICON_LINK),
             (screen_w - corner_pad - corner_size, ICON_GEAR),
-            (screen_w - corner_pad - corner_size * 2.0 - corner_gap, ICON_PAINTBRUSH),
+            (
+                screen_w - corner_pad - corner_size * 2.0 - corner_gap,
+                ICON_PAINTBRUSH,
+            ),
         ];
 
         for &(bx, icon) in &corner_icons {
@@ -315,13 +359,18 @@ impl MainMenu {
             any_hovered |= hovered;
 
             elements.push(MenuElement::Rect {
-                x: bx, y: corner_pad, w: corner_size, h: corner_size,
+                x: bx,
+                y: corner_pad,
+                w: corner_size,
+                h: corner_size,
                 corner_radius,
                 color: if hovered { glass_hover } else { glass_normal },
             });
             elements.push(MenuElement::Icon {
-                x: bx + corner_size / 2.0, y: corner_pad + corner_size / 2.0,
-                icon, scale: icon_scale,
+                x: bx + corner_size / 2.0,
+                y: corner_pad + corner_size / 2.0,
+                icon,
+                scale: icon_scale,
                 color: if hovered { text_hover } else { text_normal },
             });
 
@@ -329,16 +378,22 @@ impl MainMenu {
                 match icon {
                     ICON_USER => {
                         if self.auth_account.is_none() {
-                            self.screen = Screen::AuthPrompt { pending: AuthPending::None };
+                            self.screen = Screen::AuthPrompt {
+                                pending: AuthPending::None,
+                            };
                         }
                     }
                     ICON_LINK => {
                         self.links_open = !self.links_open;
-                        if self.links_open { self.theme_open = false; }
+                        if self.links_open {
+                            self.theme_open = false;
+                        }
                     }
                     ICON_PAINTBRUSH => {
                         self.theme_open = !self.theme_open;
-                        if self.theme_open { self.links_open = false; }
+                        if self.theme_open {
+                            self.links_open = false;
+                        }
                     }
                     _ => {}
                 }
@@ -351,27 +406,43 @@ impl MainMenu {
             let drop_y = corner_pad + corner_size + 2.0 * gs;
             let drop_w = 140.0 * gs;
             let links: [(&str, char, &str); 3] = [
-                ("Website",  ICON_GLOBE,   "https://website.com"),
-                ("Discord",  ICON_COMMENT, "https://discord.gg"),
-                ("GitHub",   ICON_CODE,    "https://github.com"),
+                ("Website", ICON_GLOBE, "https://website.com"),
+                ("Discord", ICON_COMMENT, "https://discord.gg"),
+                ("GitHub", ICON_CODE, "https://github.com"),
             ];
             let total_h = links.len() as f32 * drop_style.item_h;
             drop_style.draw_background(&mut elements, drop_x, drop_y, drop_w, total_h);
             let mut clicked_inside = false;
             for (i, (label, icon, url)) in links.iter().enumerate() {
                 let item = drop_style.draw_item(
-                    &mut elements, &mut any_hovered, cursor,
-                    drop_x, drop_y, drop_w, i, links.len(),
-                    label, Some((*icon, [0.6, 0.7, 0.85, 0.8])),
-                    text_hover, text_normal,
+                    &mut elements,
+                    &mut any_hovered,
+                    cursor,
+                    drop_x,
+                    drop_y,
+                    drop_w,
+                    i,
+                    links.len(),
+                    label,
+                    Some((*icon, [0.6, 0.7, 0.85, 0.8])),
+                    text_hover,
+                    text_normal,
                 );
-                if item { clicked_inside = true; }
+                if item {
+                    clicked_inside = true;
+                }
                 if clicked && item {
                     let _ = open::that(url);
                     self.links_open = false;
                 }
             }
-            if dismiss_dropdown(cursor, clicked, clicked_inside, [drop_x, drop_y, drop_w, total_h], [anchor_x, corner_pad, corner_size, corner_size]) {
+            if dismiss_dropdown(
+                cursor,
+                clicked,
+                clicked_inside,
+                [drop_x, drop_y, drop_w, total_h],
+                [anchor_x, corner_pad, corner_size, corner_size],
+            ) {
                 self.links_open = false;
             }
         }
@@ -390,25 +461,52 @@ impl MainMenu {
             let mut clicked_inside = false;
             for (i, (label, theme_val)) in themes.iter().enumerate() {
                 let selected = self.theme == *theme_val;
-                let check = if selected { Some((ICON_CHECK, [0.39, 0.71, 1.0, 0.9])) } else { None };
-                let text_col = if selected { [0.39, 0.71, 1.0, 0.9] } else { text_normal };
+                let check = if selected {
+                    Some((ICON_CHECK, [0.39, 0.71, 1.0, 0.9]))
+                } else {
+                    None
+                };
+                let text_col = if selected {
+                    [0.39, 0.71, 1.0, 0.9]
+                } else {
+                    text_normal
+                };
                 let item = drop_style.draw_item(
-                    &mut elements, &mut any_hovered, cursor,
-                    drop_x, drop_y, drop_w, i, themes.len(),
-                    label, check, text_hover, text_col,
+                    &mut elements,
+                    &mut any_hovered,
+                    cursor,
+                    drop_x,
+                    drop_y,
+                    drop_w,
+                    i,
+                    themes.len(),
+                    label,
+                    check,
+                    text_hover,
+                    text_col,
                 );
-                if item { clicked_inside = true; }
+                if item {
+                    clicked_inside = true;
+                }
                 if clicked && item && !selected {
                     self.transition = Some(ThemeTransition {
-                        start: Instant::now(), target: *theme_val,
-                        reloaded: false, open_start: None,
+                        start: Instant::now(),
+                        target: *theme_val,
+                        reloaded: false,
+                        open_start: None,
                     });
                     self.theme_open = false;
                 } else if clicked && item {
                     self.theme_open = false;
                 }
             }
-            if dismiss_dropdown(cursor, clicked, clicked_inside, [drop_x, drop_y, drop_w, total_h], [anchor_x, corner_pad, corner_size, corner_size]) {
+            if dismiss_dropdown(
+                cursor,
+                clicked,
+                clicked_inside,
+                [drop_x, drop_y, drop_w, total_h],
+                [anchor_x, corner_pad, corner_size, corner_size],
+            ) {
                 self.theme_open = false;
             }
         }
@@ -418,16 +516,22 @@ impl MainMenu {
         let footer_y = screen_h - footer_pad - footer_size;
         let footer_col = [0.39, 0.55, 0.78, 0.3];
         elements.push(MenuElement::Text {
-            x: footer_pad, y: footer_y,
-            text: "1.21.11".into(), scale: footer_size,
-            color: footer_col, centered: false,
+            x: footer_pad,
+            y: footer_y,
+            text: "1.21.11".into(),
+            scale: footer_size,
+            color: footer_col,
+            centered: false,
         });
         let copy = "POMC early dev";
         let copy_w = text_width_fn(copy, footer_size);
         elements.push(MenuElement::Text {
-            x: screen_w - footer_pad - copy_w, y: footer_y,
-            text: copy.into(), scale: footer_size,
-            color: footer_col, centered: false,
+            x: screen_w - footer_pad - copy_w,
+            y: footer_y,
+            text: copy.into(),
+            scale: footer_size,
+            color: footer_col,
+            centered: false,
         });
 
         if let Some(ref mut tr) = self.transition {
@@ -437,14 +541,22 @@ impl MainMenu {
                 self.theme = tr.target;
                 action = MenuAction::ChangeTheme(tr.target);
             }
-            let open_t = tr.open_start
+            let open_t = tr
+                .open_start
                 .map(|s| (s.elapsed().as_secs_f32() / OPEN_DURATION).min(1.0))
                 .unwrap_or(0.0);
             emit_transition_strips(&mut elements, screen_w, screen_h, close_t, open_t);
-            if open_t >= 1.0 { self.transition = None; }
+            if open_t >= 1.0 {
+                self.transition = None;
+            }
         }
 
-        MainMenuResult { elements, action, cursor_pointer: any_hovered, blur: 1.0 }
+        MainMenuResult {
+            elements,
+            action,
+            cursor_pointer: any_hovered,
+            blur: 1.0,
+        }
     }
 
     pub fn auth_account(&self) -> Option<&AuthAccount> {
@@ -494,16 +606,24 @@ impl MainMenu {
         let mut any_hovered = false;
 
         elements.push(MenuElement::Text {
-            x: cx, y, text: "Sign In Required".into(),
-            scale: title_size, color: WHITE, centered: true,
+            x: cx,
+            y,
+            text: "Sign In Required".into(),
+            scale: title_size,
+            color: WHITE,
+            centered: true,
         });
         y += title_size + gap * 2.0;
 
         for line in &lines {
             if !line.is_empty() {
                 elements.push(MenuElement::Text {
-                    x: cx, y, text: (*line).into(),
-                    scale: body_size, color: dim, centered: true,
+                    x: cx,
+                    y,
+                    text: (*line).into(),
+                    scale: body_size,
+                    color: dim,
+                    centered: true,
                 });
             }
             y += body_size + 3.0 * gs;
@@ -511,24 +631,49 @@ impl MainMenu {
         y += gap;
 
         if push_button(
-            &mut elements, &mut any_hovered,
-            input.cursor, cx - btn_w / 2.0, y, btn_w, btn_h,
-            gs, "Sign in with Microsoft", true,
-        ) && input.clicked {
+            &mut elements,
+            &mut any_hovered,
+            input.cursor,
+            cx - btn_w / 2.0,
+            y,
+            btn_w,
+            btn_h,
+            gs,
+            "Sign in with Microsoft",
+            true,
+        ) && input.clicked
+        {
             self.screen = Screen::Auth { pending };
-            auth::spawn_auth(&self.rt, Arc::clone(&self.auth_status), self.cache_file.clone());
+            auth::spawn_auth(
+                &self.rt,
+                Arc::clone(&self.auth_status),
+                self.cache_file.clone(),
+            );
         }
         y += btn_h + gap;
 
         if push_button(
-            &mut elements, &mut any_hovered,
-            input.cursor, cx - btn_w / 2.0, y, btn_w, btn_h,
-            gs, "Back", true,
-        ) && input.clicked {
+            &mut elements,
+            &mut any_hovered,
+            input.cursor,
+            cx - btn_w / 2.0,
+            y,
+            btn_w,
+            btn_h,
+            gs,
+            "Back",
+            true,
+        ) && input.clicked
+        {
             self.screen = Screen::Main;
         }
 
-        MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn cancel_auth(&mut self) {
@@ -563,9 +708,12 @@ impl MainMenu {
         match &*status {
             AuthStatus::Idle | AuthStatus::OpeningBrowser => {
                 elements.push(MenuElement::Text {
-                    x: cx, y: (screen_h - body_size) / 2.0,
+                    x: cx,
+                    y: (screen_h - body_size) / 2.0,
                     text: "Opening browser...".into(),
-                    scale: body_size, color: status_color, centered: true,
+                    scale: body_size,
+                    color: status_color,
+                    centered: true,
                 });
             }
             AuthStatus::WaitingForBrowser => {
@@ -575,33 +723,57 @@ impl MainMenu {
                 let mut y = (screen_h - total_h) / 2.0;
 
                 elements.push(MenuElement::Text {
-                    x: cx, y, text: "Sign in with Microsoft".into(),
-                    scale: title_size, color: WHITE, centered: true,
+                    x: cx,
+                    y,
+                    text: "Sign in with Microsoft".into(),
+                    scale: title_size,
+                    color: WHITE,
+                    centered: true,
                 });
                 y += title_size + gap;
 
                 elements.push(MenuElement::Text {
-                    x: cx, y, text: "Complete sign-in in your browser...".into(),
-                    scale: body_size, color: status_color, centered: true,
+                    x: cx,
+                    y,
+                    text: "Complete sign-in in your browser...".into(),
+                    scale: body_size,
+                    color: status_color,
+                    centered: true,
                 });
                 y += body_size + gap * 2.0;
 
                 if push_button(
-                    &mut elements, &mut any_hovered,
-                    input.cursor, cx - btn_w / 2.0, y, btn_w, btn_h,
-                    gs, "Cancel", true,
-                ) && input.clicked {
+                    &mut elements,
+                    &mut any_hovered,
+                    input.cursor,
+                    cx - btn_w / 2.0,
+                    y,
+                    btn_w,
+                    btn_h,
+                    gs,
+                    "Cancel",
+                    true,
+                ) && input.clicked
+                {
                     self.cancel_auth();
                     return empty_result(2.0);
                 }
 
-                return MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 };
+                return MainMenuResult {
+                    elements,
+                    action: MenuAction::None,
+                    cursor_pointer: any_hovered,
+                    blur: 2.0,
+                };
             }
             AuthStatus::Exchanging => {
                 elements.push(MenuElement::Text {
-                    x: cx, y: (screen_h - body_size) / 2.0,
+                    x: cx,
+                    y: (screen_h - body_size) / 2.0,
                     text: "Logging in...".into(),
-                    scale: body_size, color: status_color, centered: true,
+                    scale: body_size,
+                    color: status_color,
+                    centered: true,
                 });
             }
             AuthStatus::Success(_) => {
@@ -630,41 +802,75 @@ impl MainMenu {
                 let mut y = (screen_h - total_h) / 2.0;
 
                 elements.push(MenuElement::Text {
-                    x: cx, y, text: "Authentication Failed".into(),
-                    scale: title_size, color: [1.0, 0.4, 0.4, 1.0], centered: true,
+                    x: cx,
+                    y,
+                    text: "Authentication Failed".into(),
+                    scale: title_size,
+                    color: [1.0, 0.4, 0.4, 1.0],
+                    centered: true,
                 });
                 y += title_size + gap;
 
                 elements.push(MenuElement::Text {
-                    x: cx, y, text: err,
-                    scale: body_size, color: [0.85, 0.85, 0.85, 0.9], centered: true,
+                    x: cx,
+                    y,
+                    text: err,
+                    scale: body_size,
+                    color: [0.85, 0.85, 0.85, 0.9],
+                    centered: true,
                 });
                 y += body_size + gap * 2.0;
 
                 if push_button(
-                    &mut elements, &mut any_hovered,
-                    input.cursor, cx - btn_w / 2.0, y, btn_w, btn_h,
-                    gs, "Back", true,
-                ) && input.clicked {
+                    &mut elements,
+                    &mut any_hovered,
+                    input.cursor,
+                    cx - btn_w / 2.0,
+                    y,
+                    btn_w,
+                    btn_h,
+                    gs,
+                    "Back",
+                    true,
+                ) && input.clicked
+                {
                     self.cancel_auth();
                     return empty_result(2.0);
                 }
 
-                return MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 };
+                return MainMenuResult {
+                    elements,
+                    action: MenuAction::None,
+                    cursor_pointer: any_hovered,
+                    blur: 2.0,
+                };
             }
         }
         drop(status);
 
         let btn_y = screen_h / 2.0 + gap * 2.0;
         if push_button(
-            &mut elements, &mut any_hovered,
-            input.cursor, cx - btn_w / 2.0, btn_y, btn_w, btn_h,
-            gs, "Cancel", true,
-        ) && input.clicked {
+            &mut elements,
+            &mut any_hovered,
+            input.cursor,
+            cx - btn_w / 2.0,
+            btn_y,
+            btn_w,
+            btn_h,
+            gs,
+            "Cancel",
+            true,
+        ) && input.clicked
+        {
             self.cancel_auth();
         }
 
-        MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn build_server_list(
@@ -701,13 +907,21 @@ impl MainMenu {
         }
         if input.escape {
             self.screen = Screen::Main;
-            return MainMenuResult { elements: Vec::new(), action: MenuAction::None, cursor_pointer: false, blur: 1.0 };
+            return MainMenuResult {
+                elements: Vec::new(),
+                action: MenuAction::None,
+                cursor_pointer: false,
+                blur: 1.0,
+            };
         }
 
         elements.push(MenuElement::Text {
-            x: screen_w / 2.0, y: (header_h - fs) / 2.0,
-            text: "Multiplayer".into(), scale: fs,
-            color: WHITE, centered: true,
+            x: screen_w / 2.0,
+            y: (header_h - fs) / 2.0,
+            text: "Multiplayer".into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
         });
 
         push_separator(&mut elements, 0.0, header_h, screen_w, sep_h);
@@ -715,7 +929,8 @@ impl MainMenu {
 
         let total_content = self.server_list.servers.len() as f32 * entry_h;
         let max_scroll = (total_content - list_h).max(0.0);
-        self.scroll_offset = (self.scroll_offset - input.scroll_delta * entry_h).clamp(0.0, max_scroll);
+        self.scroll_offset =
+            (self.scroll_offset - input.scroll_delta * entry_h).clamp(0.0, max_scroll);
 
         let list_cx = screen_w / 2.0;
         let list_left = list_cx - row_w / 2.0;
@@ -723,18 +938,28 @@ impl MainMenu {
 
         for (i, server) in self.server_list.servers.iter().enumerate() {
             let ey = list_top + i as f32 * entry_h - self.scroll_offset;
-            if ey + entry_h < list_top || ey > list_bottom { continue; }
+            if ey + entry_h < list_top || ey > list_bottom {
+                continue;
+            }
 
             let selected = self.selected_server == Some(i);
             let rect = [list_left, ey, row_w, entry_h];
-            let hovered = common::hit_test(cursor, rect) && cursor.1 >= list_top && cursor.1 <= list_bottom;
+            let hovered =
+                common::hit_test(cursor, rect) && cursor.1 >= list_top && cursor.1 <= list_bottom;
             any_hovered |= hovered;
 
             if selected || hovered {
                 elements.push(MenuElement::Rect {
-                    x: rect[0], y: rect[1], w: rect[2], h: rect[3],
+                    x: rect[0],
+                    y: rect[1],
+                    w: rect[2],
+                    h: rect[3],
                     corner_radius: 0.0,
-                    color: if selected { [1.0, 1.0, 1.0, 0.12] } else { [1.0, 1.0, 1.0, 0.06] },
+                    color: if selected {
+                        [1.0, 1.0, 1.0, 0.12]
+                    } else {
+                        [1.0, 1.0, 1.0, 0.06]
+                    },
                 });
             }
             if selected {
@@ -744,13 +969,26 @@ impl MainMenu {
             let text_x = rect[0] + 3.0 * gs;
             let name_y = rect[1] + 1.0 * gs;
             elements.push(MenuElement::Text {
-                x: text_x, y: name_y,
-                text: server.name.clone(), scale: fs,
-                color: WHITE, centered: false,
+                x: text_x,
+                y: name_y,
+                text: server.name.clone(),
+                scale: fs,
+                color: WHITE,
+                centered: false,
             });
 
             let motd_y = name_y + fs + 3.0 * gs;
-            push_server_status(&mut elements, &ping_results, &server.address, text_x, motd_y, &rect, fs, gs, text_width_fn);
+            push_server_status(
+                &mut elements,
+                &ping_results,
+                &server.address,
+                text_x,
+                motd_y,
+                &rect,
+                fs,
+                gs,
+                text_width_fn,
+            );
 
             if clicked && hovered {
                 let now = Instant::now();
@@ -772,9 +1010,12 @@ impl MainMenu {
 
         if self.server_list.servers.is_empty() {
             elements.push(MenuElement::Text {
-                x: screen_w / 2.0, y: list_top + 40.0 * gs,
-                text: "No servers added".into(), scale: fs,
-                color: COL_DIM, centered: true,
+                x: screen_w / 2.0,
+                y: list_top + 40.0 * gs,
+                text: "No servers added".into(),
+                scale: fs,
+                color: COL_DIM,
+                centered: true,
             });
         }
 
@@ -784,7 +1025,19 @@ impl MainMenu {
         let row1_w = top_w * 3.0 + gap * 2.0;
         let row1_x = (screen_w - row1_w) / 2.0;
 
-        if push_button(&mut elements, &mut any_hovered, cursor, row1_x, footer_y, top_w, btn_h, gs, "Join Server", has_sel) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row1_x,
+            footer_y,
+            top_w,
+            btn_h,
+            gs,
+            "Join Server",
+            has_sel,
+        ) && clicked
+        {
             if let Some(idx) = self.selected_server {
                 if let Some(server) = self.server_list.servers.get(idx) {
                     action = MenuAction::Connect {
@@ -794,13 +1047,37 @@ impl MainMenu {
                 }
             }
         }
-        if push_button(&mut elements, &mut any_hovered, cursor, row1_x + top_w + gap, footer_y, top_w, btn_h, gs, "Direct Connect", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row1_x + top_w + gap,
+            footer_y,
+            top_w,
+            btn_h,
+            gs,
+            "Direct Connect",
+            true,
+        ) && clicked
+        {
             self.edit_address = self.last_mp_ip.clone();
             self.focused_field = Some(0);
             self.cursor_blink = Instant::now();
             self.screen = Screen::DirectConnect;
         }
-        if push_button(&mut elements, &mut any_hovered, cursor, row1_x + (top_w + gap) * 2.0, footer_y, top_w, btn_h, gs, "Add Server", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row1_x + (top_w + gap) * 2.0,
+            footer_y,
+            top_w,
+            btn_h,
+            gs,
+            "Add Server",
+            true,
+        ) && clicked
+        {
             self.edit_name.clear();
             self.edit_address.clear();
             self.focused_field = Some(0);
@@ -812,7 +1089,19 @@ impl MainMenu {
         let row2_w = bot_w * 4.0 + gap * 3.0;
         let row2_x = (screen_w - row2_w) / 2.0;
 
-        if push_button(&mut elements, &mut any_hovered, cursor, row2_x, row2_y, bot_w, btn_h, gs, "Edit", has_sel) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row2_x,
+            row2_y,
+            bot_w,
+            btn_h,
+            gs,
+            "Edit",
+            has_sel,
+        ) && clicked
+        {
             if let Some(idx) = self.selected_server {
                 if let Some(server) = self.server_list.servers.get(idx) {
                     self.edit_name = server.name.clone();
@@ -823,20 +1112,61 @@ impl MainMenu {
                 }
             }
         }
-        if push_button(&mut elements, &mut any_hovered, cursor, row2_x + bot_w + gap, row2_y, bot_w, btn_h, gs, "Delete", has_sel) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row2_x + bot_w + gap,
+            row2_y,
+            bot_w,
+            btn_h,
+            gs,
+            "Delete",
+            has_sel,
+        ) && clicked
+        {
             if let Some(idx) = self.selected_server {
                 self.screen = Screen::ConfirmDelete(idx);
             }
         }
-        if push_button(&mut elements, &mut any_hovered, cursor, row2_x + (bot_w + gap) * 2.0, row2_y, bot_w, btn_h, gs, "Refresh", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row2_x + (bot_w + gap) * 2.0,
+            row2_y,
+            bot_w,
+            btn_h,
+            gs,
+            "Refresh",
+            true,
+        ) && clicked
+        {
             self.refresh_servers();
         }
-        if push_button(&mut elements, &mut any_hovered, cursor, row2_x + (bot_w + gap) * 3.0, row2_y, bot_w, btn_h, gs, "Back", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            row2_x + (bot_w + gap) * 3.0,
+            row2_y,
+            bot_w,
+            btn_h,
+            gs,
+            "Back",
+            true,
+        ) && clicked
+        {
             self.screen = Screen::Main;
         }
 
         push_bottom_text(&mut elements, screen_w, screen_h, gs, text_width_fn);
-        MainMenuResult { elements, action, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn build_confirm_delete(
@@ -863,7 +1193,10 @@ impl MainMenu {
             return empty_result(2.0);
         }
 
-        let warning = self.server_list.servers.get(idx)
+        let warning = self
+            .server_list
+            .servers
+            .get(idx)
             .map(|s| format!("'{}' will be lost forever! (A long time!)", s.name))
             .unwrap_or_default();
 
@@ -872,30 +1205,65 @@ impl MainMenu {
 
         let cy = screen_h * 0.3;
         elements.push(MenuElement::Text {
-            x: screen_w / 2.0, y: cy,
-            text: "Are you sure?".into(), scale: fs,
-            color: WHITE, centered: true,
+            x: screen_w / 2.0,
+            y: cy,
+            text: "Are you sure?".into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
         });
         elements.push(MenuElement::Text {
-            x: screen_w / 2.0, y: cy + fs + 12.0 * gs,
-            text: warning, scale: fs,
-            color: COL_DIM, centered: true,
+            x: screen_w / 2.0,
+            y: cy + fs + 12.0 * gs,
+            text: warning,
+            scale: fs,
+            color: COL_DIM,
+            centered: true,
         });
 
         let btn_x = (screen_w - form_w) / 2.0;
         let btn_y = cy + fs * 2.0 + 44.0 * gs;
 
-        if push_button(&mut elements, &mut any_hovered, cursor, btn_x, btn_y, form_w, btn_h, gs, "Delete", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            btn_x,
+            btn_y,
+            form_w,
+            btn_h,
+            gs,
+            "Delete",
+            true,
+        ) && clicked
+        {
             self.server_list.remove(idx);
             self.selected_server = None;
             self.screen = Screen::ServerList;
         }
-        if push_button(&mut elements, &mut any_hovered, cursor, btn_x, btn_y + btn_h + gap, form_w, btn_h, gs, "Cancel", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            btn_x,
+            btn_y + btn_h + gap,
+            form_w,
+            btn_h,
+            gs,
+            "Cancel",
+            true,
+        ) && clicked
+        {
             self.screen = Screen::ServerList;
         }
 
         push_bottom_text(&mut elements, screen_w, screen_h, gs, text_width_fn);
-        MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn build_direct_connect(
@@ -930,19 +1298,38 @@ impl MainMenu {
         let mut y = 20.0 * gs;
 
         elements.push(MenuElement::Text {
-            x: cx, y, text: "Direct Connect".into(), scale: fs,
-            color: WHITE, centered: true,
+            x: cx,
+            y,
+            text: "Direct Connect".into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
         });
         y += fs + 40.0 * gs;
 
         elements.push(MenuElement::Text {
-            x: form_x, y, text: "Server Address".into(), scale: fs,
-            color: COL_DIM, centered: false,
+            x: form_x,
+            y,
+            text: "Server Address".into(),
+            scale: fs,
+            color: COL_DIM,
+            centered: false,
         });
         y += fs + 4.0 * gs;
 
-        push_text_field(&mut elements, form_x, y, form_w, field_h, fs, gs,
-            &self.edit_address, self.focused_field == Some(0), &self.cursor_blink, text_width_fn);
+        push_text_field(
+            &mut elements,
+            form_x,
+            y,
+            form_w,
+            field_h,
+            fs,
+            gs,
+            &self.edit_address,
+            self.focused_field == Some(0),
+            &self.cursor_blink,
+            text_width_fn,
+        );
         if clicked && common::hit_test(cursor, [form_x, y, form_w, field_h]) {
             self.focused_field = Some(0);
             self.cursor_blink = Instant::now();
@@ -952,7 +1339,20 @@ impl MainMenu {
         let valid = is_valid_address(&self.edit_address);
         let enter_submit = input.enter && valid;
 
-        if (push_button(&mut elements, &mut any_hovered, cursor, form_x, y, form_w, btn_h, gs, "Join Server", valid) && clicked) || enter_submit {
+        if (push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            form_x,
+            y,
+            form_w,
+            btn_h,
+            gs,
+            "Join Server",
+            valid,
+        ) && clicked)
+            || enter_submit
+        {
             self.last_mp_ip = self.edit_address.clone();
             action = MenuAction::Connect {
                 server: self.edit_address.clone(),
@@ -960,12 +1360,29 @@ impl MainMenu {
             };
         }
         y += btn_h + gap;
-        if push_button(&mut elements, &mut any_hovered, cursor, form_x, y, form_w, btn_h, gs, "Cancel", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            form_x,
+            y,
+            form_w,
+            btn_h,
+            gs,
+            "Cancel",
+            true,
+        ) && clicked
+        {
             self.screen = Screen::ServerList;
         }
 
         push_bottom_text(&mut elements, screen_w, screen_h, gs, text_width_fn);
-        MainMenuResult { elements, action, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn build_edit_server(
@@ -999,19 +1416,38 @@ impl MainMenu {
         let mut y = 17.0 * gs;
 
         elements.push(MenuElement::Text {
-            x: cx, y, text: "Edit Server Info".into(), scale: fs,
-            color: WHITE, centered: true,
+            x: cx,
+            y,
+            text: "Edit Server Info".into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
         });
         y += fs + 20.0 * gs;
 
         elements.push(MenuElement::Text {
-            x: form_x, y, text: "Server Name".into(), scale: fs,
-            color: COL_DIM, centered: false,
+            x: form_x,
+            y,
+            text: "Server Name".into(),
+            scale: fs,
+            color: COL_DIM,
+            centered: false,
         });
         y += fs + 4.0 * gs;
 
-        push_text_field(&mut elements, form_x, y, form_w, field_h, fs, gs,
-            &self.edit_name, self.focused_field == Some(0), &self.cursor_blink, text_width_fn);
+        push_text_field(
+            &mut elements,
+            form_x,
+            y,
+            form_w,
+            field_h,
+            fs,
+            gs,
+            &self.edit_name,
+            self.focused_field == Some(0),
+            &self.cursor_blink,
+            text_width_fn,
+        );
         if clicked && common::hit_test(cursor, [form_x, y, form_w, field_h]) {
             self.focused_field = Some(0);
             self.cursor_blink = Instant::now();
@@ -1019,13 +1455,28 @@ impl MainMenu {
         y += field_h + 12.0 * gs;
 
         elements.push(MenuElement::Text {
-            x: form_x, y, text: "Server Address".into(), scale: fs,
-            color: COL_DIM, centered: false,
+            x: form_x,
+            y,
+            text: "Server Address".into(),
+            scale: fs,
+            color: COL_DIM,
+            centered: false,
         });
         y += fs + 4.0 * gs;
 
-        push_text_field(&mut elements, form_x, y, form_w, field_h, fs, gs,
-            &self.edit_address, self.focused_field == Some(1), &self.cursor_blink, text_width_fn);
+        push_text_field(
+            &mut elements,
+            form_x,
+            y,
+            form_w,
+            field_h,
+            fs,
+            gs,
+            &self.edit_address,
+            self.focused_field == Some(1),
+            &self.cursor_blink,
+            text_width_fn,
+        );
         if clicked && common::hit_test(cursor, [form_x, y, form_w, field_h]) {
             self.focused_field = Some(1);
             self.cursor_blink = Instant::now();
@@ -1033,14 +1484,29 @@ impl MainMenu {
         y += field_h + 28.0 * gs;
 
         let valid = is_valid_address(&self.edit_address);
-        if push_button(&mut elements, &mut any_hovered, cursor, form_x, y, form_w, btn_h, gs, "Done", valid) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            form_x,
+            y,
+            form_w,
+            btn_h,
+            gs,
+            "Done",
+            valid,
+        ) && clicked
+        {
             let name = if self.edit_name.is_empty() {
                 "Minecraft Server".to_string()
             } else {
                 self.edit_name.clone()
             };
             let addr = self.edit_address.clone();
-            let entry = ServerEntry { name, address: addr.clone() };
+            let entry = ServerEntry {
+                name,
+                address: addr.clone(),
+            };
             if let Screen::EditServer(idx) = self.screen {
                 self.server_list.update(idx, entry);
             } else {
@@ -1048,18 +1514,38 @@ impl MainMenu {
             }
             ping_all_servers(
                 &self.rt,
-                &[ServerEntry { name: String::new(), address: addr }],
+                &[ServerEntry {
+                    name: String::new(),
+                    address: addr,
+                }],
                 &self.ping_results,
             );
             self.screen = Screen::ServerList;
         }
         y += btn_h + gap;
-        if push_button(&mut elements, &mut any_hovered, cursor, form_x, y, form_w, btn_h, gs, "Cancel", true) && clicked {
+        if push_button(
+            &mut elements,
+            &mut any_hovered,
+            cursor,
+            form_x,
+            y,
+            form_w,
+            btn_h,
+            gs,
+            "Cancel",
+            true,
+        ) && clicked
+        {
             self.screen = Screen::ServerList;
         }
 
         push_bottom_text(&mut elements, screen_w, screen_h, gs, text_width_fn);
-        MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn handle_text_input(&mut self, input: &MenuInput, field_count: u8) {
@@ -1071,7 +1557,9 @@ impl MainMenu {
             self.cursor_blink = Instant::now();
         }
 
-        let Some(field_idx) = self.focused_field else { return };
+        let Some(field_idx) = self.focused_field else {
+            return;
+        };
         let is_edit_form = matches!(self.screen, Screen::AddServer | Screen::EditServer(_));
         let text = match (is_edit_form, field_idx) {
             (true, 0) => &mut self.edit_name,
@@ -1118,7 +1606,8 @@ impl MainMenu {
         let mut any_hovered = false;
 
         elements.push(MenuElement::Text {
-            x: cx, y: top_y,
+            x: cx,
+            y: top_y,
             text: "Disconnected".into(),
             scale: title_size,
             color: [1.0, 0.4, 0.4, 1.0],
@@ -1126,7 +1615,8 @@ impl MainMenu {
         });
 
         elements.push(MenuElement::Text {
-            x: cx, y: top_y + title_size + gap,
+            x: cx,
+            y: top_y + title_size + gap,
             text: reason,
             scale: body_size,
             color: [0.85, 0.85, 0.85, 0.9],
@@ -1135,14 +1625,27 @@ impl MainMenu {
 
         let btn_y = top_y + title_size + gap + body_size + gap * 2.0;
         if push_button(
-            &mut elements, &mut any_hovered,
-            input.cursor, cx - btn_w / 2.0, btn_y, btn_w, btn_h,
-            gs, "Back to Menu", true,
-        ) && input.clicked {
+            &mut elements,
+            &mut any_hovered,
+            input.cursor,
+            cx - btn_w / 2.0,
+            btn_y,
+            btn_w,
+            btn_h,
+            gs,
+            "Back to Menu",
+            true,
+        ) && input.clicked
+        {
             self.screen = Screen::Main;
         }
 
-        MainMenuResult { elements, action: MenuAction::None, cursor_pointer: any_hovered, blur: 2.0 }
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 
     fn refresh_servers(&self) {
@@ -1151,22 +1654,60 @@ impl MainMenu {
 }
 
 fn empty_result(blur: f32) -> MainMenuResult {
-    MainMenuResult { elements: Vec::new(), action: MenuAction::None, cursor_pointer: false, blur }
+    MainMenuResult {
+        elements: Vec::new(),
+        action: MenuAction::None,
+        cursor_pointer: false,
+        blur,
+    }
 }
 
 fn push_separator(elements: &mut Vec<MenuElement>, x: f32, y: f32, w: f32, h: f32) {
     elements.push(MenuElement::Rect {
-        x, y, w, h, corner_radius: 0.0, color: COL_SEP,
+        x,
+        y,
+        w,
+        h,
+        corner_radius: 0.0,
+        color: COL_SEP,
     });
 }
 
 fn push_outline(elements: &mut Vec<MenuElement>, x: f32, y: f32, w: f32, h: f32, gs: f32) {
     let t = 1.0 * gs;
     let c = WHITE;
-    elements.push(MenuElement::Rect { x, y, w, h: t, corner_radius: 0.0, color: c });
-    elements.push(MenuElement::Rect { x, y: y + h - t, w, h: t, corner_radius: 0.0, color: c });
-    elements.push(MenuElement::Rect { x, y: y + t, w: t, h: h - t * 2.0, corner_radius: 0.0, color: c });
-    elements.push(MenuElement::Rect { x: x + w - t, y: y + t, w: t, h: h - t * 2.0, corner_radius: 0.0, color: c });
+    elements.push(MenuElement::Rect {
+        x,
+        y,
+        w,
+        h: t,
+        corner_radius: 0.0,
+        color: c,
+    });
+    elements.push(MenuElement::Rect {
+        x,
+        y: y + h - t,
+        w,
+        h: t,
+        corner_radius: 0.0,
+        color: c,
+    });
+    elements.push(MenuElement::Rect {
+        x,
+        y: y + t,
+        w: t,
+        h: h - t * 2.0,
+        corner_radius: 0.0,
+        color: c,
+    });
+    elements.push(MenuElement::Rect {
+        x: x + w - t,
+        y: y + t,
+        w: t,
+        h: h - t * 2.0,
+        corner_radius: 0.0,
+        color: c,
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1174,12 +1715,26 @@ fn push_button(
     elements: &mut Vec<MenuElement>,
     any_hovered: &mut bool,
     cursor: (f32, f32),
-    x: f32, y: f32, w: f32, h: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
     gs: f32,
     label: &str,
     enabled: bool,
 ) -> bool {
-    let hovered = common::push_button(elements, cursor, x, y, w, h, gs, common::FONT_SIZE * gs, label, enabled);
+    let hovered = common::push_button(
+        elements,
+        cursor,
+        x,
+        y,
+        w,
+        h,
+        gs,
+        common::FONT_SIZE * gs,
+        label,
+        enabled,
+    );
     *any_hovered |= hovered;
     hovered
 }
@@ -1187,34 +1742,59 @@ fn push_button(
 #[allow(clippy::too_many_arguments)]
 fn push_text_field(
     elements: &mut Vec<MenuElement>,
-    x: f32, y: f32, w: f32, h: f32,
-    fs: f32, gs: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    fs: f32,
+    gs: f32,
     text: &str,
     focused: bool,
     cursor_blink: &Instant,
     text_width_fn: &dyn Fn(&str, f32) -> f32,
 ) {
-    let border = if focused { FIELD_BORDER_FOCUS } else { FIELD_BORDER };
+    let border = if focused {
+        FIELD_BORDER_FOCUS
+    } else {
+        FIELD_BORDER
+    };
     elements.push(MenuElement::Rect {
-        x: x - gs, y: y - gs, w: w + gs * 2.0, h: h + gs * 2.0,
-        corner_radius: 0.0, color: border,
+        x: x - gs,
+        y: y - gs,
+        w: w + gs * 2.0,
+        h: h + gs * 2.0,
+        corner_radius: 0.0,
+        color: border,
     });
     elements.push(MenuElement::Rect {
-        x, y, w, h, corner_radius: 0.0, color: FIELD_BG,
+        x,
+        y,
+        w,
+        h,
+        corner_radius: 0.0,
+        color: FIELD_BG,
     });
 
     let pad = 4.0 * gs;
     elements.push(MenuElement::Text {
-        x: x + pad, y: y + (h - fs) / 2.0,
-        text: text.into(), scale: fs,
-        color: WHITE, centered: false,
+        x: x + pad,
+        y: y + (h - fs) / 2.0,
+        text: text.into(),
+        scale: fs,
+        color: WHITE,
+        centered: false,
     });
 
     if focused {
         let text_w = text_width_fn(text, fs);
         common::push_cursor_blink(
-            elements, cursor_blink,
-            x + pad, y + (h - fs) / 2.0, gs, fs, text_w,
+            elements,
+            cursor_blink,
+            x + pad,
+            y + (h - fs) / 2.0,
+            gs,
+            fs,
+            text_w,
         );
     }
 }
@@ -1224,35 +1804,58 @@ fn push_server_status(
     elements: &mut Vec<MenuElement>,
     ping_results: &std::collections::HashMap<String, PingState>,
     address: &str,
-    text_x: f32, motd_y: f32,
+    text_x: f32,
+    motd_y: f32,
     entry_rect: &[f32; 4],
-    fs: f32, gs: f32,
+    fs: f32,
+    gs: f32,
     text_width_fn: &dyn Fn(&str, f32) -> f32,
 ) {
     let Some(state) = ping_results.get(address) else {
         elements.push(MenuElement::Text {
-            x: text_x, y: motd_y, text: address.into(),
-            scale: fs, color: COL_DARK_DIM, centered: false,
+            x: text_x,
+            y: motd_y,
+            text: address.into(),
+            scale: fs,
+            color: COL_DARK_DIM,
+            centered: false,
         });
         return;
     };
 
     match state {
         PingState::Pinging => {
-            let dots = match (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() / 500) % 4 {
+            let dots = match (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+                / 500)
+                % 4
+            {
                 0 => "Pinging",
                 1 => "Pinging.",
                 2 => "Pinging..",
                 _ => "Pinging...",
             };
             elements.push(MenuElement::Text {
-                x: text_x, y: motd_y, text: dots.into(),
-                scale: fs, color: COL_DARK_DIM, centered: false,
+                x: text_x,
+                y: motd_y,
+                text: dots.into(),
+                scale: fs,
+                color: COL_DARK_DIM,
+                centered: false,
             });
         }
-        PingState::Success { motd, online, max, latency_ms, .. } => {
+        PingState::Success {
+            motd,
+            online,
+            max,
+            latency_ms,
+            ..
+        } => {
             elements.push(MenuElement::McText {
-                x: text_x, y: motd_y,
+                x: text_x,
+                y: motd_y,
                 spans: motd.clone(),
                 scale: fs,
             });
@@ -1261,9 +1864,12 @@ fn push_server_status(
             let right_x = entry_rect[0] + entry_rect[2] - 10.0 * gs;
             let pw = text_width_fn(&player_text, fs);
             elements.push(MenuElement::Text {
-                x: right_x - pw, y: entry_rect[1] + 1.0 * gs,
-                text: player_text, scale: fs,
-                color: COL_DARK_DIM, centered: false,
+                x: right_x - pw,
+                y: entry_rect[1] + 1.0 * gs,
+                text: player_text,
+                scale: fs,
+                color: COL_DARK_DIM,
+                centered: false,
             });
 
             let (bars, bar_color) = ping_level(*latency_ms);
@@ -1274,19 +1880,27 @@ fn push_server_status(
             push_ping_bars(elements, bx, by, bw, bh, bars, bar_color);
         }
         PingState::Failed(err) => {
-            let display = if err.len() > 40 { "Can't connect to server" } else { err };
+            let display = if err.len() > 40 {
+                "Can't connect to server"
+            } else {
+                err
+            };
             elements.push(MenuElement::Text {
-                x: text_x, y: motd_y, text: display.into(),
-                scale: fs, color: COL_RED, centered: false,
+                x: text_x,
+                y: motd_y,
+                text: display.into(),
+                scale: fs,
+                color: COL_RED,
+                centered: false,
             });
         }
     }
 }
 
 const PING_THRESHOLDS: [(u64, u8, [f32; 4]); 5] = [
-    (150,  5, [0.26, 0.63, 0.28, 1.0]),
-    (300,  4, [0.51, 0.78, 0.52, 1.0]),
-    (600,  3, [1.0, 0.93, 0.35, 1.0]),
+    (150, 5, [0.26, 0.63, 0.28, 1.0]),
+    (300, 4, [0.51, 0.78, 0.52, 1.0]),
+    (600, 3, [1.0, 0.93, 0.35, 1.0]),
     (1000, 2, [1.0, 0.65, 0.15, 1.0]),
     (u64::MAX, 1, [0.9, 0.22, 0.21, 1.0]),
 ];
@@ -1300,7 +1914,15 @@ fn ping_level(ms: u64) -> (u8, [f32; 4]) {
     (1, PING_THRESHOLDS[4].2)
 }
 
-fn push_ping_bars(elements: &mut Vec<MenuElement>, x: f32, y: f32, w: f32, h: f32, bars: u8, color: [f32; 4]) {
+fn push_ping_bars(
+    elements: &mut Vec<MenuElement>,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    bars: u8,
+    color: [f32; 4],
+) {
     let bw = w / 5.0;
     let inactive = [0.12, 0.12, 0.16, 1.0];
     for i in 0..5u8 {
@@ -1308,7 +1930,10 @@ fn push_ping_bars(elements: &mut Vec<MenuElement>, x: f32, y: f32, w: f32, h: f3
         let bx = x + i as f32 * bw;
         let by = y + h - bh;
         elements.push(MenuElement::Rect {
-            x: bx, y: by, w: bw - 1.0, h: bh,
+            x: bx,
+            y: by,
+            w: bw - 1.0,
+            h: bh,
             corner_radius: 0.0,
             color: if i < bars { color } else { inactive },
         });
@@ -1317,7 +1942,8 @@ fn push_ping_bars(elements: &mut Vec<MenuElement>, x: f32, y: f32, w: f32, h: f3
 
 fn push_bottom_text(
     elements: &mut Vec<MenuElement>,
-    screen_w: f32, screen_h: f32,
+    screen_w: f32,
+    screen_h: f32,
     gs: f32,
     text_width_fn: &dyn Fn(&str, f32) -> f32,
 ) {
@@ -1327,8 +1953,12 @@ fn push_bottom_text(
     let col = [0.39, 0.55, 0.78, 0.3];
 
     elements.push(MenuElement::Text {
-        x: pad, y, text: "Minecraft 1.21.11".into(),
-        scale: fs, color: col, centered: false,
+        x: pad,
+        y,
+        text: "Minecraft 1.21.11".into(),
+        scale: fs,
+        color: col,
+        centered: false,
     });
 
     let name = "POMC";
@@ -1339,10 +1969,20 @@ fn push_bottom_text(
     let tw = text_width_fn(tag, tag_size);
     let nx = screen_w - pad - nw - gap - tw;
     elements.push(MenuElement::Text {
-        x: nx, y, text: name.into(), scale: fs, color: col, centered: false,
+        x: nx,
+        y,
+        text: name.into(),
+        scale: fs,
+        color: col,
+        centered: false,
     });
     elements.push(MenuElement::Text {
-        x: nx + nw + gap, y, text: tag.into(), scale: tag_size, color: col, centered: false,
+        x: nx + nw + gap,
+        y,
+        text: tag.into(),
+        scale: tag_size,
+        color: col,
+        centered: false,
     });
 }
 
@@ -1357,24 +1997,40 @@ struct DropdownStyle {
 impl DropdownStyle {
     fn new(gs: f32) -> Self {
         Self {
-            item_h: 28.0 * gs, radius: 5.0 * gs, font: 9.0 * gs,
-            icon_scale: 11.0 * gs, pad: 10.0 * gs,
+            item_h: 28.0 * gs,
+            radius: 5.0 * gs,
+            font: 9.0 * gs,
+            icon_scale: 11.0 * gs,
+            pad: 10.0 * gs,
         }
     }
 
     fn draw_background(&self, elements: &mut Vec<MenuElement>, x: f32, y: f32, w: f32, h: f32) {
         elements.push(MenuElement::Rect {
-            x, y, w, h, corner_radius: self.radius,
+            x,
+            y,
+            w,
+            h,
+            corner_radius: self.radius,
             color: [0.08, 0.08, 0.12, 0.92],
         });
     }
 
     #[allow(clippy::too_many_arguments)]
     fn draw_item(
-        &self, elements: &mut Vec<MenuElement>, any_hovered: &mut bool,
-        cursor: (f32, f32), drop_x: f32, drop_y: f32, drop_w: f32,
-        index: usize, count: usize, label: &str,
-        icon: Option<(char, [f32; 4])>, hover_color: [f32; 4], normal_color: [f32; 4],
+        &self,
+        elements: &mut Vec<MenuElement>,
+        any_hovered: &mut bool,
+        cursor: (f32, f32),
+        drop_x: f32,
+        drop_y: f32,
+        drop_w: f32,
+        index: usize,
+        count: usize,
+        label: &str,
+        icon: Option<(char, [f32; 4])>,
+        hover_color: [f32; 4],
+        normal_color: [f32; 4],
     ) -> bool {
         let iy = drop_y + index as f32 * self.item_h;
         let rect = [drop_x, iy, drop_w, self.item_h];
@@ -1382,10 +2038,18 @@ impl DropdownStyle {
         *any_hovered |= hovered;
 
         if hovered {
-            let r = if index == 0 || index == count - 1 { self.radius } else { 0.0 };
+            let r = if index == 0 || index == count - 1 {
+                self.radius
+            } else {
+                0.0
+            };
             elements.push(MenuElement::Rect {
-                x: drop_x, y: iy, w: drop_w, h: self.item_h,
-                corner_radius: r, color: [1.0, 1.0, 1.0, 0.08],
+                x: drop_x,
+                y: iy,
+                w: drop_w,
+                h: self.item_h,
+                corner_radius: r,
+                color: [1.0, 1.0, 1.0, 0.08],
             });
         }
 
@@ -1393,7 +2057,8 @@ impl DropdownStyle {
             elements.push(MenuElement::Icon {
                 x: drop_x + self.pad + self.icon_scale / 2.0,
                 y: iy + self.item_h / 2.0,
-                icon: icon_char, scale: self.icon_scale,
+                icon: icon_char,
+                scale: self.icon_scale,
                 color: if hovered { hover_color } else { icon_col },
             });
         }
@@ -1401,7 +2066,8 @@ impl DropdownStyle {
         elements.push(MenuElement::Text {
             x: drop_x + self.pad + self.icon_scale + 6.0,
             y: iy + (self.item_h - self.font) / 2.0,
-            text: label.to_string(), scale: self.font,
+            text: label.to_string(),
+            scale: self.font,
             color: if hovered { hover_color } else { normal_color },
             centered: false,
         });
@@ -1410,34 +2076,58 @@ impl DropdownStyle {
     }
 }
 
-fn dismiss_dropdown(cursor: (f32, f32), clicked: bool, clicked_inside: bool, dropdown: [f32; 4], anchor: [f32; 4]) -> bool {
-    clicked && !clicked_inside && !common::hit_test(cursor, dropdown) && !common::hit_test(cursor, anchor)
+fn dismiss_dropdown(
+    cursor: (f32, f32),
+    clicked: bool,
+    clicked_inside: bool,
+    dropdown: [f32; 4],
+    anchor: [f32; 4],
+) -> bool {
+    clicked
+        && !clicked_inside
+        && !common::hit_test(cursor, dropdown)
+        && !common::hit_test(cursor, anchor)
 }
 
 fn smoothstep(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-fn emit_transition_strips(elements: &mut Vec<MenuElement>, screen_w: f32, screen_h: f32, close_t: f32, open_t: f32) {
+fn emit_transition_strips(
+    elements: &mut Vec<MenuElement>,
+    screen_w: f32,
+    screen_h: f32,
+    close_t: f32,
+    open_t: f32,
+) {
     let strip_w = screen_w / STRIP_COUNT as f32 + 1.0;
     let strip_h = screen_h * 2.0;
     let wave_spread = 0.3;
     for i in 0..STRIP_COUNT {
         let fi = i as f32 / STRIP_COUNT as f32;
-        let close_ease = smoothstep(((close_t - fi * wave_spread) / (1.0 - wave_spread)).clamp(0.0, 1.0));
+        let close_ease =
+            smoothstep(((close_t - fi * wave_spread) / (1.0 - wave_spread)).clamp(0.0, 1.0));
         let ri = (STRIP_COUNT - 1 - i) as f32 / STRIP_COUNT as f32;
-        let open_ease = smoothstep(((open_t - ri * wave_spread) / (1.0 - wave_spread)).clamp(0.0, 1.0));
+        let open_ease =
+            smoothstep(((open_t - ri * wave_spread) / (1.0 - wave_spread)).clamp(0.0, 1.0));
         let y = -strip_h + close_ease * screen_h - open_ease * screen_h;
         let sx = i as f32 * (strip_w - 1.0);
         let hue_shift = fi * 0.08;
         elements.push(MenuElement::Rect {
-            x: sx, y, w: strip_w, h: strip_h, corner_radius: 0.0,
+            x: sx,
+            y,
+            w: strip_w,
+            h: strip_h,
+            corner_radius: 0.0,
             color: [0.04 + hue_shift, 0.02, 0.12 + hue_shift * 0.5, 1.0],
         });
         elements.push(MenuElement::Rect {
-            x: sx, y, w: 1.0, h: strip_h, corner_radius: 0.0,
+            x: sx,
+            y,
+            w: 1.0,
+            h: strip_h,
+            corner_radius: 0.0,
             color: [0.3, 0.15, 0.5, 0.3 * (1.0 - open_ease)],
         });
     }
 }
-

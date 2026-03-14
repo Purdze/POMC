@@ -245,13 +245,27 @@ impl SkyPipeline {
             ubo_allocations.push(alloc);
         }
 
-        let (sun_image, sun_view, sun_allocation) =
-            load_celestial_texture(device, queue, command_pool, allocator, assets_dir, asset_index, "minecraft/textures/environment/sun.png");
+        let (sun_image, sun_view, sun_allocation) = load_celestial_texture(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            assets_dir,
+            asset_index,
+            "minecraft/textures/environment/sun.png",
+        );
         let sun_sampler = unsafe { util::create_linear_sampler(device) };
         bind_texture_set(device, sun_set, sun_view, sun_sampler);
 
-        let (moon_image, moon_view, moon_allocation) =
-            load_celestial_texture(device, queue, command_pool, allocator, assets_dir, asset_index, "minecraft/textures/environment/moon_phases.png");
+        let (moon_image, moon_view, moon_allocation) = load_celestial_texture(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            assets_dir,
+            asset_index,
+            "minecraft/textures/environment/moon_phases.png",
+        );
         let moon_sampler = unsafe { util::create_linear_sampler(device) };
         bind_texture_set(device, moon_set, moon_view, moon_sampler);
 
@@ -318,7 +332,8 @@ impl SkyPipeline {
         let moon_angle = sun_angle + PI;
         let star_angle = sun_angle;
 
-        let star_brightness = sample_float_keyframes(day_tick, STAR_BRIGHTNESS_KEYFRAMES, TICKS_PER_DAY);
+        let star_brightness =
+            sample_float_keyframes(day_tick, STAR_BRIGHTNESS_KEYFRAMES, TICKS_PER_DAY);
 
         let sky_mult = sample_rgb_keyframes(day_tick, SKY_COLOR_KEYFRAMES, TICKS_PER_DAY);
         let sky_color = [
@@ -370,15 +385,25 @@ impl SkyPipeline {
 
         let push_stages = vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT;
         let push_mode = |device: &ash::Device, mode: u32| unsafe {
-            device.cmd_push_constants(cmd, self.pipeline_layout, push_stages, 0, bytemuck::bytes_of(&mode));
+            device.cmd_push_constants(
+                cmd,
+                self.pipeline_layout,
+                push_stages,
+                0,
+                bytemuck::bytes_of(&mode),
+            );
         };
 
         unsafe {
             device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
             device.cmd_bind_vertex_buffers(cmd, 0, &[self.vertex_buffer], &[0]);
             device.cmd_bind_descriptor_sets(
-                cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline_layout,
-                0, &[self.ubo_sets[frame], self.sun_set], &[],
+                cmd,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline_layout,
+                0,
+                &[self.ubo_sets[frame], self.sun_set],
+                &[],
             );
 
             push_mode(device, 0);
@@ -393,8 +418,12 @@ impl SkyPipeline {
             device.cmd_draw(cmd, 6, 1, self.sun_offset, 0);
 
             device.cmd_bind_descriptor_sets(
-                cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline_layout,
-                1, &[self.moon_set], &[],
+                cmd,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline_layout,
+                1,
+                &[self.moon_set],
+                &[],
             );
             push_mode(device, 3);
             device.cmd_draw(cmd, 6, 1, self.moon_offset, 0);
@@ -418,21 +447,41 @@ impl SkyPipeline {
         let mut alloc = allocator.lock().unwrap();
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             unsafe { device.destroy_buffer(self.ubo_buffers[i], None) };
-            alloc.free(std::mem::replace(&mut self.ubo_allocations[i], unsafe { std::mem::zeroed() })).ok();
+            alloc
+                .free(std::mem::replace(&mut self.ubo_allocations[i], unsafe {
+                    std::mem::zeroed()
+                }))
+                .ok();
         }
 
         unsafe { device.destroy_buffer(self.vertex_buffer, None) };
-        alloc.free(std::mem::replace(&mut self.vertex_allocation, unsafe { std::mem::zeroed() })).ok();
+        alloc
+            .free(std::mem::replace(&mut self.vertex_allocation, unsafe {
+                std::mem::zeroed()
+            }))
+            .ok();
 
         for (image, view, sampler, allocation) in [
-            (&self.sun_image, &self.sun_view, &self.sun_sampler, &mut self.sun_allocation),
-            (&self.moon_image, &self.moon_view, &self.moon_sampler, &mut self.moon_allocation),
+            (
+                &self.sun_image,
+                &self.sun_view,
+                &self.sun_sampler,
+                &mut self.sun_allocation,
+            ),
+            (
+                &self.moon_image,
+                &self.moon_view,
+                &self.moon_sampler,
+                &mut self.moon_allocation,
+            ),
         ] {
             unsafe {
                 device.destroy_sampler(*sampler, None);
                 device.destroy_image_view(*view, None);
             }
-            alloc.free(std::mem::replace(allocation, unsafe { std::mem::zeroed() })).ok();
+            alloc
+                .free(std::mem::replace(allocation, unsafe { std::mem::zeroed() }))
+                .ok();
             unsafe { device.destroy_image(*image, None) };
         }
 
@@ -475,7 +524,12 @@ impl JavaRandom {
     }
 }
 
-fn keyframe_segment(t: f32, count: usize, tick_at: impl Fn(usize) -> f32, period: f32) -> (usize, usize, f32) {
+fn keyframe_segment(
+    t: f32,
+    count: usize,
+    tick_at: impl Fn(usize) -> f32,
+    period: f32,
+) -> (usize, usize, f32) {
     let mut i = 0;
     while i < count && tick_at(i) <= t {
         i += 1;
@@ -488,7 +542,11 @@ fn keyframe_segment(t: f32, count: usize, tick_at: impl Fn(usize) -> f32, period
         let span = tick_at(0) + period - tick_at(count - 1);
         (count - 1, 0, (t - tick_at(count - 1)) / span)
     } else {
-        (i - 1, i, (t - tick_at(i - 1)) / (tick_at(i) - tick_at(i - 1)))
+        (
+            i - 1,
+            i,
+            (t - tick_at(i - 1)) / (tick_at(i) - tick_at(i - 1)),
+        )
     }
 }
 
@@ -598,9 +656,18 @@ fn build_sky_disc(verts: &mut Vec<SkyVertex>, y: f32) {
     }
 
     for i in 0..perimeter.len() - 1 {
-        verts.push(SkyVertex { position: center, uv });
-        verts.push(SkyVertex { position: perimeter[i], uv });
-        verts.push(SkyVertex { position: perimeter[i + 1], uv });
+        verts.push(SkyVertex {
+            position: center,
+            uv,
+        });
+        verts.push(SkyVertex {
+            position: perimeter[i],
+            uv,
+        });
+        verts.push(SkyVertex {
+            position: perimeter[i + 1],
+            uv,
+        });
     }
 }
 
@@ -634,10 +701,13 @@ fn build_stars(verts: &mut Vec<SkyVertex>) {
             Vec3::new(-size, -size, 0.0),
         ];
 
-        let transformed: Vec<Vec3> = corners.iter().map(|c| {
-            let rotated = rot * *c;
-            rotated + center
-        }).collect();
+        let transformed: Vec<Vec3> = corners
+            .iter()
+            .map(|c| {
+                let rotated = rot * *c;
+                rotated + center
+            })
+            .collect();
 
         for &idx in &[0usize, 1, 2, 0, 2, 3] {
             verts.push(SkyVertex {
@@ -722,8 +792,7 @@ fn load_celestial_texture(
         (vec![255u8; 16 * 16 * 4], 16, 16)
     });
 
-    let (image, view, allocation) =
-        util::create_gpu_image(device, allocator, w, h, key);
+    let (image, view, allocation) = util::create_gpu_image(device, allocator, w, h, key);
     let (staging_buf, staging_alloc) =
         util::create_staging_buffer(device, allocator, &pixels, &format!("{key}_staging"));
 

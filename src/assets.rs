@@ -8,7 +8,11 @@ pub fn load_image(path: &Path) -> Result<image::DynamicImage, image::ImageError>
     })
 }
 
-pub fn resolve_asset_path(assets_dir: &Path, asset_index: &Option<AssetIndex>, asset_key: &str) -> PathBuf {
+pub fn resolve_asset_path(
+    assets_dir: &Path,
+    asset_index: &Option<AssetIndex>,
+    asset_key: &str,
+) -> PathBuf {
     if let Some(path) = asset_index.as_ref().and_then(|idx| idx.resolve(asset_key)) {
         return path;
     }
@@ -67,11 +71,7 @@ fn find_latest_asset_index(assets_dir: &Path) -> Option<PathBuf> {
 
     entries
         .flatten()
-        .filter(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .ends_with(".json")
-        })
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
         .max_by_key(|e| {
             e.metadata()
                 .and_then(|m| m.modified())

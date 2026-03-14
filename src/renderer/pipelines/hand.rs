@@ -107,7 +107,8 @@ impl HandPipeline {
 
         for &set in &mvp_sets {
             let (buf, alloc) = util::create_uniform_buffer(
-                device, allocator,
+                device,
+                allocator,
                 std::mem::size_of::<HandUniform>() as u64,
                 "hand_uniform",
             );
@@ -128,8 +129,14 @@ impl HandPipeline {
             mvp_allocations.push(alloc);
         }
 
-        let (skin_image, skin_view, skin_allocation, skin_w, skin_h) =
-            load_skin_texture(device, queue, command_pool, allocator, assets_dir, asset_index);
+        let (skin_image, skin_view, skin_allocation, skin_w, skin_h) = load_skin_texture(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            assets_dir,
+            asset_index,
+        );
 
         let skin_sampler = unsafe { util::create_nearest_sampler(device) };
 
@@ -149,8 +156,11 @@ impl HandPipeline {
         let vertex_count = vertices.len() as u32;
         let vertex_bytes = bytemuck::cast_slice::<HandVertex, u8>(&vertices);
         let (vertex_buffer, vertex_allocation) = util::create_mapped_buffer(
-            device, allocator, vertex_bytes,
-            vk::BufferUsageFlags::VERTEX_BUFFER, "hand_vertices",
+            device,
+            allocator,
+            vertex_bytes,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            "hand_vertices",
         );
 
         log::info!("Hand pipeline initialized ({vertex_count} vertices, skin {skin_w}x{skin_h})");
@@ -183,7 +193,8 @@ impl HandPipeline {
         aspect: f32,
         swing_progress: f32,
     ) {
-        let mut proj = Mat4::perspective_rh(crate::renderer::camera::DEFAULT_FOV, aspect, NEAR, FAR);
+        let mut proj =
+            Mat4::perspective_rh(crate::renderer::camera::DEFAULT_FOV, aspect, NEAR, FAR);
         proj.y_axis.y *= -1.0;
 
         let sp = swing_progress;
@@ -242,19 +253,17 @@ impl HandPipeline {
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             unsafe { device.destroy_buffer(self.mvp_buffers[i], None) };
             alloc
-                .free(std::mem::replace(
-                    &mut self.mvp_allocations[i],
-                    unsafe { std::mem::zeroed() },
-                ))
+                .free(std::mem::replace(&mut self.mvp_allocations[i], unsafe {
+                    std::mem::zeroed()
+                }))
                 .ok();
         }
 
         unsafe { device.destroy_buffer(self.vertex_buffer, None) };
         alloc
-            .free(std::mem::replace(
-                &mut self.vertex_allocation,
-                unsafe { std::mem::zeroed() },
-            ))
+            .free(std::mem::replace(&mut self.vertex_allocation, unsafe {
+                std::mem::zeroed()
+            }))
             .ok();
 
         unsafe {
@@ -262,10 +271,9 @@ impl HandPipeline {
             device.destroy_image_view(self.skin_view, None);
         }
         alloc
-            .free(std::mem::replace(
-                &mut self.skin_allocation,
-                unsafe { std::mem::zeroed() },
-            ))
+            .free(std::mem::replace(&mut self.skin_allocation, unsafe {
+                std::mem::zeroed()
+            }))
             .ok();
         unsafe { device.destroy_image(self.skin_image, None) };
 
@@ -330,67 +338,37 @@ fn build_arm_vertices(skin_w: u32, skin_h: u32) -> Vec<HandVertex> {
 
     // -X face (outer side of right arm)
     quad(
-        [
-            [x0, y0, z1],
-            [x0, y0, z0],
-            [x0, y1, z0],
-            [x0, y1, z1],
-        ],
+        [[x0, y0, z1], [x0, y0, z0], [x0, y1, z0], [x0, y1, z1]],
         right_uv,
     );
 
     // +X face (inner side)
     quad(
-        [
-            [x1, y0, z0],
-            [x1, y0, z1],
-            [x1, y1, z1],
-            [x1, y1, z0],
-        ],
+        [[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]],
         left_uv,
     );
 
     // +Y face (shoulder/top)
     quad(
-        [
-            [x0, y1, z1],
-            [x1, y1, z1],
-            [x1, y1, z0],
-            [x0, y1, z0],
-        ],
+        [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]],
         top_uv,
     );
 
     // -Y face (wrist/bottom)
     quad(
-        [
-            [x0, y0, z0],
-            [x1, y0, z0],
-            [x1, y0, z1],
-            [x0, y0, z1],
-        ],
+        [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
         bot_uv,
     );
 
     // -Z face (front, facing camera)
     quad(
-        [
-            [x1, y0, z0],
-            [x0, y0, z0],
-            [x0, y1, z0],
-            [x1, y1, z0],
-        ],
+        [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]],
         front_uv,
     );
 
     // +Z face (back)
     quad(
-        [
-            [x0, y0, z1],
-            [x1, y0, z1],
-            [x1, y1, z1],
-            [x0, y1, z1],
-        ],
+        [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]],
         back_uv,
     );
 
@@ -409,7 +387,10 @@ fn load_skin_texture(
     let skin_path = resolve_asset_path(assets_dir, asset_index, skin_key);
 
     let (pixels, width, height) = util::load_png(&skin_path).unwrap_or_else(|| {
-        log::warn!("Failed to load skin from {}, using fallback", skin_path.display());
+        log::warn!(
+            "Failed to load skin from {}, using fallback",
+            skin_path.display()
+        );
         fallback_skin()
     });
 
@@ -418,7 +399,15 @@ fn load_skin_texture(
     let (staging_buf, staging_alloc) =
         util::create_staging_buffer(device, allocator, &pixels, "hand_skin_staging");
 
-    util::upload_image(device, queue, command_pool, staging_buf, image, width, height);
+    util::upload_image(
+        device,
+        queue,
+        command_pool,
+        staging_buf,
+        image,
+        width,
+        height,
+    );
 
     unsafe { device.destroy_buffer(staging_buf, None) };
     allocator.lock().unwrap().free(staging_alloc).ok();

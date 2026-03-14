@@ -62,16 +62,47 @@ impl GlyphMap {
                 if ch == '\0' {
                     continue;
                 }
-                let bounds = detect_glyph_bounds(&img, col as u32 * cell_w, row as u32 * cell_h, cell_w, cell_h);
+                let bounds = detect_glyph_bounds(
+                    &img,
+                    col as u32 * cell_w,
+                    row as u32 * cell_h,
+                    cell_w,
+                    cell_h,
+                );
                 if let Some((width, y_offset, height)) = bounds {
-                    glyphs.insert(ch, GlyphInfo { col: col as u32, row: row as u32, width, y_offset, height });
+                    glyphs.insert(
+                        ch,
+                        GlyphInfo {
+                            col: col as u32,
+                            row: row as u32,
+                            width,
+                            y_offset,
+                            height,
+                        },
+                    );
                 }
             }
         }
-        glyphs.insert(' ', GlyphInfo { col: 0, row: 2, width: cell_w / 2, y_offset: 0, height: cell_h });
+        glyphs.insert(
+            ' ',
+            GlyphInfo {
+                col: 0,
+                row: 2,
+                width: cell_w / 2,
+                y_offset: 0,
+                height: cell_h,
+            },
+        );
 
         let pixels = img.into_raw();
-        Some(Self { glyphs, cell_w, cell_h, pixels, tex_w, tex_h })
+        Some(Self {
+            glyphs,
+            cell_w,
+            cell_h,
+            pixels,
+            tex_w,
+            tex_h,
+        })
     }
 
     pub fn raw_pixels(&self) -> &[u8] {
@@ -83,7 +114,13 @@ impl GlyphMap {
     }
 }
 
-fn detect_glyph_bounds(img: &image::RgbaImage, x0: u32, y0: u32, cell_w: u32, cell_h: u32) -> Option<(u32, u32, u32)> {
+fn detect_glyph_bounds(
+    img: &image::RgbaImage,
+    x0: u32,
+    y0: u32,
+    cell_w: u32,
+    cell_h: u32,
+) -> Option<(u32, u32, u32)> {
     let mut max_x: u32 = 0;
     let mut min_y: u32 = cell_h;
     let mut max_y: u32 = 0;
