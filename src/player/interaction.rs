@@ -16,6 +16,8 @@ use crate::world::chunk::ChunkStore;
 const REACH: f32 = 4.5;
 const STEP: f32 = 0.01;
 const DESTROY_COOLDOWN: u32 = 5;
+const MISS_COOLDOWN: u32 = 10;
+const RIGHT_CLICK_DELAY: u32 = 4;
 const SWING_DURATION: i32 = 6;
 
 #[derive(Debug, Clone, Copy)]
@@ -34,6 +36,8 @@ pub struct InteractionState {
     destroy_progress: f32,
     destroy_ticks: f32,
     destroy_delay: u32,
+    miss_time: u32,
+    right_click_delay: u32,
     swinging: bool,
     swing_time: i32,
     attack_anim: f32,
@@ -55,6 +59,8 @@ impl InteractionState {
             destroy_progress: 0.0,
             destroy_ticks: 0.0,
             destroy_delay: 0,
+            miss_time: 0,
+            right_click_delay: 0,
             swinging: false,
             swing_time: 0,
             attack_anim: 0.0,
@@ -125,52 +131,120 @@ impl InteractionState {
         let mut dirty_chunks = Vec::new();
         self.update_swing();
 
+        if self.miss_time > 0 {
+            self.miss_time -= 1;
+        }
+        if self.right_click_delay > 0 {
+            self.right_click_delay -= 1;
+        }
+
         if !input.is_cursor_captured() {
             self.stop_destroying(sender);
             return dirty_chunks;
         }
 
-        let Some(hit) = self.target else {
-            self.stop_destroying(sender);
-            if input.left_just_pressed() {
-                self.swing(sender);
-            }
-            return dirty_chunks;
-        };
-
         if input.left_just_pressed() {
-            self.start_destroy_block(hit, chunks, sender, on_ground, &mut dirty_chunks);
-            self.swing(sender);
-        } else if input.left_held() {
-            self.continue_destroy_block(hit, chunks, sender, on_ground, &mut dirty_chunks);
-            self.swing(sender);
+            self.start_attack(chunks, sender, on_ground, &mut dirty_chunks);
+        }
+
+        if input.left_held() {
+            self.continue_attack(chunks, sender, on_ground, &mut dirty_chunks);
         } else {
+            self.miss_time = 0;
             self.stop_destroying(sender);
         }
 
-        if input.right_just_pressed() {
-            self.swing(sender);
-            self.seq += 1;
-            if let Some(sender) = sender {
-                sender.send(ServerboundGamePacket::UseItemOn(ServerboundUseItemOn {
-                    hand: InteractionHand::MainHand,
-                    block_hit: BlockHit {
-                        block_pos: hit.block_pos,
-                        direction: hit.face,
-                        location: azalea_core::position::Vec3 {
-                            x: hit.hit_point.x as f64,
-                            y: hit.hit_point.y as f64,
-                            z: hit.hit_point.z as f64,
-                        },
-                        inside: false,
-                        world_border: false,
-                    },
-                    seq: self.seq,
-                }));
-            }
+        if input.right_just_pressed() || (input.right_held() && self.right_click_delay == 0) {
+            self.use_item_on(sender);
         }
 
         dirty_chunks
+    }
+
+    fn start_attack(
+        &mut self,
+        chunks: &ChunkStore,
+        sender: Option<&PacketSender>,
+        on_ground: bool,
+        dirty_chunks: &mut Vec<azalea_core::position::ChunkPos>,
+    ) {
+        if self.miss_time > 0 {
+            return;
+        }
+
+        let Some(hit) = self.target else {
+            self.miss_time = MISS_COOLDOWN;
+            self.swing(sender);
+            return;
+        };
+
+        let state = chunks.get_block_state(hit.block_pos.x, hit.block_pos.y, hit.block_pos.z);
+        if state.is_air() {
+            self.miss_time = MISS_COOLDOWN;
+            self.swing(sender);
+            return;
+        }
+
+        self.start_destroy_block(hit, chunks, sender, on_ground, dirty_chunks);
+        self.swing(sender);
+    }
+
+    fn continue_attack(
+        &mut self,
+        chunks: &ChunkStore,
+        sender: Option<&PacketSender>,
+        on_ground: bool,
+        dirty_chunks: &mut Vec<azalea_core::position::ChunkPos>,
+    ) {
+        if self.miss_time > 0 {
+            return;
+        }
+
+        let Some(hit) = self.target else {
+            self.stop_destroying(sender);
+            return;
+        };
+
+        let state = chunks.get_block_state(hit.block_pos.x, hit.block_pos.y, hit.block_pos.z);
+        if state.is_air() {
+            self.stop_destroying(sender);
+            return;
+        }
+
+        self.continue_destroy_block(hit, chunks, sender, on_ground, dirty_chunks);
+        self.swing(sender);
+    }
+
+    fn use_item_on(&mut self, sender: Option<&PacketSender>) {
+        if self.is_destroying {
+            return;
+        }
+
+        self.right_click_delay = RIGHT_CLICK_DELAY;
+
+        let Some(hit) = self.target else {
+            return;
+        };
+
+        self.swing(sender);
+        self.seq += 1;
+        if let Some(sender) = sender {
+            sender.send(ServerboundGamePacket::UseItemOn(ServerboundUseItemOn {
+                hand: InteractionHand::MainHand,
+                block_hit: BlockHit {
+                    block_pos: hit.block_pos,
+                    direction: hit.face,
+                    location: azalea_core::position::Vec3 {
+                        x: hit.hit_point.x as f64,
+                        y: hit.hit_point.y as f64,
+                        z: hit.hit_point.z as f64,
+                    },
+                    inside: false,
+                    world_border: false,
+                },
+                seq: self.seq,
+            }));
+        }
     }
 
     fn start_destroy_block(

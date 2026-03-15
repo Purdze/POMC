@@ -178,6 +178,10 @@ impl InputState {
         self.right_click.just_pressed
     }
 
+    pub fn right_held(&self) -> bool {
+        self.right_click.held
+    }
+
     pub fn clear_click_events(&mut self) {
         self.left_click.just_pressed = false;
         self.left_click.just_released = false;
