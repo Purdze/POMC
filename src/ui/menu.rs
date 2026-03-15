@@ -88,6 +88,46 @@ enum Screen {
     AddServer,
     EditServer(usize),
     Disconnected(String),
+    Options,
+    OptionsVideo,
+    OptionsSkinCustomization,
+    OptionsMusicSounds,
+    OptionsControls,
+    OptionsKeybinds,
+    OptionsLanguage,
+    OptionsChatSettings,
+    OptionsResourcePacks,
+    OptionsAccessibility,
+    OptionsTelemetry,
+    OptionsCredits,
+}
+
+impl Screen {
+    fn clone_screen(&self) -> Self {
+        match self {
+            Self::Main => Self::Main,
+            Self::Options => Self::Options,
+            Self::OptionsVideo => Self::OptionsVideo,
+            Self::OptionsSkinCustomization => Self::OptionsSkinCustomization,
+            Self::OptionsMusicSounds => Self::OptionsMusicSounds,
+            Self::OptionsControls => Self::OptionsControls,
+            Self::OptionsKeybinds => Self::OptionsKeybinds,
+            Self::OptionsLanguage => Self::OptionsLanguage,
+            Self::OptionsChatSettings => Self::OptionsChatSettings,
+            Self::OptionsResourcePacks => Self::OptionsResourcePacks,
+            Self::OptionsAccessibility => Self::OptionsAccessibility,
+            Self::OptionsTelemetry => Self::OptionsTelemetry,
+            Self::OptionsCredits => Self::OptionsCredits,
+            Self::ServerList => Self::ServerList,
+            Self::DirectConnect => Self::DirectConnect,
+            Self::AddServer => Self::AddServer,
+            Self::AuthPrompt { pending } => Self::AuthPrompt { pending: *pending },
+            Self::Auth { pending } => Self::Auth { pending: *pending },
+            Self::ConfirmDelete(i) => Self::ConfirmDelete(*i),
+            Self::EditServer(i) => Self::EditServer(*i),
+            Self::Disconnected(s) => Self::Disconnected(s.clone()),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -193,6 +233,64 @@ impl MainMenu {
             Screen::Disconnected(_) => {
                 self.build_disconnected(screen_w, screen_h, input, &text_width_fn)
             }
+            Screen::Options => self.build_options(screen_w, screen_h, input),
+            Screen::OptionsVideo => self.build_options_video(screen_w, screen_h, input),
+            Screen::OptionsSkinCustomization => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Skin Customization",
+                Screen::Options,
+            ),
+            Screen::OptionsMusicSounds => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Music & Sounds",
+                Screen::Options,
+            ),
+            Screen::OptionsControls => self.build_options_controls(screen_w, screen_h, input),
+            Screen::OptionsKeybinds => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Keybinds",
+                Screen::OptionsControls,
+            ),
+            Screen::OptionsLanguage => {
+                self.build_options_stub(screen_w, screen_h, input, "Language", Screen::Options)
+            }
+            Screen::OptionsChatSettings => {
+                self.build_options_stub(screen_w, screen_h, input, "Chat Settings", Screen::Options)
+            }
+            Screen::OptionsResourcePacks => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Resource Packs",
+                Screen::Options,
+            ),
+            Screen::OptionsAccessibility => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Accessibility Settings",
+                Screen::Options,
+            ),
+            Screen::OptionsTelemetry => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Telemetry Data",
+                Screen::Options,
+            ),
+            Screen::OptionsCredits => self.build_options_stub(
+                screen_w,
+                screen_h,
+                input,
+                "Credits & Attribution",
+                Screen::Options,
+            ),
         }
     }
 
@@ -388,6 +486,9 @@ impl MainMenu {
                         if self.links_open {
                             self.theme_open = false;
                         }
+                    }
+                    ICON_GEAR => {
+                        self.screen = Screen::Options;
                     }
                     ICON_PAINTBRUSH => {
                         self.theme_open = !self.theme_open;
@@ -1650,6 +1751,236 @@ impl MainMenu {
 
     fn refresh_servers(&self) {
         ping_all_servers(&self.rt, &self.server_list.servers, &self.ping_results);
+    }
+
+    fn build_options(&mut self, sw: f32, sh: f32, input: &MenuInput) -> MainMenuResult {
+        let fov_label = format!("FOV: {}", 70);
+        let rows: Vec<[&str; 2]> = vec![
+            [&fov_label, "Online"],
+            ["Skin Customization...", "Music & Sounds..."],
+            ["Video Settings...", "Controls..."],
+            ["Language...", "Chat Settings..."],
+            ["Resource Packs...", "Accessibility Settings..."],
+            ["Telemetry Data...", "Credits & Attribution..."],
+        ];
+
+        let nav: &[(&str, Screen)] = &[
+            ("Skin Customization...", Screen::OptionsSkinCustomization),
+            ("Music & Sounds...", Screen::OptionsMusicSounds),
+            ("Video Settings...", Screen::OptionsVideo),
+            ("Controls...", Screen::OptionsControls),
+            ("Language...", Screen::OptionsLanguage),
+            ("Chat Settings...", Screen::OptionsChatSettings),
+            ("Resource Packs...", Screen::OptionsResourcePacks),
+            ("Accessibility Settings...", Screen::OptionsAccessibility),
+            ("Telemetry Data...", Screen::OptionsTelemetry),
+            ("Credits & Attribution...", Screen::OptionsCredits),
+        ];
+
+        self.build_options_grid(sw, sh, input, "Options", Screen::Main, &rows, nav)
+    }
+
+    fn build_options_video(&mut self, sw: f32, sh: f32, input: &MenuInput) -> MainMenuResult {
+        let rd = format!("Render Distance: {} chunks", 12);
+        let sd = format!("Simulation Distance: {} chunks", 12);
+        let mf = format!("Max Framerate: {} fps", 120);
+        let gui = format!("GUI Scale: {}", 3);
+        let rows: Vec<[&str; 2]> = vec![
+            [&rd, &sd],
+            ["Graphics: Fancy", "Smooth Lighting: ON"],
+            [&mf, "VSync: OFF"],
+            ["View Bobbing: ON", &gui],
+            ["Attack Indicator: Crosshair", "Brightness: 50%"],
+            ["Clouds: Fancy", "Fullscreen: OFF"],
+            ["Particles: All", "Mipmap Levels: 4"],
+        ];
+        self.build_options_grid(sw, sh, input, "Video Settings", Screen::Options, &rows, &[])
+    }
+
+    fn build_options_controls(&mut self, sw: f32, sh: f32, input: &MenuInput) -> MainMenuResult {
+        let rows: Vec<[&str; 2]> = vec![
+            ["Sensitivity: 100%", "Invert Mouse: OFF"],
+            ["Auto-Jump: ON", "Operator Items Tab: OFF"],
+            ["Key Binds...", "Mouse Settings..."],
+            ["Sneak: Toggle", "Sprint: Hold"],
+        ];
+        let nav: &[(&str, Screen)] = &[("Key Binds...", Screen::OptionsKeybinds)];
+        self.build_options_grid(sw, sh, input, "Controls", Screen::Options, &rows, nav)
+    }
+
+    fn build_options_grid(
+        &mut self,
+        sw: f32,
+        sh: f32,
+        input: &MenuInput,
+        title: &str,
+        back: Screen,
+        rows: &[[&str; 2]],
+        nav: &[(&str, Screen)],
+    ) -> MainMenuResult {
+        if input.escape {
+            self.screen = back.clone_screen();
+            return empty_result(2.0);
+        }
+
+        let gs = (sh / 400.0).max(1.0);
+        let fs = common::FONT_SIZE * gs;
+        let btn_h = common::BTN_H * gs;
+        let gap = BTN_GAP * gs;
+        let header_h = HEADER_H * gs;
+        let sep_h = SEP_H * gs;
+        let btn_w = 150.0 * gs;
+        let half_w = (btn_w * 2.0 + gap) / 2.0;
+        let cx = sw / 2.0;
+        let cursor = input.cursor;
+        let clicked = input.clicked;
+
+        let mut elements = Vec::new();
+        let mut any_hovered = false;
+
+        common::push_overlay(&mut elements, sw, sh, 0.5);
+
+        elements.push(MenuElement::Text {
+            x: cx,
+            y: (header_h - fs) / 2.0,
+            text: title.into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
+        });
+        push_separator(&mut elements, 0.0, header_h, sw, sep_h);
+
+        let done_pad = 8.0 * gs;
+        let done_y = sh - btn_h - done_pad;
+        let content_top = header_h + sep_h;
+        let content_bottom = done_y;
+        let grid_h = rows.len() as f32 * btn_h + (rows.len() as f32 - 1.0).max(0.0) * gap;
+        let top_y = content_top + (content_bottom - content_top - grid_h) / 2.0;
+        let lx = cx - half_w;
+        let rx = lx + btn_w + gap;
+
+        for (row, pair) in rows.iter().enumerate() {
+            let by = top_y + row as f32 * (btn_h + gap);
+            for (col, label) in pair.iter().enumerate() {
+                let bx = if col == 0 { lx } else { rx };
+                let h = common::push_button(
+                    &mut elements,
+                    cursor,
+                    bx,
+                    by,
+                    btn_w,
+                    btn_h,
+                    gs,
+                    fs,
+                    label,
+                    true,
+                );
+                any_hovered |= h;
+                if clicked && h {
+                    if let Some((_, target)) = nav.iter().find(|(l, _)| *l == *label) {
+                        self.screen = target.clone_screen();
+                    }
+                }
+            }
+        }
+
+        let done_w = btn_w * 2.0 + gap;
+        let h = common::push_button(
+            &mut elements,
+            cursor,
+            cx - done_w / 2.0,
+            done_y,
+            done_w,
+            btn_h,
+            gs,
+            fs,
+            "Done",
+            true,
+        );
+        any_hovered |= h;
+        if clicked && h {
+            self.screen = back;
+        }
+
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
+    }
+
+    fn build_options_stub(
+        &mut self,
+        sw: f32,
+        sh: f32,
+        input: &MenuInput,
+        title: &str,
+        back: Screen,
+    ) -> MainMenuResult {
+        if input.escape {
+            self.screen = back.clone_screen();
+            return empty_result(2.0);
+        }
+
+        let gs = (sh / 400.0).max(1.0);
+        let fs = common::FONT_SIZE * gs;
+        let btn_h = common::BTN_H * gs;
+        let gap = BTN_GAP * gs;
+        let header_h = HEADER_H * gs;
+        let sep_h = SEP_H * gs;
+        let cx = sw / 2.0;
+
+        let mut elements = Vec::new();
+        let mut any_hovered = false;
+
+        common::push_overlay(&mut elements, sw, sh, 0.5);
+
+        elements.push(MenuElement::Text {
+            x: cx,
+            y: (header_h - fs) / 2.0,
+            text: title.into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
+        });
+        push_separator(&mut elements, 0.0, header_h, sw, sep_h);
+
+        let body_fs = 10.0 * gs;
+        elements.push(MenuElement::Text {
+            x: cx,
+            y: sh / 2.0 - body_fs,
+            text: "Coming soon".into(),
+            scale: body_fs,
+            color: COL_DIM,
+            centered: true,
+        });
+
+        let done_w = 150.0 * gs * 2.0 + gap;
+        let done_y = sh - btn_h - 8.0 * gs;
+        let h = common::push_button(
+            &mut elements,
+            input.cursor,
+            cx - done_w / 2.0,
+            done_y,
+            done_w,
+            btn_h,
+            gs,
+            fs,
+            "Done",
+            true,
+        );
+        any_hovered |= h;
+        if input.clicked && h {
+            self.screen = back;
+        }
+
+        MainMenuResult {
+            elements,
+            action: MenuAction::None,
+            cursor_pointer: any_hovered,
+            blur: 2.0,
+        }
     }
 }
 

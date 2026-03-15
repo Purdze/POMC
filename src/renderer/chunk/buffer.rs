@@ -60,7 +60,8 @@ impl MegaBuffer {
         usage: vk::BufferUsageFlags,
         name: &str,
     ) -> Self {
-        let (buffer, allocation) = util::create_host_buffer(device, allocator, capacity, usage, name);
+        let (buffer, allocation) =
+            util::create_host_buffer(device, allocator, capacity, usage, name);
         Self {
             buffer,
             allocation,

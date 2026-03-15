@@ -88,7 +88,6 @@ impl Renderer {
     ) -> Result<Self, RendererError> {
         let size = window.inner_size();
 
-        // Parse block models on a background thread while Vulkan initializes
         let registry_handle = {
             let assets_dir = assets_dir.to_path_buf();
             let asset_index = asset_index.clone();
@@ -111,10 +110,32 @@ impl Renderer {
             &ctx.allocator,
         )?;
 
+        let mut menu_pipeline = MenuOverlayPipeline::new(
+            &ctx.device,
+            ctx.graphics_queue,
+            ctx.command_pool,
+            swapchain_state.render_pass,
+            &ctx.allocator,
+            assets_dir,
+            asset_index,
+        );
+
+        let sw = size.width.max(1) as f32;
+        let sh = size.height.max(1) as f32;
+        window.set_visible(true);
+
+        let splash = |menu: &mut MenuOverlayPipeline, progress, status| {
+            let _ = Self::render_splash(&ctx, &swapchain_state, menu, sw, sh, progress, status);
+        };
+
+        splash(&mut menu_pipeline, 0.0, "Loading block models...");
+
         let camera = Camera::new(swapchain_state.aspect_ratio());
         let registry = registry_handle
             .join()
             .expect("block registry thread panicked");
+
+        splash(&mut menu_pipeline, 0.2, "Building texture atlas...");
 
         let texture_names: HashSet<&str> = registry.texture_names().collect();
         let atlas = TextureAtlas::build(
@@ -126,6 +147,8 @@ impl Renderer {
             asset_index,
             &texture_names,
         )?;
+
+        splash(&mut menu_pipeline, 0.5, "Creating pipelines...");
 
         let chunk_pipeline = ChunkPipeline::new(
             &ctx.device,
@@ -154,6 +177,8 @@ impl Renderer {
             asset_index,
         );
 
+        splash(&mut menu_pipeline, 0.7, "Loading sky and panorama...");
+
         let sky_pipeline = SkyPipeline::new(
             &ctx.device,
             ctx.graphics_queue,
@@ -174,15 +199,7 @@ impl Renderer {
             asset_index,
         );
 
-        let menu_pipeline = MenuOverlayPipeline::new(
-            &ctx.device,
-            ctx.graphics_queue,
-            ctx.command_pool,
-            swapchain_state.render_pass,
-            &ctx.allocator,
-            assets_dir,
-            asset_index,
-        );
+        splash(&mut menu_pipeline, 0.9, "Finalizing...");
 
         let cull_pipeline = CullPipeline::new(&ctx.device, &ctx.allocator);
 
@@ -206,6 +223,163 @@ impl Renderer {
             width: size.width.max(1),
             height: size.height.max(1),
         })
+    }
+
+    fn render_splash(
+        ctx: &VulkanContext,
+        swapchain: &SwapchainState,
+        menu: &mut MenuOverlayPipeline,
+        sw: f32,
+        sh: f32,
+        progress: f32,
+        status: &str,
+    ) -> Result<(), RendererError> {
+        let fence = ctx.in_flight_fences[0];
+        let image_available = ctx.image_available[0];
+        let render_finished = ctx.render_finished[0];
+        let cmd = ctx.command_buffers[0];
+
+        let gs = (sh / 400.0).max(1.0);
+        let title_size = 28.0 * gs;
+        let status_size = 8.0 * gs;
+        let bar_w = 200.0 * gs;
+        let bar_h = 6.0 * gs;
+        let bar_border = 1.0 * gs;
+        let cx = sw / 2.0;
+        let cy = sh / 2.0;
+
+        let elements = vec![
+            MenuElement::Text {
+                x: cx,
+                y: cy - title_size - 20.0 * gs,
+                text: "POMC".into(),
+                scale: title_size,
+                color: [0.86, 0.92, 1.0, 0.95],
+                centered: true,
+            },
+            MenuElement::Rect {
+                x: cx - bar_w / 2.0 - bar_border,
+                y: cy - bar_border,
+                w: bar_w + bar_border * 2.0,
+                h: bar_h + bar_border * 2.0,
+                corner_radius: (bar_h / 2.0 + bar_border),
+                color: [0.3, 0.3, 0.3, 0.8],
+            },
+            MenuElement::Rect {
+                x: cx - bar_w / 2.0,
+                y: cy,
+                w: bar_w * progress,
+                h: bar_h,
+                corner_radius: bar_h / 2.0,
+                color: [0.39, 0.71, 1.0, 1.0],
+            },
+            MenuElement::Text {
+                x: cx,
+                y: cy + bar_h + 8.0 * gs,
+                text: status.into(),
+                scale: status_size,
+                color: [0.6, 0.6, 0.6, 0.8],
+                centered: true,
+            },
+        ];
+
+        unsafe {
+            ctx.device.wait_for_fences(&[fence], true, u64::MAX)?;
+
+            let image_index = match ctx.swapchain_loader.acquire_next_image(
+                swapchain.swapchain,
+                u64::MAX,
+                image_available,
+                vk::Fence::null(),
+            ) {
+                Ok((idx, _)) => idx,
+                Err(_) => return Ok(()),
+            };
+
+            ctx.device.reset_fences(&[fence])?;
+            ctx.device
+                .reset_command_buffer(cmd, vk::CommandBufferResetFlags::empty())?;
+
+            let begin_info = vk::CommandBufferBeginInfo::default()
+                .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+            ctx.device.begin_command_buffer(cmd, &begin_info)?;
+
+            let clear_values = [
+                vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 1.0],
+                    },
+                },
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 1.0,
+                        stencil: 0,
+                    },
+                },
+            ];
+
+            let render_pass_info = vk::RenderPassBeginInfo::default()
+                .render_pass(swapchain.render_pass)
+                .framebuffer(swapchain.framebuffers[image_index as usize])
+                .render_area(vk::Rect2D {
+                    offset: vk::Offset2D { x: 0, y: 0 },
+                    extent: swapchain.extent,
+                })
+                .clear_values(&clear_values);
+
+            ctx.device
+                .cmd_begin_render_pass(cmd, &render_pass_info, vk::SubpassContents::INLINE);
+
+            let viewport = vk::Viewport {
+                x: 0.0,
+                y: 0.0,
+                width: sw,
+                height: sh,
+                min_depth: 0.0,
+                max_depth: 1.0,
+            };
+            ctx.device.cmd_set_viewport(cmd, 0, &[viewport]);
+
+            let scissor = vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: swapchain.extent,
+            };
+            ctx.device.cmd_set_scissor(cmd, 0, &[scissor]);
+
+            menu.draw(&ctx.device, cmd, sw, sh, &elements);
+
+            ctx.device.cmd_end_render_pass(cmd);
+            ctx.device.end_command_buffer(cmd)?;
+
+            let wait_semaphores = [image_available];
+            let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+            let signal_semaphores = [render_finished];
+            let cmd_buffers = [cmd];
+
+            let submit_info = vk::SubmitInfo::default()
+                .wait_semaphores(&wait_semaphores)
+                .wait_dst_stage_mask(&wait_stages)
+                .command_buffers(&cmd_buffers)
+                .signal_semaphores(&signal_semaphores);
+
+            ctx.device
+                .queue_submit(ctx.graphics_queue, &[submit_info], fence)?;
+
+            let swapchains = [swapchain.swapchain];
+            let image_indices = [image_index];
+            let present_info = vk::PresentInfoKHR::default()
+                .wait_semaphores(&signal_semaphores)
+                .swapchains(&swapchains)
+                .image_indices(&image_indices);
+
+            let _ = ctx
+                .swapchain_loader
+                .queue_present(ctx.present_queue, &present_info);
+
+            ctx.device.wait_for_fences(&[fence], true, u64::MAX)?;
+        }
+
+        Ok(())
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {

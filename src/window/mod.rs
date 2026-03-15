@@ -550,7 +550,8 @@ impl ApplicationHandler for App {
 
         let window_attrs = Window::default_attributes()
             .with_title("POMC")
-            .with_inner_size(winit::dpi::LogicalSize::new(854, 480));
+            .with_inner_size(winit::dpi::LogicalSize::new(854, 480))
+            .with_visible(false);
 
         let window = match event_loop.create_window(window_attrs) {
             Ok(w) => Arc::new(w),
