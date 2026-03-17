@@ -537,7 +537,7 @@ impl MainMenu {
             let drop_w = 140.0 * gs;
             let links: [(&str, char, &str); 3] = [
                 ("Website", ICON_GLOBE, "https://website.com"),
-                ("Discord", ICON_COMMENT, "https://discord.gg"),
+                ("Discord", ICON_COMMENT, "https://discord.gg/ucBA55bHPR"),
                 ("GitHub", ICON_CODE, "https://github.com"),
             ];
             let total_h = links.len() as f32 * drop_style.item_h;
