@@ -240,7 +240,6 @@ impl Renderer {
 
         splash(&mut menu_pipeline, 0.9, "Finalizing...");
 
-
         let chunk_buffers = ChunkBufferStore::new(&ctx.device, &ctx.allocator);
 
         Ok(Self {

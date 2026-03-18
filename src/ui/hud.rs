@@ -44,6 +44,7 @@ pub fn gui_scale(screen_w: f32, screen_h: f32, setting: u32) -> f32 {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_hud(
     elements: &mut Vec<MenuElement>,
     screen_w: f32,

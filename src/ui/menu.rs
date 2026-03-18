@@ -1852,6 +1852,7 @@ impl MainMenu {
         self.build_options_grid(sw, sh, input, "Controls", Screen::Options, &rows, nav, &[])
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build_options_grid(
         &mut self,
         sw: f32,

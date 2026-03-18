@@ -369,9 +369,9 @@ async fn game_loop(
     }
 }
 
-fn is_recoverable_read_error(err: &Box<ReadPacketError>) -> bool {
+fn is_recoverable_read_error(err: &ReadPacketError) -> bool {
     matches!(
-        err.as_ref(),
+        err,
         ReadPacketError::Parse { .. }
             | ReadPacketError::UnknownPacketId { .. }
             | ReadPacketError::LeftoverData { .. }

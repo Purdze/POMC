@@ -28,6 +28,7 @@ pub struct FaceTextures {
 }
 
 impl FaceTextures {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         top: &str,
         bottom: &str,

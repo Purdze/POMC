@@ -43,9 +43,25 @@ pub fn tick(player: &mut LocalPlayer, input: &InputState, chunk_store: &ChunkSto
     let (sin_yaw, cos_yaw) = player.yaw.sin_cos();
 
     if player.in_water {
-        tick_water(player, input, chunk_store, forward, strafe, sin_yaw, cos_yaw);
+        tick_water(
+            player,
+            input,
+            chunk_store,
+            forward,
+            strafe,
+            sin_yaw,
+            cos_yaw,
+        );
     } else {
-        tick_land(player, input, chunk_store, forward, strafe, sin_yaw, cos_yaw);
+        tick_land(
+            player,
+            input,
+            chunk_store,
+            forward,
+            strafe,
+            sin_yaw,
+            cos_yaw,
+        );
     }
 
     player.tick_air_supply();
@@ -168,10 +184,12 @@ fn apply_collision(
     player.on_ground = on_ground;
     player.horizontal_collision = horizontal_collision;
 
-    if player.sprinting && horizontal_collision && forward > 0.0 {
-        if !is_minor_horizontal_collision(forward, strafe, sin_yaw, cos_yaw, &resolved) {
-            player.sprinting = false;
-        }
+    if player.sprinting
+        && horizontal_collision
+        && forward > 0.0
+        && !is_minor_horizontal_collision(forward, strafe, sin_yaw, cos_yaw, &resolved)
+    {
+        player.sprinting = false;
     }
 }
 
@@ -198,10 +216,8 @@ fn update_sprint_state(
         player.sprint_toggle_timer = DEFAULT_SPRINT_WINDOW;
     }
 
-    if player.sprinting {
-        if forward <= 0.0 || player.food <= SPRINT_HUNGER_THRESHOLD {
-            player.sprinting = false;
-        }
+    if player.sprinting && (forward <= 0.0 || player.food <= SPRINT_HUNGER_THRESHOLD) {
+        player.sprinting = false;
     }
 }
 

@@ -177,7 +177,7 @@ async fn download_asset_objects(
         std::fs::write(&path, &bytes)?;
         downloaded += 1;
 
-        if downloaded % 50 == 0 {
+        if downloaded.is_multiple_of(50) {
             let need = total - skipped;
             progress(DownloadProgress {
                 downloaded,

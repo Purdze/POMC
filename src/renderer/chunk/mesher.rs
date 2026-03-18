@@ -220,6 +220,7 @@ fn mesh_chunk_snapshot(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn emit_baked_model(
     vertices: &mut Vec<ChunkVertex>,
     indices: &mut Vec<u32>,
@@ -256,6 +257,7 @@ fn emit_baked_model(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn emit_cube_faces(
     vertices: &mut Vec<ChunkVertex>,
     indices: &mut Vec<u32>,
@@ -342,6 +344,7 @@ fn fluid_id(state: azalea_block::BlockState) -> Option<&'static str> {
 
 const FLUID_MAX_HEIGHT: f32 = 8.0 / 9.0;
 
+#[allow(clippy::too_many_arguments)]
 fn emit_fluid(
     vertices: &mut Vec<ChunkVertex>,
     indices: &mut Vec<u32>,
@@ -391,6 +394,7 @@ fn emit_fluid(
 
 const MISSING_TINT: [f32; 3] = [1.0, 0.0, 1.0];
 
+#[allow(clippy::too_many_arguments)]
 fn emit_missing_cube(
     vertices: &mut Vec<ChunkVertex>,
     indices: &mut Vec<u32>,
@@ -435,6 +439,7 @@ const CUBE_FACE_DIRS: [Direction; 6] = [
     Direction::West,
 ];
 
+#[allow(clippy::too_many_arguments)]
 fn emit_face(
     vertices: &mut Vec<ChunkVertex>,
     indices: &mut Vec<u32>,

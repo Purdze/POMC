@@ -200,7 +200,7 @@ fn format_motd_spans(text: &azalea_chat::FormattedText) -> Vec<MotdSpan> {
             if !t.is_empty() {
                 let style = current_style.borrow();
                 let s = style.as_ref();
-                let color = s.map(|s| style_to_rgba(s)).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+                let color = s.map(style_to_rgba).unwrap_or([1.0, 1.0, 1.0, 1.0]);
                 let bold = s.and_then(|s| s.bold).unwrap_or(false);
                 let italic = s.and_then(|s| s.italic).unwrap_or(false);
                 let strikethrough = s.and_then(|s| s.strikethrough).unwrap_or(false);

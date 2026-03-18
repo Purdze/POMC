@@ -143,7 +143,7 @@ impl Direction {
     }
 
     fn rotate_y(self, degrees: i32) -> Self {
-        let steps = ((degrees % 360 + 360) % 360) / 90;
+        let steps = degrees.rem_euclid(360) / 90;
         let mut d = self;
         for _ in 0..steps {
             d = match d {
@@ -158,7 +158,7 @@ impl Direction {
     }
 
     fn rotate_x(self, degrees: i32) -> Self {
-        let steps = ((degrees % 360 + 360) % 360) / 90;
+        let steps = degrees.rem_euclid(360) / 90;
         let mut d = self;
         for _ in 0..steps {
             d = match d {
