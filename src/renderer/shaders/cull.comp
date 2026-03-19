@@ -1,0 +1,64 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+struct ChunkMeta {
+    vec4 aabb_min;
+    vec4 aabb_max;
+    uint index_count;
+    uint first_index;
+    int vertex_offset;
+    uint _pad;
+};
+
+struct DrawCmd {
+    uint index_count;
+    uint instance_count;
+    uint first_index;
+    int vertex_offset;
+    uint first_instance;
+};
+
+layout(set = 0, binding = 0) readonly buffer MetaBuf {
+    ChunkMeta chunks[];
+};
+
+layout(set = 0, binding = 1) uniform FrustumBuf {
+    vec4 planes[6];
+    uint chunk_count;
+};
+
+layout(set = 0, binding = 2) writeonly buffer IndirectBuf {
+    DrawCmd draws[];
+};
+
+layout(set = 0, binding = 3) buffer CountBuf {
+    uint draw_count;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= chunk_count) return;
+
+    ChunkMeta m = chunks[idx];
+    if (m.index_count == 0u) return;
+
+    vec3 mn = m.aabb_min.xyz;
+    vec3 mx = m.aabb_max.xyz;
+
+    for (int i = 0; i < 6; i++) {
+        vec4 p = planes[i];
+        float d = p.x * (p.x >= 0.0 ? mx.x : mn.x)
+                + p.y * (p.y >= 0.0 ? mx.y : mn.y)
+                + p.z * (p.z >= 0.0 ? mx.z : mn.z)
+                + p.w;
+        if (d < 0.0) return;
+    }
+
+    uint slot = atomicAdd(draw_count, 1u);
+    draws[slot].index_count = m.index_count;
+    draws[slot].instance_count = 1u;
+    draws[slot].first_index = m.first_index;
+    draws[slot].vertex_offset = m.vertex_offset;
+    draws[slot].first_instance = 0u;
+}

@@ -1,11 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
-pub struct Account {
-    pub username: String,
-    pub uuid: String,
-}
-
 #[derive(Deserialize)]
 struct MojangPatchNotes {
     entries: Vec<MojangEntry>,
@@ -280,35 +274,31 @@ pub async fn launch_game(
 }
 
 fn find_client_binary() -> Result<std::path::PathBuf, String> {
-    let candidates = [
-        std::env::current_exe()
-            .ok()
-            .and_then(|p| p.parent().map(|d| d.join("pomc.exe"))),
-        std::env::current_exe()
-            .ok()
-            .and_then(|p| {
-                p.parent()?
-                    .parent()?
-                    .parent()?
-                    .parent()
-                    .map(|d| d.join("target").join("release").join("pomc.exe"))
-            }),
-        std::env::current_exe()
-            .ok()
-            .and_then(|p| {
-                p.parent()?
-                    .parent()?
-                    .parent()?
-                    .parent()
-                    .map(|d| d.join("target").join("debug").join("pomc.exe"))
-            }),
-    ];
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
 
-    for candidate in candidates.into_iter().flatten() {
-        if candidate.exists() {
-            return Ok(candidate);
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("pomc.exe"));
+            candidates.push(dir.join("pomc"));
+
+            let mut ancestor = dir.to_path_buf();
+            for _ in 0..6 {
+                if !ancestor.pop() {
+                    break;
+                }
+                candidates.push(ancestor.join("target").join("release").join("pomc.exe"));
+                candidates.push(ancestor.join("target").join("debug").join("pomc.exe"));
+                candidates.push(ancestor.join("target").join("release").join("pomc"));
+                candidates.push(ancestor.join("target").join("debug").join("pomc"));
+            }
         }
     }
 
-    Err("Game binary not found. Build it with: cargo build --release".into())
+    for candidate in &candidates {
+        if candidate.exists() {
+            return Ok(candidate.clone());
+        }
+    }
+
+    Err("POMC client not found. It will be bundled in future releases.".into())
 }

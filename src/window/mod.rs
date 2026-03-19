@@ -779,6 +779,10 @@ impl ApplicationHandler for App {
                                         }
                                         self.menu.start_transition_open();
                                     }
+                                    MenuAction::Quit => {
+                                        event_loop.exit();
+                                        return;
+                                    }
                                     MenuAction::None => {}
                                 }
                             }
@@ -1070,14 +1074,25 @@ impl ApplicationHandler for App {
     }
 }
 
+pub struct LaunchAuth {
+    pub username: String,
+    pub uuid: uuid::Uuid,
+    pub access_token: String,
+}
+
 pub fn run(
     connection: Option<crate::net::connection::ConnectionHandle>,
     assets_dir: std::path::PathBuf,
     game_dir: std::path::PathBuf,
     tokio_rt: Arc<tokio::runtime::Runtime>,
+    auth: Option<LaunchAuth>,
 ) -> Result<(), WindowError> {
     let event_loop = EventLoop::new()?;
     let mut app = App::new(connection, assets_dir, game_dir, tokio_rt);
+    if let Some(auth) = auth {
+        app.menu
+            .set_launch_auth(auth.username, auth.uuid, auth.access_token);
+    }
     event_loop.run_app(&mut app)?;
     Ok(())
 }

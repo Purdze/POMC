@@ -20,19 +20,21 @@ fn main() {
 
     let args = args::LaunchArgs::parse();
 
-    match &args.launch_token {
-        Some(path) => {
-            let token_path = std::path::Path::new(path);
-            if !token_path.exists() {
+    if !cfg!(debug_assertions) {
+        match &args.launch_token {
+            Some(path) => {
+                let token_path = std::path::Path::new(path);
+                if !token_path.exists() {
+                    eprintln!("Please use the POMC Launcher to start the game.");
+                    std::process::exit(1);
+                }
+                let _ = std::fs::remove_file(token_path);
+            }
+            None => {
                 eprintln!("Please use the POMC Launcher to start the game.");
+                eprintln!("Download it at: https://github.com/Purdze/POMC");
                 std::process::exit(1);
             }
-            let _ = std::fs::remove_file(token_path);
-        }
-        None => {
-            eprintln!("Please use the POMC Launcher to start the game.");
-            eprintln!("Download it at: https://github.com/Purdze/POMC");
-            std::process::exit(1);
         }
     }
 
@@ -65,11 +67,23 @@ fn main() {
         None
     };
 
+    let launch_auth = match (&args.username, &args.uuid, &args.access_token) {
+        (Some(username), Some(uuid_str), Some(token)) => {
+            uuid_str.parse().ok().map(|uuid| window::LaunchAuth {
+                username: username.clone(),
+                uuid,
+                access_token: token.clone(),
+            })
+        }
+        _ => None,
+    };
+
     if let Err(e) = window::run(
         connection,
         data.assets_dir.clone(),
         data.instance_dir.clone(),
         rt,
+        launch_auth,
     ) {
         log::error!("Fatal: {e}");
         std::process::exit(1);

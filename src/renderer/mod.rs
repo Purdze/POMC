@@ -25,6 +25,7 @@ use chunk::buffer::ChunkBufferStore;
 use chunk::mesher::{ChunkMeshData, MeshDispatcher};
 use context::VulkanContext;
 use pipelines::block_overlay::BlockOverlayPipeline;
+use pipelines::blur::BlurPipeline;
 use pipelines::chunk::ChunkPipeline;
 use pipelines::hand::HandPipeline;
 use pipelines::menu_overlay::{MenuElement, MenuOverlayPipeline};
@@ -71,6 +72,7 @@ pub struct Renderer {
     sky_pipeline: SkyPipeline,
     panorama_pipeline: PanoramaPipeline,
     menu_pipeline: MenuOverlayPipeline,
+    blur_pipeline: BlurPipeline,
     chunk_buffers: ChunkBufferStore,
     swapchain_dirty: bool,
     width: u32,
@@ -199,6 +201,14 @@ impl Renderer {
 
         splash(&mut menu_pipeline, 0.9, "Finalizing...");
 
+        let blur_pipeline = BlurPipeline::new(
+            &ctx.device,
+            &ctx.allocator,
+            size.width.max(1),
+            size.height.max(1),
+            swapchain_state.format.format,
+        );
+
         let chunk_buffers = ChunkBufferStore::new(&ctx.device, &ctx.allocator);
 
         Ok(Self {
@@ -213,6 +223,7 @@ impl Renderer {
             sky_pipeline,
             panorama_pipeline,
             menu_pipeline,
+            blur_pipeline,
             chunk_buffers,
             swapchain_dirty: false,
             width: size.width.max(1),
@@ -431,7 +442,12 @@ impl Renderer {
             .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
         self.menu_pipeline
             .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-
+        self.blur_pipeline.resize(
+            &self.ctx.device,
+            &self.ctx.allocator,
+            self.width,
+            self.height,
+        );
         self.swapchain_dirty = false;
         Ok(())
     }
@@ -493,19 +509,16 @@ impl Renderer {
     }
 
     pub fn upload_chunk_mesh(&mut self, mesh: &ChunkMeshData) {
-        self.chunk_buffers
-            .upload(mesh, &self.ctx.device, &self.ctx.allocator);
+        self.chunk_buffers.upload(mesh);
     }
 
     pub fn remove_chunk_mesh(&mut self, pos: &ChunkPos) {
-        self.chunk_buffers
-            .remove(&self.ctx.device, &self.ctx.allocator, pos);
+        self.chunk_buffers.remove(pos);
     }
 
     pub fn clear_chunk_meshes(&mut self) {
         self.wait_for_all_frames();
-        self.chunk_buffers
-            .clear(&self.ctx.device, &self.ctx.allocator);
+        self.chunk_buffers.clear();
     }
 
     pub fn create_mesh_dispatcher(&self) -> MeshDispatcher {
@@ -593,6 +606,8 @@ impl Renderer {
             self.ctx.device.wait_for_fences(&[fence], true, u64::MAX)?;
         }
 
+        self.chunk_buffers.begin_frame();
+
         let image_index = match unsafe {
             self.ctx.swapchain_loader.acquire_next_image(
                 self.swapchain.swapchain,
@@ -629,6 +644,17 @@ impl Renderer {
                 .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
             self.ctx.device.begin_command_buffer(cmd, &begin_info)?;
 
+            if matches!(&mode, RenderMode::World { .. }) {
+                let frustum = self.camera.frustum_planes();
+                let cam_pos = [
+                    self.camera.position.x,
+                    self.camera.position.y,
+                    self.camera.position.z,
+                ];
+                self.chunk_buffers
+                    .dispatch_cull(&self.ctx.device, cmd, frame, &frustum, cam_pos);
+            }
+
             let clear_values = [
                 vk::ClearValue {
                     color: vk::ClearColorValue {
@@ -643,9 +669,23 @@ impl Renderer {
                 },
             ];
 
+            let use_blur = matches!(&mode, RenderMode::MainMenu { blur, .. } if *blur > 0.01);
+
+            let (rp, fb) = if use_blur {
+                (
+                    self.swapchain.render_pass_scene,
+                    self.swapchain.framebuffers_scene[image_index as usize],
+                )
+            } else {
+                (
+                    self.swapchain.render_pass,
+                    self.swapchain.framebuffers[image_index as usize],
+                )
+            };
+
             let render_pass_info = vk::RenderPassBeginInfo::default()
-                .render_pass(self.swapchain.render_pass)
-                .framebuffer(self.swapchain.framebuffers[image_index as usize])
+                .render_pass(rp)
+                .framebuffer(fb)
                 .render_area(vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
                     extent: self.swapchain.extent,
@@ -692,10 +732,9 @@ impl Renderer {
                         sky,
                     );
 
-                    let frustum = self.camera.frustum_planes();
                     self.chunk_pipeline.bind(&self.ctx.device, cmd, frame);
                     self.chunk_buffers
-                        .draw_culled(&self.ctx.device, cmd, &frustum);
+                        .draw_indirect(&self.ctx.device, cmd, frame);
 
                     if let Some((block_pos, stage)) = destroy_info {
                         self.block_overlay_pipeline.draw(
@@ -745,7 +784,45 @@ impl Renderer {
                 } => {
                     let aspect = sw / sh.max(1.0);
                     self.panorama_pipeline
-                        .draw(&self.ctx.device, cmd, *scroll, aspect, *blur);
+                        .draw(&self.ctx.device, cmd, *scroll, aspect, 0.0);
+
+                    if *blur > 0.01 {
+                        self.ctx.device.cmd_end_render_pass(cmd);
+
+                        let swapchain_image = self.swapchain.images[image_index as usize];
+                        let iterations = ((*blur * 3.0).ceil() as u32).clamp(1, 4);
+                        self.blur_pipeline.execute(
+                            &self.ctx.device,
+                            cmd,
+                            swapchain_image,
+                            self.swapchain.extent.width,
+                            self.swapchain.extent.height,
+                            iterations,
+                        );
+
+                        self.menu_pipeline.set_blur_texture(
+                            &self.ctx.device,
+                            self.blur_pipeline.blurred_view(),
+                            self.blur_pipeline.blurred_sampler(),
+                        );
+
+                        let load_rp_info = vk::RenderPassBeginInfo::default()
+                            .render_pass(self.swapchain.render_pass_load)
+                            .framebuffer(self.swapchain.framebuffers_load[image_index as usize])
+                            .render_area(vk::Rect2D {
+                                offset: vk::Offset2D { x: 0, y: 0 },
+                                extent: self.swapchain.extent,
+                            })
+                            .clear_values(&clear_values);
+                        self.ctx.device.cmd_begin_render_pass(
+                            cmd,
+                            &load_rp_info,
+                            vk::SubpassContents::INLINE,
+                        );
+                        self.ctx.device.cmd_set_viewport(cmd, 0, &[viewport]);
+                        self.ctx.device.cmd_set_scissor(cmd, 0, &[scissor]);
+                    }
+
                     self.menu_pipeline
                         .draw(&self.ctx.device, cmd, sw, sh, elements);
                 }
@@ -812,6 +889,8 @@ impl Drop for Renderer {
         self.panorama_pipeline
             .destroy(&self.ctx.device, &self.ctx.allocator);
         self.menu_pipeline
+            .destroy(&self.ctx.device, &self.ctx.allocator);
+        self.blur_pipeline
             .destroy(&self.ctx.device, &self.ctx.allocator);
         self.atlas.destroy(&self.ctx.device, &self.ctx.allocator);
         self.swapchain.destroy(

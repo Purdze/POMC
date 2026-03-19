@@ -1910,6 +1910,444 @@ body {
   line-height: 1.6;
 }
 
+.nav-soon {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+/* ═══ Mock Pages ═══ */
+
+.mock-page {
+  padding: 24px 20px 32px;
+}
+
+.mock-banner {
+  padding: 10px 16px;
+  background: rgba(255, 180, 50, 0.08);
+  border: 1px solid rgba(255, 180, 50, 0.2);
+  border-radius: var(--radius);
+  color: rgba(255, 200, 100, 0.8);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.mock-heading {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+
+.mock-subheading {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 16px 0 8px;
+}
+
+.mock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mock-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mock-dot.on {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.mock-dot.off {
+  background: var(--text-muted);
+}
+
+.mock-server {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s;
+}
+
+.mock-server:hover {
+  border-color: var(--border-light);
+  background: var(--glass-hover);
+}
+
+.mock-server-status {
+  flex-shrink: 0;
+}
+
+.mock-server-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mock-server-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mock-server-ip {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mock-server-players {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.mock-server-ping {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: right;
+}
+
+.mock-friend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: all 0.2s;
+}
+
+.mock-friend:hover {
+  background: var(--glass-hover);
+}
+
+.mock-friend-avatar {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--purple), #a78bfa);
+  border-radius: 6px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.mock-friend-avatar.off {
+  background: var(--glass-light);
+  color: var(--text-muted);
+}
+
+.mock-friend-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mock-friend-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mock-friend-name.off {
+  color: var(--text-muted);
+}
+
+.mock-friend-status {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.mock-join-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  background: var(--glass-light);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.mock-join-btn:hover {
+  background: var(--accent-glow);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.mods-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.mods-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex: 1;
+  min-width: 180px;
+}
+
+.mods-search-icon {
+  color: var(--text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mods-search-input {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+
+.mods-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.mods-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.mods-filter {
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mods-filter:hover {
+  border-color: var(--border-light);
+  color: var(--text);
+}
+
+.mods-filter.active {
+  background: var(--accent-glow);
+  border-color: rgba(74, 222, 128, 0.3);
+  color: var(--accent);
+}
+
+.mods-view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.mods-view-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mods-view-btn:hover {
+  color: var(--text);
+}
+
+.mods-view-btn.active {
+  background: var(--glass-light);
+  color: var(--text);
+}
+
+.mods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.mock-mod-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s;
+  gap: 10px;
+}
+
+.mock-mod-card:hover {
+  border-color: var(--border-light);
+  background: var(--glass-hover);
+}
+
+.mock-mod-card .mock-mod-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.mock-mod-card .mock-mod-btn {
+  width: 100%;
+  text-align: center;
+}
+
+.mock-mod {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s;
+}
+
+.mock-mod:hover {
+  border-color: var(--border-light);
+  background: var(--glass-hover);
+}
+
+.mock-mod-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-light);
+  border-radius: var(--radius);
+  font-size: 18px;
+  color: var(--purple);
+  flex-shrink: 0;
+}
+
+.mock-mod-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mock-mod-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mock-mod-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.mock-mod-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.mock-mod-btn {
+  padding: 7px 18px;
+  background: linear-gradient(135deg, var(--accent-dark), var(--accent));
+  border: none;
+  border-radius: 6px;
+  color: #0a1a0a;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.mock-mod-btn:hover {
+  box-shadow: 0 2px 12px var(--accent-glow);
+}
+
+.mock-mod-btn.installed {
+  background: var(--glass-light);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.stub-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 6px 16px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 20px;
+  margin-top: 8px;
+}
+
 /* ═══ Scrollbar ═══ */
 
 ::-webkit-scrollbar {

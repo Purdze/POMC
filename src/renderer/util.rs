@@ -30,6 +30,25 @@ pub fn create_gpu_image_with_format(
     format: vk::Format,
     name: &str,
 ) -> (vk::Image, vk::ImageView, Allocation) {
+    let (image, view, allocation, _) =
+        create_gpu_image_core(device, allocator, width, height, format, 1, name);
+    (image, view, allocation)
+}
+
+fn create_gpu_image_core(
+    device: &ash::Device,
+    allocator: &Arc<Mutex<Allocator>>,
+    width: u32,
+    height: u32,
+    format: vk::Format,
+    mip_levels: u32,
+    name: &str,
+) -> (vk::Image, vk::ImageView, Allocation, u32) {
+    let mut usage = vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED;
+    if mip_levels > 1 {
+        usage |= vk::ImageUsageFlags::TRANSFER_SRC;
+    }
+
     let image_info = vk::ImageCreateInfo::default()
         .image_type(vk::ImageType::TYPE_2D)
         .format(format)
@@ -38,11 +57,11 @@ pub fn create_gpu_image_with_format(
             height,
             depth: 1,
         })
-        .mip_levels(1)
+        .mip_levels(mip_levels)
         .array_layers(1)
         .samples(vk::SampleCountFlags::TYPE_1)
         .tiling(vk::ImageTiling::OPTIMAL)
-        .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED);
+        .usage(usage);
 
     let image = unsafe { device.create_image(&image_info, None) }.expect("failed to create image");
     let mem_reqs = unsafe { device.get_image_memory_requirements(image) };
@@ -69,11 +88,17 @@ pub fn create_gpu_image_with_format(
         .image(image)
         .view_type(vk::ImageViewType::TYPE_2D)
         .format(format)
-        .subresource_range(COLOR_SUBRESOURCE_RANGE);
+        .subresource_range(vk::ImageSubresourceRange {
+            aspect_mask: vk::ImageAspectFlags::COLOR,
+            base_mip_level: 0,
+            level_count: mip_levels,
+            base_array_layer: 0,
+            layer_count: 1,
+        });
     let view =
         unsafe { device.create_image_view(&view_info, None) }.expect("failed to create image view");
 
-    (image, view, allocation)
+    (image, view, allocation, mip_levels)
 }
 
 pub fn create_mapped_buffer(
@@ -209,99 +234,16 @@ pub fn upload_image(
     width: u32,
     height: u32,
 ) {
-    let alloc_info = vk::CommandBufferAllocateInfo::default()
-        .command_pool(command_pool)
-        .level(vk::CommandBufferLevel::PRIMARY)
-        .command_buffer_count(1);
-    let cmd = unsafe { device.allocate_command_buffers(&alloc_info) }
-        .expect("failed to allocate upload command buffer")[0];
-
-    let begin_info =
-        vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-    unsafe { device.begin_command_buffer(cmd, &begin_info) }
-        .expect("failed to begin command buffer");
-
-    let barrier_to_transfer = vk::ImageMemoryBarrier::default()
-        .image(image)
-        .old_layout(vk::ImageLayout::UNDEFINED)
-        .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-        .src_access_mask(vk::AccessFlags::empty())
-        .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-        .subresource_range(COLOR_SUBRESOURCE_RANGE);
-
-    unsafe {
-        device.cmd_pipeline_barrier(
-            cmd,
-            vk::PipelineStageFlags::TOP_OF_PIPE,
-            vk::PipelineStageFlags::TRANSFER,
-            vk::DependencyFlags::empty(),
-            &[],
-            &[],
-            &[barrier_to_transfer],
-        );
-    }
-
-    let copy_region = vk::BufferImageCopy {
-        buffer_offset: 0,
-        buffer_row_length: 0,
-        buffer_image_height: 0,
-        image_subresource: vk::ImageSubresourceLayers {
-            aspect_mask: vk::ImageAspectFlags::COLOR,
-            mip_level: 0,
-            base_array_layer: 0,
-            layer_count: 1,
-        },
-        image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
-        image_extent: vk::Extent3D {
-            width,
-            height,
-            depth: 1,
-        },
-    };
-
-    unsafe {
-        device.cmd_copy_buffer_to_image(
-            cmd,
-            staging_buffer,
-            image,
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            &[copy_region],
-        );
-    }
-
-    let barrier_to_shader = vk::ImageMemoryBarrier::default()
-        .image(image)
-        .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-        .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-        .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-        .dst_access_mask(vk::AccessFlags::SHADER_READ)
-        .subresource_range(COLOR_SUBRESOURCE_RANGE);
-
-    unsafe {
-        device.cmd_pipeline_barrier(
-            cmd,
-            vk::PipelineStageFlags::TRANSFER,
-            vk::PipelineStageFlags::FRAGMENT_SHADER,
-            vk::DependencyFlags::empty(),
-            &[],
-            &[],
-            &[barrier_to_shader],
-        );
-
-        device
-            .end_command_buffer(cmd)
-            .expect("failed to end command buffer");
-
-        let cmd_buffers = [cmd];
-        let submit_info = vk::SubmitInfo::default().command_buffers(&cmd_buffers);
-        device
-            .queue_submit(queue, &[submit_info], vk::Fence::null())
-            .expect("failed to submit upload");
-        device
-            .queue_wait_idle(queue)
-            .expect("failed to wait for upload");
-        device.free_command_buffers(command_pool, &[cmd]);
-    }
+    upload_image_mipmapped(
+        device,
+        queue,
+        command_pool,
+        staging_buffer,
+        image,
+        width,
+        height,
+        1,
+    );
 }
 
 pub fn create_descriptor_set_layout(
@@ -382,16 +324,7 @@ pub const DEPTH_SUBRESOURCE_RANGE: vk::ImageSubresourceRange = vk::ImageSubresou
 };
 
 pub unsafe fn create_nearest_sampler(device: &ash::Device) -> vk::Sampler {
-    let info = vk::SamplerCreateInfo::default()
-        .mag_filter(vk::Filter::NEAREST)
-        .min_filter(vk::Filter::NEAREST)
-        .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
-        .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-        .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
-        .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE);
-    device
-        .create_sampler(&info, None)
-        .expect("failed to create nearest sampler")
+    create_nearest_sampler_mipmapped(device, 1)
 }
 
 pub unsafe fn create_linear_sampler(device: &ash::Device) -> vk::Sampler {
@@ -404,4 +337,274 @@ pub unsafe fn create_linear_sampler(device: &ash::Device) -> vk::Sampler {
     device
         .create_sampler(&info, None)
         .expect("failed to create linear sampler")
+}
+
+pub fn calculate_mip_levels(w: u32, h: u32) -> u32 {
+    (w.max(h) as f32).log2().floor() as u32 + 1
+}
+
+pub fn create_gpu_image_mipmapped(
+    device: &ash::Device,
+    allocator: &Arc<Mutex<Allocator>>,
+    width: u32,
+    height: u32,
+    name: &str,
+) -> (vk::Image, vk::ImageView, Allocation, u32) {
+    let mip_levels = calculate_mip_levels(width, height);
+    create_gpu_image_core(
+        device,
+        allocator,
+        width,
+        height,
+        vk::Format::R8G8B8A8_SRGB,
+        mip_levels,
+        name,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn upload_image_mipmapped(
+    device: &ash::Device,
+    queue: vk::Queue,
+    command_pool: vk::CommandPool,
+    staging_buffer: vk::Buffer,
+    image: vk::Image,
+    width: u32,
+    height: u32,
+    mip_levels: u32,
+) {
+    let alloc_info = vk::CommandBufferAllocateInfo::default()
+        .command_pool(command_pool)
+        .level(vk::CommandBufferLevel::PRIMARY)
+        .command_buffer_count(1);
+    let cmd = unsafe { device.allocate_command_buffers(&alloc_info) }
+        .expect("failed to allocate upload command buffer")[0];
+
+    let begin_info =
+        vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+    unsafe { device.begin_command_buffer(cmd, &begin_info) }
+        .expect("failed to begin command buffer");
+
+    let barrier_all = vk::ImageMemoryBarrier::default()
+        .image(image)
+        .old_layout(vk::ImageLayout::UNDEFINED)
+        .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+        .src_access_mask(vk::AccessFlags::empty())
+        .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+        .subresource_range(vk::ImageSubresourceRange {
+            aspect_mask: vk::ImageAspectFlags::COLOR,
+            base_mip_level: 0,
+            level_count: mip_levels,
+            base_array_layer: 0,
+            layer_count: 1,
+        });
+
+    unsafe {
+        device.cmd_pipeline_barrier(
+            cmd,
+            vk::PipelineStageFlags::TOP_OF_PIPE,
+            vk::PipelineStageFlags::TRANSFER,
+            vk::DependencyFlags::empty(),
+            &[],
+            &[],
+            &[barrier_all],
+        );
+    }
+
+    let copy_region = vk::BufferImageCopy {
+        buffer_offset: 0,
+        buffer_row_length: 0,
+        buffer_image_height: 0,
+        image_subresource: vk::ImageSubresourceLayers {
+            aspect_mask: vk::ImageAspectFlags::COLOR,
+            mip_level: 0,
+            base_array_layer: 0,
+            layer_count: 1,
+        },
+        image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+        image_extent: vk::Extent3D {
+            width,
+            height,
+            depth: 1,
+        },
+    };
+
+    unsafe {
+        device.cmd_copy_buffer_to_image(
+            cmd,
+            staging_buffer,
+            image,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            &[copy_region],
+        );
+    }
+
+    let mut mip_w = width as i32;
+    let mut mip_h = height as i32;
+
+    for i in 1..mip_levels {
+        let barrier = vk::ImageMemoryBarrier::default()
+            .image(image)
+            .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+            .new_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
+            .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+            .dst_access_mask(vk::AccessFlags::TRANSFER_READ)
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: i - 1,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            });
+
+        unsafe {
+            device.cmd_pipeline_barrier(
+                cmd,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[barrier],
+            );
+        }
+
+        let next_w = (mip_w / 2).max(1);
+        let next_h = (mip_h / 2).max(1);
+
+        let blit = vk::ImageBlit {
+            src_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: i - 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            src_offsets: [
+                vk::Offset3D { x: 0, y: 0, z: 0 },
+                vk::Offset3D {
+                    x: mip_w,
+                    y: mip_h,
+                    z: 1,
+                },
+            ],
+            dst_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: i,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            dst_offsets: [
+                vk::Offset3D { x: 0, y: 0, z: 0 },
+                vk::Offset3D {
+                    x: next_w,
+                    y: next_h,
+                    z: 1,
+                },
+            ],
+        };
+
+        unsafe {
+            device.cmd_blit_image(
+                cmd,
+                image,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[blit],
+                vk::Filter::NEAREST,
+            );
+        }
+
+        let barrier = vk::ImageMemoryBarrier::default()
+            .image(image)
+            .old_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
+            .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .src_access_mask(vk::AccessFlags::TRANSFER_READ)
+            .dst_access_mask(vk::AccessFlags::SHADER_READ)
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: i - 1,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            });
+
+        unsafe {
+            device.cmd_pipeline_barrier(
+                cmd,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[barrier],
+            );
+        }
+
+        mip_w = next_w;
+        mip_h = next_h;
+    }
+
+    let barrier = vk::ImageMemoryBarrier::default()
+        .image(image)
+        .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+        .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+        .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+        .dst_access_mask(vk::AccessFlags::SHADER_READ)
+        .subresource_range(vk::ImageSubresourceRange {
+            aspect_mask: vk::ImageAspectFlags::COLOR,
+            base_mip_level: mip_levels - 1,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+        });
+
+    unsafe {
+        device.cmd_pipeline_barrier(
+            cmd,
+            vk::PipelineStageFlags::TRANSFER,
+            vk::PipelineStageFlags::FRAGMENT_SHADER,
+            vk::DependencyFlags::empty(),
+            &[],
+            &[],
+            &[barrier],
+        );
+
+        device
+            .end_command_buffer(cmd)
+            .expect("failed to end command buffer");
+
+        let cmd_buffers = [cmd];
+        let submit_info = vk::SubmitInfo::default().command_buffers(&cmd_buffers);
+        device
+            .queue_submit(queue, &[submit_info], vk::Fence::null())
+            .expect("failed to submit upload");
+        device
+            .queue_wait_idle(queue)
+            .expect("failed to wait for upload");
+        device.free_command_buffers(command_pool, &[cmd]);
+    }
+}
+
+pub unsafe fn create_nearest_sampler_mipmapped(
+    device: &ash::Device,
+    mip_levels: u32,
+) -> vk::Sampler {
+    let mipmap_mode = if mip_levels > 1 {
+        vk::SamplerMipmapMode::LINEAR
+    } else {
+        vk::SamplerMipmapMode::NEAREST
+    };
+    let info = vk::SamplerCreateInfo::default()
+        .mag_filter(vk::Filter::NEAREST)
+        .min_filter(vk::Filter::NEAREST)
+        .mipmap_mode(mipmap_mode)
+        .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .min_lod(0.0)
+        .max_lod(mip_levels as f32);
+    device
+        .create_sampler(&info, None)
+        .expect("failed to create nearest sampler")
 }

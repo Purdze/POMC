@@ -107,12 +107,17 @@ impl TextureAtlas {
             missing: missing_region,
         };
 
-        let (image, view, allocation) =
-            util::create_gpu_image(device, allocator, atlas_size, atlas_size, "atlas_image");
+        let (image, view, allocation, mip_levels) = util::create_gpu_image_mipmapped(
+            device,
+            allocator,
+            atlas_size,
+            atlas_size,
+            "atlas_image",
+        );
         let (staging_buffer, staging_allocation) =
             util::create_staging_buffer(device, allocator, &atlas_pixels, "atlas_staging");
 
-        util::upload_image(
+        util::upload_image_mipmapped(
             device,
             queue,
             command_pool,
@@ -120,9 +125,10 @@ impl TextureAtlas {
             image,
             atlas_size,
             atlas_size,
+            mip_levels,
         );
 
-        let sampler = unsafe { util::create_nearest_sampler(device) };
+        let sampler = unsafe { util::create_nearest_sampler_mipmapped(device, mip_levels) };
 
         log::info!("Atlas built: {atlas_size}x{atlas_size}, {slot} textures");
 

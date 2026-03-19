@@ -191,7 +191,7 @@ impl MenuOverlayPipeline {
         let globals_layout = util::create_descriptor_set_layout(
             device,
             vk::DescriptorType::UNIFORM_BUFFER,
-            vk::ShaderStageFlags::VERTEX,
+            vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
         );
 
         let tex_bindings = [
@@ -223,6 +223,13 @@ impl MenuOverlayPipeline {
                 stage_flags: vk::ShaderStageFlags::FRAGMENT,
                 ..Default::default()
             },
+            vk::DescriptorSetLayoutBinding {
+                binding: 4,
+                descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                descriptor_count: 1,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            },
         ];
         let tex_layout_info = vk::DescriptorSetLayoutCreateInfo::default().bindings(&tex_bindings);
         let tex_layout = unsafe { device.create_descriptor_set_layout(&tex_layout_info, None) }
@@ -242,7 +249,7 @@ impl MenuOverlayPipeline {
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: 4,
+                descriptor_count: 5,
             },
         ];
         let pool_info = vk::DescriptorPoolCreateInfo::default()
@@ -407,6 +414,11 @@ impl MenuOverlayPipeline {
                 .dst_binding(3)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .image_info(&mc_font_img_info),
+            vk::WriteDescriptorSet::default()
+                .dst_set(tex_set)
+                .dst_binding(4)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&font_img_info),
         ];
         unsafe { device.update_descriptor_sets(&writes, &[]) };
 
@@ -551,6 +563,50 @@ impl MenuOverlayPipeline {
                         push_mc_text(&mut vertices, gm, *x, *y, spans, *scale);
                     }
                 }
+                MenuElement::GradientRect {
+                    x,
+                    y,
+                    w,
+                    h,
+                    corner_radius,
+                    color_top,
+                    color_bottom,
+                } => {
+                    push_gradient_rect(
+                        &mut vertices,
+                        *x,
+                        *y,
+                        *w,
+                        *h,
+                        *corner_radius,
+                        *color_top,
+                        *color_bottom,
+                    );
+                }
+                MenuElement::FrostedRect {
+                    x,
+                    y,
+                    w,
+                    h,
+                    corner_radius,
+                    tint,
+                } => {
+                    push_quad(
+                        &mut vertices,
+                        *x,
+                        *y,
+                        *w,
+                        *h,
+                        0.0,
+                        0.0,
+                        1.0,
+                        1.0,
+                        *tint,
+                        5.0,
+                        [*w, *h],
+                        *corner_radius,
+                    );
+                }
             }
         }
 
@@ -580,6 +636,25 @@ impl MenuOverlayPipeline {
             device.cmd_bind_vertex_buffers(cmd, 0, &[self.vertex_buffer], &[0]);
             device.cmd_draw(cmd, count as u32, 1, 0, 0);
         }
+    }
+
+    pub fn set_blur_texture(
+        &self,
+        device: &ash::Device,
+        view: vk::ImageView,
+        sampler: vk::Sampler,
+    ) {
+        let info = [vk::DescriptorImageInfo {
+            sampler,
+            image_view: view,
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }];
+        let write = [vk::WriteDescriptorSet::default()
+            .dst_set(self.tex_set)
+            .dst_binding(4)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(&info)];
+        unsafe { device.update_descriptor_sets(&write, &[]) };
     }
 
     pub fn text_width(&self, text: &str, scale: f32) -> f32 {
@@ -683,6 +758,7 @@ impl MenuOverlayPipeline {
     }
 }
 
+#[allow(dead_code)]
 pub enum MenuElement {
     Rect {
         x: f32,
@@ -728,6 +804,23 @@ pub enum MenuElement {
         y: f32,
         spans: Vec<MotdSpan>,
         scale: f32,
+    },
+    GradientRect {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        corner_radius: f32,
+        color_top: [f32; 4],
+        color_bottom: [f32; 4],
+    },
+    FrostedRect {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        corner_radius: f32,
+        tint: [f32; 4],
     },
 }
 
@@ -1205,6 +1298,53 @@ fn push_rect(
         [w, h],
         radius,
     );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_gradient_rect(
+    verts: &mut Vec<Vertex>,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    radius: f32,
+    color_top: [f32; 4],
+    color_bottom: [f32; 4],
+) {
+    let positions = [
+        [x, y],
+        [x + w, y],
+        [x, y + h],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+    ];
+    let uvs = [
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+    ];
+    let colors = [
+        color_top,
+        color_top,
+        color_bottom,
+        color_top,
+        color_bottom,
+        color_bottom,
+    ];
+    for i in 0..6 {
+        verts.push(Vertex {
+            pos: positions[i],
+            uv: uvs[i],
+            color: colors[i],
+            mode: 0.0,
+            rect_size: [w, h],
+            corner_radius: radius,
+        });
+    }
 }
 
 fn push_text_glyphs(

@@ -21,9 +21,14 @@ import {
   HiFolder,
   HiPlus,
   HiDocumentDuplicate,
+  HiServer,
+  HiUserGroup,
+  HiPuzzlePiece,
+  HiMagnifyingGlass,
+  HiListBullet,
 } from "react-icons/hi2";
 
-type Page = "home" | "installations" | "news" | "settings";
+type Page = "home" | "installations" | "servers" | "friends" | "mods" | "news" | "settings";
 
 interface AuthAccount {
   username: string;
@@ -57,9 +62,12 @@ interface PatchNote {
   content_path: string;
 }
 
-const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode; soon?: boolean }[] = [
   { id: "home", label: "HOME", icon: <HiHome /> },
   { id: "installations", label: "INSTALLATIONS", icon: <HiSquares2X2 /> },
+  { id: "servers", label: "SERVERS", icon: <HiServer />, soon: true },
+  { id: "friends", label: "FRIENDS", icon: <HiUserGroup />, soon: true },
+  { id: "mods", label: "MODS", icon: <HiPuzzlePiece />, soon: true },
   { id: "news", label: "NEWS & UPDATES", icon: <HiNewspaper /> },
 ];
 
@@ -70,6 +78,9 @@ function App() {
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [server] = useState("");
   const [keepOpen, setKeepOpen] = useState(true);
+  const [modView, setModView] = useState<"list" | "grid">("list");
+  const [modSearch, setModSearch] = useState("");
+  const [modFilter, setModFilter] = useState("all");
   const [installations, setInstallations] = useState<Installation[]>([
     {
       id: "default",
@@ -256,6 +267,7 @@ function App() {
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-text">{item.label}</span>
+                {item.soon && <span className="nav-soon">SOON</span>}
               </button>
             ))}
           </div>
@@ -601,6 +613,151 @@ function App() {
               )}
             </div>
           )}
+
+          {page === "servers" && (
+            <div className="page mock-page">
+              <div className="mock-banner">This is a preview - functionality coming soon</div>
+              <h2 className="mock-heading">SERVERS</h2>
+              <div className="mock-list">
+                {[
+                  { name: "Hypixel", ip: "mc.hypixel.net", players: "48,231", ping: "32ms", online: true },
+                  { name: "My SMP", ip: "play.mysmp.com", players: "12", ping: "8ms", online: true },
+                  { name: "Mineplex", ip: "us.mineplex.com", players: "3,891", ping: "45ms", online: true },
+                  { name: "Local Server", ip: "localhost:25565", players: "1", ping: "1ms", online: false },
+                ].map((s) => (
+                  <div className="mock-server" key={s.ip}>
+                    <div className="mock-server-status">
+                      <div className={`mock-dot ${s.online ? "on" : "off"}`} />
+                    </div>
+                    <div className="mock-server-info">
+                      <span className="mock-server-name">{s.name}</span>
+                      <span className="mock-server-ip">{s.ip}</span>
+                    </div>
+                    <span className="mock-server-players">{s.players} players</span>
+                    <span className="mock-server-ping">{s.ping}</span>
+                    <button className="install-play-btn">
+                      <HiPlay /> Join
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {page === "friends" && (
+            <div className="page mock-page">
+              <div className="mock-banner">This is a preview - functionality coming soon</div>
+              <h2 className="mock-heading">FRIENDS</h2>
+              <h3 className="mock-subheading">Online - 3</h3>
+              <div className="mock-list">
+                {[
+                  { name: "Friend 1", server: "mc.hypixel.net" },
+                  { name: "Friend 2", server: "play.mysmp.com" },
+                  { name: "Friend 3", server: "localhost:25565" },
+                ].map((f) => (
+                  <div className="mock-friend" key={f.name}>
+                    <div className="mock-friend-avatar">{f.name.split(" ")[1]}</div>
+                    <div className="mock-friend-info">
+                      <span className="mock-friend-name">{f.name}</span>
+                      <span className="mock-friend-status">{f.server}</span>
+                    </div>
+                    <button className="mock-join-btn"><HiPlay /> Join</button>
+                    <div className="mock-dot on" />
+                  </div>
+                ))}
+              </div>
+              <h3 className="mock-subheading">Offline - 4</h3>
+              <div className="mock-list">
+                {["Friend 4", "Friend 5", "Friend 6", "Friend 7"].map((name) => (
+                  <div className="mock-friend" key={name}>
+                    <div className="mock-friend-avatar off">{name.split(" ")[1]}</div>
+                    <div className="mock-friend-info">
+                      <span className="mock-friend-name off">{name}</span>
+                      <span className="mock-friend-status">Last seen 2h ago</span>
+                    </div>
+                    <div className="mock-dot off" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {page === "mods" && (() => {
+            const mods = [
+              { name: "Mod 1", cat: "performance", desc: "Rendering engine optimization for better frame rates", version: "0.6.1", downloads: "38M", installed: true },
+              { name: "Mod 2", cat: "performance", desc: "Dynamic lighting and visual enhancement", version: "1.21.11", downloads: "142M", installed: false },
+              { name: "Mod 3", cat: "shaders", desc: "Shader pack loader for post-processing effects", version: "1.8.0", downloads: "25M", installed: false },
+              { name: "Mod 4", cat: "utility", desc: "Schematic building tools for pasting and moving structures", version: "0.19.0", downloads: "18M", installed: false },
+              { name: "Mod 5", cat: "utility", desc: "Real-time mapping with waypoints and minimap", version: "6.0.0", downloads: "52M", installed: true },
+              { name: "Mod 6", cat: "gameplay", desc: "Adds new biomes, creatures, and world generation", version: "2.3.0", downloads: "12M", installed: false },
+              { name: "Mod 7", cat: "utility", desc: "Inventory sorting and management tools", version: "1.4.2", downloads: "8M", installed: false },
+              { name: "Mod 8", cat: "shaders", desc: "Volumetric clouds and atmospheric effects", version: "3.1.0", downloads: "15M", installed: false },
+            ];
+            const filtered = mods.filter((m) =>
+              (modFilter === "all" || m.cat === modFilter) &&
+              m.name.toLowerCase().includes(modSearch.toLowerCase())
+            );
+            return (
+              <div className="page mock-page">
+                <div className="mock-banner">This is a preview - functionality coming soon</div>
+                <h2 className="mock-heading">MODS</h2>
+                <div className="mods-toolbar">
+                  <div className="mods-search">
+                    <HiMagnifyingGlass className="mods-search-icon" />
+                    <input
+                      className="mods-search-input"
+                      placeholder="Search mods..."
+                      value={modSearch}
+                      onChange={(e) => setModSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="mods-filters">
+                    {["all", "performance", "shaders", "utility", "gameplay"].map((f) => (
+                      <button
+                        key={f}
+                        className={`mods-filter ${modFilter === f ? "active" : ""}`}
+                        onClick={() => setModFilter(f)}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mods-view-toggle">
+                    <button
+                      className={`mods-view-btn ${modView === "list" ? "active" : ""}`}
+                      onClick={() => setModView("list")}
+                    >
+                      <HiListBullet />
+                    </button>
+                    <button
+                      className={`mods-view-btn ${modView === "grid" ? "active" : ""}`}
+                      onClick={() => setModView("grid")}
+                    >
+                      <HiSquares2X2 />
+                    </button>
+                  </div>
+                </div>
+                <div className={modView === "grid" ? "mods-grid" : "mock-list"}>
+                  {filtered.map((m) => (
+                    <div className={modView === "grid" ? "mock-mod-card" : "mock-mod"} key={m.name}>
+                      <div className="mock-mod-icon"><HiPuzzlePiece /></div>
+                      <div className="mock-mod-info">
+                        <span className="mock-mod-name">{m.name}</span>
+                        <span className="mock-mod-desc">{m.desc}</span>
+                        <div className="mock-mod-meta">
+                          <span>{m.version}</span>
+                          <span>{m.downloads} downloads</span>
+                        </div>
+                      </div>
+                      <button className={`mock-mod-btn ${m.installed ? "installed" : ""}`}>
+                        {m.installed ? "Installed" : "Install"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {page === "settings" && (
             <div className="page settings-page">

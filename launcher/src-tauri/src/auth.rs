@@ -183,15 +183,6 @@ pub fn remove_account(uuid: &str) {
     }
 }
 
-pub fn clear_all() {
-    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNTS) {
-        let _ = entry.delete_credential();
-    }
-    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_REFRESH) {
-        let _ = entry.delete_credential();
-    }
-}
-
 pub async fn start_device_code_flow() -> Result<(DeviceCodeInfo, String, u64, u64), String> {
     let client = reqwest::Client::new();
 
