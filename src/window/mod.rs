@@ -20,6 +20,7 @@ use crate::renderer::pipelines::menu_overlay::MenuElement;
 use crate::renderer::Renderer;
 use crate::ui::chat::ChatState;
 use crate::ui::common::{self, WHITE};
+use crate::ui::creative::{self, CreativeState};
 use crate::ui::hud;
 use crate::ui::menu::{MainMenu, MenuAction, MenuInput, PanoramaTheme};
 use crate::ui::pause::{self, PauseAction};
@@ -83,6 +84,8 @@ struct App {
     mesh_dispatcher: Option<MeshDispatcher>,
     paused: bool,
     inventory_open: bool,
+    creative_open: bool,
+    creative_state: CreativeState,
     chat: ChatState,
     panorama_scroll: f32,
     interaction: InteractionState,
@@ -176,6 +179,8 @@ impl App {
             mesh_dispatcher: None,
             paused: false,
             inventory_open: false,
+            creative_open: false,
+            creative_state: CreativeState::new(),
             chat: ChatState::new(),
             panorama_scroll: 0.0,
             interaction: InteractionState::new(),
@@ -231,6 +236,7 @@ impl App {
         let captured = matches!(self.state, GameState::InGame)
             && !self.paused
             && !self.inventory_open
+            && !self.creative_open
             && !self.chat.is_open()
             && self.input.is_cursor_captured();
         if captured {
@@ -686,7 +692,9 @@ impl ApplicationHandler for App {
                         if let PhysicalKey::Code(code) = event.physical_key {
                             match code {
                                 KeyCode::Escape => {
-                                    if self.inventory_open {
+                                    if self.creative_open {
+                                        self.creative_open = false;
+                                    } else if self.inventory_open {
                                         self.inventory_open = false;
                                     } else {
                                         self.paused = !self.paused;
@@ -694,7 +702,13 @@ impl ApplicationHandler for App {
                                     self.apply_cursor_grab();
                                 }
                                 KeyCode::KeyE if !self.paused && !self.chat.is_open() => {
-                                    self.inventory_open = !self.inventory_open;
+                                    if self.player.game_mode == 1 {
+                                        self.creative_open = !self.creative_open;
+                                        self.inventory_open = false;
+                                    } else {
+                                        self.inventory_open = !self.inventory_open;
+                                        self.creative_open = false;
+                                    }
                                     self.apply_cursor_grab();
                                 }
                                 KeyCode::KeyT | KeyCode::Enter
@@ -979,6 +993,11 @@ impl ApplicationHandler for App {
 
                             let mut close_inventory = false;
                             let mut pause_action = PauseAction::None;
+                            let creative_scroll = if self.creative_open {
+                                self.input.consume_menu_scroll()
+                            } else {
+                                0.0
+                            };
 
                             if let (Some(renderer), Some(window)) =
                                 (&mut self.renderer, &self.window)
@@ -1065,6 +1084,47 @@ impl ApplicationHandler for App {
                                     self.input.clear_click_events();
                                 }
 
+                                if self.creative_open {
+                                    let cursor = self.input.cursor_pos();
+                                    let clicked = self.input.left_just_pressed();
+                                    let scroll = creative_scroll;
+                                    let result = creative::build_creative(
+                                        &mut elements,
+                                        &mut self.creative_state,
+                                        sw,
+                                        sh,
+                                        cursor,
+                                        clicked,
+                                        scroll,
+                                        self.input.selected_slot(),
+                                        gs,
+                                    );
+                                    if let Some((slot, kind)) = result.picked {
+                                        let item = azalea_inventory::ItemStack::Present(
+                                            azalea_inventory::ItemStackData {
+                                                count: 64,
+                                                kind,
+                                                component_patch: Default::default(),
+                                            },
+                                        );
+                                        self.player
+                                            .inventory
+                                            .set_slot(36 + slot as usize, item.clone());
+                                        if let Some(sender) = &self.packet_sender {
+                                            sender.send(ServerboundGamePacket::SetCreativeModeSlot(
+                                                azalea_protocol::packets::game::s_set_creative_mode_slot::ServerboundSetCreativeModeSlot {
+                                                    slot_num: 36 + slot as u16,
+                                                    item_stack: item,
+                                                },
+                                            ));
+                                        }
+                                    }
+                                    if result.close {
+                                        close_inventory = true;
+                                    }
+                                    self.input.clear_click_events();
+                                }
+
                                 self.chat.build(&mut elements, sh, gs, &|t, s| {
                                     renderer.menu_text_width(t, s)
                                 });
@@ -1093,6 +1153,7 @@ impl ApplicationHandler for App {
 
                             if close_inventory {
                                 self.inventory_open = false;
+                                self.creative_open = false;
                                 self.apply_cursor_grab();
                             }
 
