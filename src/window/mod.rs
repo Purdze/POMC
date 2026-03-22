@@ -101,6 +101,7 @@ struct App {
     last_render_distance: u32,
     server_render_distance: u32,
     server_simulation_distance: u32,
+    pending_skin_uuid: Option<uuid::Uuid>,
 }
 
 struct FpsCounter {
@@ -170,6 +171,7 @@ impl App {
             last_render_distance: DEFAULT_RENDER_DISTANCE,
             server_render_distance: 0,
             server_simulation_distance: 0,
+            pending_skin_uuid: None,
             player: LocalPlayer::new(),
             tick_accumulator: 0.0,
             prev_player_pos: glam::Vec3::ZERO,
@@ -635,7 +637,7 @@ impl ApplicationHandler for App {
             }
         };
 
-        let renderer = match Renderer::new(
+        let mut renderer = match Renderer::new(
             Arc::clone(&window),
             &self.assets_dir,
             &self.asset_index,
@@ -650,6 +652,9 @@ impl ApplicationHandler for App {
         };
 
         self.mesh_dispatcher = Some(renderer.create_mesh_dispatcher());
+        if let Some(uuid) = self.pending_skin_uuid.take() {
+            renderer.load_player_skin(&uuid, &self.tokio_rt);
+        }
         self.renderer = Some(renderer);
         self.window = Some(window);
         self.apply_cursor_grab();
@@ -1183,6 +1188,7 @@ pub fn run(
     let event_loop = EventLoop::new()?;
     let mut app = App::new(connection, assets_dir, game_dir, tokio_rt);
     if let Some(auth) = auth {
+        app.pending_skin_uuid = Some(auth.uuid);
         app.menu
             .set_launch_auth(auth.username, auth.uuid, auth.access_token);
     }

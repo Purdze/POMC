@@ -140,17 +140,7 @@ impl HandPipeline {
 
         let skin_sampler = unsafe { util::create_nearest_sampler(device) };
 
-        let image_info = [vk::DescriptorImageInfo {
-            sampler: skin_sampler,
-            image_view: skin_view,
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        }];
-        let skin_write = vk::WriteDescriptorSet::default()
-            .dst_set(skin_set)
-            .dst_binding(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .image_info(&image_info);
-        unsafe { device.update_descriptor_sets(&[skin_write], &[]) };
+        update_skin_descriptor(device, skin_set, skin_view, skin_sampler);
 
         let vertices = build_arm_vertices(skin_w, skin_h);
         let vertex_count = vertices.len() as u32;
@@ -249,6 +239,47 @@ impl HandPipeline {
 
     pub fn skin_sampler(&self) -> vk::Sampler {
         self.skin_sampler
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn reload_skin(
+        &mut self,
+        device: &ash::Device,
+        queue: vk::Queue,
+        command_pool: vk::CommandPool,
+        allocator: &Arc<Mutex<Allocator>>,
+        pixels: &[u8],
+        width: u32,
+        height: u32,
+    ) {
+        let (image, view, allocation) = upload_skin_to_gpu(
+            device,
+            queue,
+            command_pool,
+            allocator,
+            pixels,
+            width,
+            height,
+        );
+
+        unsafe {
+            device.destroy_image_view(self.skin_view, None);
+            device.destroy_image(self.skin_image, None);
+        }
+        allocator
+            .lock()
+            .unwrap()
+            .free(std::mem::replace(&mut self.skin_allocation, unsafe {
+                std::mem::zeroed()
+            }))
+            .ok();
+
+        self.skin_image = image;
+        self.skin_view = view;
+        self.skin_allocation = allocation;
+        update_skin_descriptor(device, self.skin_set, self.skin_view, self.skin_sampler);
+
+        log::info!("Skin reloaded: {width}x{height}");
     }
 
     pub fn recreate_pipeline(&mut self, device: &ash::Device, render_pass: vk::RenderPass) {
@@ -402,11 +433,31 @@ fn load_skin_texture(
         fallback_skin()
     });
 
-    let (image, view, allocation) =
-        util::create_gpu_image(device, allocator, width, height, "hand_skin");
-    let (staging_buf, staging_alloc) =
-        util::create_staging_buffer(device, allocator, &pixels, "hand_skin_staging");
+    let (image, view, allocation) = upload_skin_to_gpu(
+        device,
+        queue,
+        command_pool,
+        allocator,
+        &pixels,
+        width,
+        height,
+    );
+    (image, view, allocation, width, height)
+}
 
+fn upload_skin_to_gpu(
+    device: &ash::Device,
+    queue: vk::Queue,
+    command_pool: vk::CommandPool,
+    allocator: &Arc<Mutex<Allocator>>,
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+) -> (vk::Image, vk::ImageView, Allocation) {
+    let (image, view, allocation) =
+        util::create_gpu_image(device, allocator, width, height, "skin");
+    let (staging_buf, staging_alloc) =
+        util::create_staging_buffer(device, allocator, pixels, "skin_staging");
     util::upload_image(
         device,
         queue,
@@ -416,11 +467,28 @@ fn load_skin_texture(
         width,
         height,
     );
-
     unsafe { device.destroy_buffer(staging_buf, None) };
     allocator.lock().unwrap().free(staging_alloc).ok();
+    (image, view, allocation)
+}
 
-    (image, view, allocation, width, height)
+fn update_skin_descriptor(
+    device: &ash::Device,
+    set: vk::DescriptorSet,
+    view: vk::ImageView,
+    sampler: vk::Sampler,
+) {
+    let image_info = [vk::DescriptorImageInfo {
+        sampler,
+        image_view: view,
+        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+    }];
+    let write = vk::WriteDescriptorSet::default()
+        .dst_set(set)
+        .dst_binding(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .image_info(&image_info);
+    unsafe { device.update_descriptor_sets(&[write], &[]) };
 }
 
 fn fallback_skin() -> (Vec<u8>, u32, u32) {

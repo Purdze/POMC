@@ -612,6 +612,32 @@ impl Renderer {
         self.skin_preview.trigger_swing();
     }
 
+    pub fn load_player_skin(&mut self, uuid: &uuid::Uuid, rt: &tokio::runtime::Runtime) {
+        let uuid_str = uuid.to_string().replace('-', "");
+        let skin_pixels = rt.block_on(async { fetch_skin_texture(&uuid_str).await });
+        match skin_pixels {
+            Ok((pixels, w, h)) => {
+                self.hand_pipeline.reload_skin(
+                    &self.ctx.device,
+                    self.ctx.graphics_queue,
+                    self.ctx.command_pool,
+                    &self.ctx.allocator,
+                    &pixels,
+                    w,
+                    h,
+                );
+                self.skin_preview = SkinPreviewPipeline::new(
+                    &self.ctx.device,
+                    self.swapchain.render_pass,
+                    &self.ctx.allocator,
+                    self.hand_pipeline.skin_view(),
+                    self.hand_pipeline.skin_sampler(),
+                );
+            }
+            Err(e) => log::warn!("Failed to load player skin: {e}"),
+        }
+    }
+
     pub fn menu_text_width(&self, text: &str, scale: f32) -> f32 {
         self.menu_pipeline.text_width(text, scale)
     }
@@ -926,6 +952,65 @@ impl Renderer {
         self.ctx.advance_frame();
         Ok(())
     }
+}
+
+async fn fetch_skin_texture(uuid: &str) -> Result<(Vec<u8>, u32, u32), String> {
+    #[derive(serde::Deserialize)]
+    struct SessionProfile {
+        properties: Vec<ProfileProperty>,
+    }
+    #[derive(serde::Deserialize)]
+    struct ProfileProperty {
+        value: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct TexturesPayload {
+        textures: Textures,
+    }
+    #[derive(serde::Deserialize)]
+    struct Textures {
+        #[serde(rename = "SKIN")]
+        skin: Option<SkinTexture>,
+    }
+    #[derive(serde::Deserialize)]
+    struct SkinTexture {
+        url: String,
+    }
+
+    let url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}");
+    let profile: SessionProfile = reqwest::get(&url)
+        .await
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let value = &profile.properties.first().ok_or("No properties")?.value;
+
+    use base64::Engine;
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(value)
+        .map_err(|e| e.to_string())?;
+    let payload: TexturesPayload = serde_json::from_slice(&decoded).map_err(|e| e.to_string())?;
+
+    let skin_url = payload
+        .textures
+        .skin
+        .map(|s| s.url)
+        .ok_or("No skin texture")?;
+
+    let skin_bytes = reqwest::get(&skin_url)
+        .await
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let img = image::load_from_memory(&skin_bytes).map_err(|e| e.to_string())?;
+    let rgba = img.to_rgba8();
+    let w = rgba.width();
+    let h = rgba.height();
+    Ok((rgba.into_raw(), w, h))
 }
 
 impl Drop for Renderer {

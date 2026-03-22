@@ -41,6 +41,7 @@ sha1_smol = "1"
 zip = { version = "8.3.0", default-features = false, features = ["deflate"] }
 fontdue = "0.9.3"
 open = "5"
+base64 = "0.22"
 
 [build-dependencies]
 shaderc = "0.10"

@@ -3497,6 +3497,7 @@ dependencies = [
  "azalea-protocol",
  "azalea-registry",
  "azalea-world",
+ "base64",
  "bytemuck",
  "clap",
  "crossbeam-channel",
