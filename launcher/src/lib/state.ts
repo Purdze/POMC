@@ -32,7 +32,6 @@ const useAppState = () => {
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
-  const [authNotice, setAuthNotice] = useState(false);
   const [status, setStatus] = useState("");
   const [news, setNews] = useState<PatchNote[]>([]);
   const [skinUrl, setSkinUrl] = useState<string | null>(null);
@@ -80,8 +79,6 @@ const useAppState = () => {
     setLaunching,
     authLoading,
     setAuthLoading,
-    authNotice,
-    setAuthNotice,
     status,
     setStatus,
     news,

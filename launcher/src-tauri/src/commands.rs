@@ -140,8 +140,7 @@ pub fn get_all_accounts() -> Vec<crate::auth::AuthAccount> {
 
 #[tauri::command]
 pub async fn add_account() -> Result<crate::auth::AuthAccount, String> {
-    let (_, device_code, expires_in, interval) = crate::auth::start_device_code_flow().await?;
-    crate::auth::poll_for_token(&device_code, expires_in, interval).await
+    crate::auth::oauth_sign_in().await
 }
 
 #[tauri::command]

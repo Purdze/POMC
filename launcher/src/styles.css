@@ -1624,12 +1624,6 @@ body {
   font-size: 14px;
 }
 
-.auth-notice-text {
-  font-size: 13px;
-  color: var(--text-dim);
-  line-height: 1.7;
-}
-
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

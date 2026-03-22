@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const CLIENT_ID: &str = "00000000441cc96b";
-const SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
+const CLIENT_ID: &str = "b2dd2c0f-8a09-4549-9d76-ab43b8572695";
+const REDIRECT_URI: &str = "http://localhost:25585";
+const SCOPE: &str = "XboxLive.signin offline_access";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AuthAccount {
@@ -10,21 +11,6 @@ pub struct AuthAccount {
     pub uuid: String,
     pub access_token: String,
     pub expires_at: u64,
-}
-
-#[derive(Serialize, Clone)]
-pub struct DeviceCodeInfo {
-    pub user_code: String,
-    pub verification_uri: String,
-}
-
-#[derive(Deserialize)]
-struct DeviceCodeResponse {
-    user_code: String,
-    device_code: String,
-    verification_uri: String,
-    expires_in: u64,
-    interval: u64,
 }
 
 #[derive(Deserialize)]
@@ -73,28 +59,29 @@ const KEYRING_SERVICE: &str = "pomc-launcher";
 const KEYRING_ACCOUNTS: &str = "minecraft-accounts";
 const KEYRING_REFRESH: &str = "minecraft-refresh-tokens";
 
+fn keyring_read(key: &str) -> Option<String> {
+    keyring::Entry::new(KEYRING_SERVICE, key)
+        .ok()?
+        .get_password()
+        .ok()
+}
+
+fn keyring_write(key: &str, value: &str) {
+    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, key) {
+        let _ = entry.set_password(value);
+    }
+}
+
 pub fn get_all_accounts() -> Vec<AuthAccount> {
-    let entry = match keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNTS) {
-        Ok(e) => e,
-        Err(_) => return vec![],
-    };
-    let json = match entry.get_password() {
-        Ok(j) => j,
-        Err(_) => return vec![],
-    };
-    serde_json::from_str(&json).unwrap_or_default()
+    keyring_read(KEYRING_ACCOUNTS)
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_default()
 }
 
 fn get_refresh_tokens() -> std::collections::HashMap<String, String> {
-    let entry = match keyring::Entry::new(KEYRING_SERVICE, KEYRING_REFRESH) {
-        Ok(e) => e,
-        Err(_) => return Default::default(),
-    };
-    let json = match entry.get_password() {
-        Ok(j) => j,
-        Err(_) => return Default::default(),
-    };
-    serde_json::from_str(&json).unwrap_or_default()
+    keyring_read(KEYRING_REFRESH)
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_default()
 }
 
 pub fn try_restore(uuid: &str) -> Option<AuthAccount> {
@@ -120,9 +107,7 @@ async fn refresh_msa_token(refresh_token: &str) -> Result<AuthAccount, String> {
     let client = reqwest::Client::new();
 
     let msa: MsaTokenResponse = client
-        .post(format!(
-            "https://login.live.com/oauth20_token.srf?client_id={CLIENT_ID}"
-        ))
+        .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
         .form(&[
             ("client_id", CLIENT_ID),
             ("refresh_token", refresh_token),
@@ -136,13 +121,7 @@ async fn refresh_msa_token(refresh_token: &str) -> Result<AuthAccount, String> {
         .await
         .map_err(|e| format!("Refresh parse failed: {e}"))?;
 
-    let account = exchange_msa_to_minecraft(&client, &msa.access_token).await?;
-
-    if let Some(new_refresh) = &msa.refresh_token {
-        save_refresh_token(&account.uuid, new_refresh);
-    }
-
-    Ok(account)
+    finish_msa_exchange(&client, &msa).await
 }
 
 fn save_account(account: &AuthAccount) {
@@ -150,9 +129,7 @@ fn save_account(account: &AuthAccount) {
     accounts.retain(|a| a.uuid != account.uuid);
     accounts.push(account.clone());
     if let Ok(json) = serde_json::to_string(&accounts) {
-        if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNTS) {
-            let _ = entry.set_password(&json);
-        }
+        keyring_write(KEYRING_ACCOUNTS, &json);
     }
 }
 
@@ -160,9 +137,7 @@ fn save_refresh_token(uuid: &str, token: &str) {
     let mut tokens = get_refresh_tokens();
     tokens.insert(uuid.to_string(), token.to_string());
     if let Ok(json) = serde_json::to_string(&tokens) {
-        if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_REFRESH) {
-            let _ = entry.set_password(&json);
-        }
+        keyring_write(KEYRING_REFRESH, &json);
     }
 }
 
@@ -170,90 +145,148 @@ pub fn remove_account(uuid: &str) {
     let mut accounts = get_all_accounts();
     accounts.retain(|a| a.uuid != uuid);
     if let Ok(json) = serde_json::to_string(&accounts) {
-        if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNTS) {
-            let _ = entry.set_password(&json);
-        }
+        keyring_write(KEYRING_ACCOUNTS, &json);
     }
     let mut tokens = get_refresh_tokens();
     tokens.remove(uuid);
     if let Ok(json) = serde_json::to_string(&tokens) {
-        if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_REFRESH) {
-            let _ = entry.set_password(&json);
-        }
+        keyring_write(KEYRING_REFRESH, &json);
     }
 }
 
-pub async fn start_device_code_flow() -> Result<(DeviceCodeInfo, String, u64, u64), String> {
-    let client = reqwest::Client::new();
+fn generate_pkce() -> (String, String) {
+    use base64::Engine;
+    use sha2::Digest;
 
-    let resp: DeviceCodeResponse = client
-        .post("https://login.live.com/oauth20_connect.srf")
+    let verifier_bytes: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
+    let verifier = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&verifier_bytes);
+
+    let digest = sha2::Sha256::digest(verifier.as_bytes());
+    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(digest);
+
+    (verifier, challenge)
+}
+
+pub async fn oauth_sign_in() -> Result<AuthAccount, String> {
+    let (verifier, challenge) = generate_pkce();
+
+    let state: String = (0..16)
+        .map(|_| format!("{:02x}", rand::random::<u8>()))
+        .collect();
+
+    let auth_url = format!(
+        "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?\
+         client_id={CLIENT_ID}\
+         &response_type=code\
+         &redirect_uri={REDIRECT_URI}\
+         &scope={}\
+         &state={state}\
+         &code_challenge={challenge}\
+         &code_challenge_method=S256",
+        urlencoding::encode(SCOPE),
+    );
+
+    let _ = open::that(&auth_url);
+
+    let code = listen_for_callback(&state).await?;
+
+    let client = reqwest::Client::new();
+    let msa: MsaTokenResponse = client
+        .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
         .form(&[
-            ("scope", SCOPE),
             ("client_id", CLIENT_ID),
-            ("response_type", "device_code"),
+            ("code", &code),
+            ("redirect_uri", REDIRECT_URI),
+            ("grant_type", "authorization_code"),
+            ("code_verifier", &verifier),
+            ("scope", SCOPE),
         ])
         .send()
         .await
-        .map_err(|e| format!("Device code request failed: {e}"))?
+        .map_err(|e| format!("Token exchange failed: {e}"))?
         .json()
         .await
-        .map_err(|e| format!("Device code parse failed: {e}"))?;
+        .map_err(|e| format!("Token parse failed: {e}"))?;
 
-    let login_url = format!("{}?otc={}", resp.verification_uri, resp.user_code);
-    let _ = open::that(&login_url);
-
-    Ok((
-        DeviceCodeInfo {
-            user_code: resp.user_code,
-            verification_uri: resp.verification_uri,
-        },
-        resp.device_code,
-        resp.expires_in,
-        resp.interval,
-    ))
+    finish_msa_exchange(&client, &msa).await
 }
 
-pub async fn poll_for_token(
-    device_code: &str,
-    expires_in: u64,
-    interval: u64,
+async fn finish_msa_exchange(
+    client: &reqwest::Client,
+    msa: &MsaTokenResponse,
 ) -> Result<AuthAccount, String> {
-    let client = reqwest::Client::new();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(expires_in);
-    let poll_interval = Duration::from_secs(interval);
-
-    let msa = loop {
-        tokio::time::sleep(poll_interval).await;
-        if tokio::time::Instant::now() > deadline {
-            return Err("Authentication timed out".to_string());
-        }
-
-        let resp = client
-            .post(format!(
-                "https://login.live.com/oauth20_token.srf?client_id={CLIENT_ID}"
-            ))
-            .form(&[
-                ("client_id", CLIENT_ID),
-                ("device_code", device_code),
-                ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
-            ])
-            .send()
-            .await
-            .map_err(|e| format!("Token poll failed: {e}"))?;
-
-        if let Ok(token) = resp.json::<MsaTokenResponse>().await {
-            break token;
-        }
-    };
-
-    let account = exchange_msa_to_minecraft(&reqwest::Client::new(), &msa.access_token).await?;
-
+    let account = exchange_msa_to_minecraft(client, &msa.access_token).await?;
     if let Some(refresh) = &msa.refresh_token {
         save_refresh_token(&account.uuid, refresh);
     }
-
     Ok(account)
+}
+
+async fn listen_for_callback(expected_state: &str) -> Result<String, String> {
+    use tokio::io::AsyncReadExt;
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:25585")
+        .await
+        .map_err(|e| format!("Failed to bind callback listener: {e}"))?;
+
+    let timeout = Duration::from_secs(300);
+    let (mut stream, _) = tokio::time::timeout(timeout, listener.accept())
+        .await
+        .map_err(|_| "Authentication timed out".to_string())?
+        .map_err(|e| format!("Accept failed: {e}"))?;
+
+    let mut buf = vec![0u8; 4096];
+    let n = stream
+        .read(&mut buf)
+        .await
+        .map_err(|e| format!("Read failed: {e}"))?;
+    let request = String::from_utf8_lossy(&buf[..n]);
+
+    let path = request
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .ok_or("Invalid HTTP request")?;
+
+    let query = path.split('?').nth(1).ok_or("No query params")?;
+    let params: std::collections::HashMap<&str, &str> = query
+        .split('&')
+        .filter_map(|p| p.split_once('='))
+        .collect();
+
+    if let Some(error) = params.get("error") {
+        let desc = params.get("error_description").unwrap_or(error);
+        let body = format!("Authentication failed: {desc}");
+        send_http_response(&mut stream, 400, &body).await;
+        return Err(format!("OAuth error: {desc}"));
+    }
+
+    let state = params.get("state").ok_or("Missing state")?;
+    if *state != expected_state {
+        return Err("State mismatch".to_string());
+    }
+
+    let code = params.get("code").ok_or("Missing auth code")?.to_string();
+
+    send_http_response(
+        &mut stream,
+        200,
+        "Signed in successfully! You can close this tab.",
+    )
+    .await;
+
+    Ok(code)
+}
+
+async fn send_http_response(stream: &mut tokio::net::TcpStream, status: u16, body: &str) {
+    use tokio::io::AsyncWriteExt;
+
+    let status_text = if status == 200 { "OK" } else { "Bad Request" };
+    let response = format!(
+        "HTTP/1.1 {status} {status_text}\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let _ = stream.write_all(response.as_bytes()).await;
 }
 
 async fn exchange_msa_to_minecraft(
@@ -266,7 +299,7 @@ async fn exchange_msa_to_minecraft(
             "Properties": {
                 "AuthMethod": "RPS",
                 "SiteName": "user.auth.xboxlive.com",
-                "RpsTicket": msa_token,
+                "RpsTicket": format!("d={msa_token}"),
             },
             "RelyingParty": "http://auth.xboxlive.com",
             "TokenType": "JWT",

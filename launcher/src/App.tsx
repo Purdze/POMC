@@ -44,8 +44,6 @@ function App() {
     setShowSnapshots,
     setLaunching,
     setAuthLoading,
-    authNotice,
-    setAuthNotice,
     setStatus,
     setNews,
     setSkinUrl,
@@ -99,15 +97,10 @@ function App() {
       .catch((e) => console.error("Failed to fetch versions:", e));
   }, [loadSkin]);
 
-  const startAddAccount = useCallback(() => {
+  const startAddAccount = useCallback(async () => {
     setAccountDropdownOpen(false);
-    setAuthNotice(true);
-  }, []);
-
-  const confirmAddAccount = useCallback(async () => {
-    setAuthNotice(false);
     setAuthLoading(true);
-    setStatus("Opening browser - approve the sign-in...");
+    setStatus("Signing in via Microsoft...");
     try {
       const acc = await invoke<AuthAccount>("add_account");
       setAccounts((prev) => {
@@ -232,31 +225,6 @@ function App() {
           )}
         </main>
       </div>
-
-      {authNotice && (
-        <div className="dialog-overlay" onClick={() => setAuthNotice(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h2 className="dialog-title">Sign In Notice</h2>
-            <p className="auth-notice-text">
-              POMC is currently awaiting approval for direct Microsoft sign-in.
-              Until approved, you'll be redirected to enter a code in your
-              browser to authenticate. This is a one-time process - your
-              session will be saved securely.
-            </p>
-            <div className="dialog-actions">
-              <button
-                className="dialog-cancel"
-                onClick={() => setAuthNotice(false)}
-              >
-                Cancel
-              </button>
-              <button className="dialog-save" onClick={confirmAddAccount}>
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {editingInstall && (
         <div className="dialog-overlay" onClick={() => { setEditingInstall(null); setDialogVersionOpen(false); }}>
