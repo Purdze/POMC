@@ -655,6 +655,7 @@ impl ApplicationHandler for App {
         self.apply_cursor_grab();
     }
 
+    // noinspection D
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -680,14 +681,14 @@ impl ApplicationHandler for App {
                         }
                     }
                 } else if matches!(self.state, GameState::InGame) {
-                    if self.chat.is_open() {
-                        self.input.on_menu_key_event(&event);
-                    } else if event.state.is_pressed() {
+                    if event.state.is_pressed() {
                         if let PhysicalKey::Code(code) = event.physical_key {
                             match code {
                                 KeyCode::Escape => {
                                     if self.inventory_open {
                                         self.inventory_open = false;
+                                    } else if self.chat.is_open() {
+                                        self.chat.close();
                                     } else {
                                         self.paused = !self.paused;
                                     }
@@ -716,6 +717,7 @@ impl ApplicationHandler for App {
                                 KeyCode::F3 => {
                                     self.show_debug = !self.show_debug;
                                 }
+                                _ if self.chat.is_open() => self.input.on_menu_key_event(&event),
                                 _ => {}
                             }
                         }
