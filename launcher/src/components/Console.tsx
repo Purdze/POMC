@@ -7,6 +7,11 @@ import { HiClipboardCopy } from "react-icons/hi";
 
 const getLogs: () => Promise<string[]> = async () => invoke("get_client_logs");
 
+interface ConsoleMessage {
+  type: "message" | "reset";
+  val?: String;
+}
+
 const Log = ({ log }: { log: string }) => {
   let splitIndex = log.indexOf("]");
   if (splitIndex === -1) {
@@ -39,16 +44,66 @@ export default function Console() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const do_shit = async () => {
-      setLogs(await getLogs());
+    let unlisten: (() => void) | undefined;
 
-      listen<string>("console_message", (event) => {
-        console.log(event.payload);
-        setLogs((prev) => [...prev, event.payload]);
-      });
+    // when true, the component is still mounted
+    // so we won't refetch logs & reregister the listener
+    let active = true;
+
+    const initListener = async () => {
+      console.debug("initing log listener");
+
+      const initialLogs = await getLogs();
+
+      if (!active) return;
+
+      setLogs(initialLogs);
+
+      const unlistenFn = await listen<ConsoleMessage>(
+        "console_message",
+        (event) => {
+          let recv = event.payload;
+          switch (recv.type) {
+            case "message":
+              // we can always use `as string` because rust always passes a value when it is an actual log.
+              setLogs((prevLogs) => {
+                const updatedLogs = [...prevLogs, recv.val as string]
+                const maxLogs = 10_000
+
+                if (updatedLogs.length > maxLogs) {
+                  // theoretically slicing from 1 should always work because messages come in one by one
+                  // the only time i can think of it not working would be if getLogs() returns more than the max logs
+                  // which would only happen once while running, so I think it should be OK
+                  return updatedLogs.slice(1)
+                }
+                return updatedLogs
+              })
+
+              break;
+
+            case "reset":
+              setLogs([]);
+              break;
+            default:
+              console.error(`Recieved bad event type '${recv.type}'.`, recv);
+          }
+        },
+      );
+
+      if (!active) {
+        unlistenFn();
+        return;
+      }
+
+      unlisten = unlistenFn;
     };
 
-    do_shit();
+    initListener();
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
   }, []);
 
   useEffect(() => {

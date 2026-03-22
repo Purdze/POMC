@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::process::Stdio;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tokio::{
@@ -48,6 +49,22 @@ pub struct PatchNote {
 
 const PATCH_NOTES_URL: &str = "https://launchercontent.mojang.com/v2/javaPatchNotes.json";
 const IMAGE_BASE: &str = "https://launchercontent.mojang.com";
+
+#[derive(Clone, Serialize)]
+enum ConsoleEventType {
+    #[serde(rename = "message")]
+    Message,
+    #[serde(rename = "reset")]
+    Reset,
+}
+
+#[derive(Clone, Serialize)]
+struct ConsoleEvent {
+    #[serde(rename = "type")]
+    pub message_type: ConsoleEventType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub val: Option<String>,
+}
 
 #[tauri::command]
 pub async fn get_patch_notes(count: Option<usize>) -> Result<Vec<PatchNote>, String> {
@@ -254,7 +271,7 @@ pub async fn launch_game(
 
     if debug_enabled.unwrap_or(false) {
         cmd.env("RUST_LOG", "debug");
-        cmd.env("RUST_BACKTRACE", "1");
+        cmd.env("RUST_BACKTRACE", "full");
 
         match app.webview_windows().get("console") {
             None => {
@@ -265,6 +282,16 @@ pub async fn launch_game(
                     .unwrap();
             }
             Some(window) => {
+                let _ = app
+                    .emit(
+                        "console_message",
+                        ConsoleEvent {
+                            message_type: ConsoleEventType::Reset,
+                            val: None,
+                        },
+                    )
+                    .map_err(|e| e.to_string());
+
                 window.set_focus().expect("failed to focus window");
             }
         }
@@ -309,17 +336,29 @@ pub async fn launch_game(
 
     let app_handle = app.clone();
 
+    // TODO: switch to using a Channel instead of a event stream, see https://v2.tauri.app/develop/calling-frontend/#channels
     tokio::spawn(async move {
         loop {
             match reader.next_line().await {
                 Ok(Some(line)) => {
                     let _ = app
-                        .emit("console_message", line.clone())
+                        .emit(
+                            "console_message",
+                            ConsoleEvent {
+                                message_type: ConsoleEventType::Message,
+                                val: Some(line.clone()),
+                            },
+                        )
                         .map_err(|e| e.to_string());
+
                     let state = app_handle.state::<Mutex<crate::AppState>>();
                     let mut state = state.lock().await;
 
-                    state.client_logs.push(line);
+                    state.client_logs.push_back(line);
+
+                    if state.client_logs.len() > 10_000 {
+                        state.client_logs.pop_front();
+                    }
                 }
                 Ok(None) => break,
                 Err(e) => {
@@ -334,7 +373,9 @@ pub async fn launch_game(
 }
 
 #[tauri::command]
-pub async fn get_client_logs(state: State<'_, Mutex<crate::AppState>>) -> Result<Vec<String>, ()> {
+pub async fn get_client_logs(
+    state: State<'_, Mutex<crate::AppState>>,
+) -> Result<VecDeque<String>, ()> {
     let state = state.lock().await;
 
     Ok(state.client_logs.clone())

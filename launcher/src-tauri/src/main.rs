@@ -6,10 +6,11 @@ use tokio::sync::Mutex;
 mod auth;
 mod commands;
 mod downloader;
+use std::collections::VecDeque;
 
 #[derive(Default)]
 struct AppState {
-    client_logs: Vec<String>,
+    client_logs: VecDeque<String>,
 }
 
 fn main() {
