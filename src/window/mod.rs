@@ -698,7 +698,7 @@ impl ApplicationHandler for App {
                                     self.inventory_open = !self.inventory_open;
                                     self.apply_cursor_grab();
                                 }
-                                KeyCode::KeyT | KeyCode::Enter
+                                KeyCode::KeyT
                                     if !self.paused
                                         && !self.chat.is_open()
                                         && !self.inventory_open =>
