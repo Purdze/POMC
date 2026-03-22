@@ -257,15 +257,11 @@ pub async fn launch_game(
 
         match app.webview_windows().get("console") {
             None => {
-                WebviewWindowBuilder::new(
-                    &app,
-                    "console",
-                    WebviewUrl::App("console".into()),
-                )
-                .title("POMC Debugger")
-                .decorations(false)
-                .build()
-                .unwrap();
+                WebviewWindowBuilder::new(&app, "console", WebviewUrl::App("console".into()))
+                    .title("POMC Debugger")
+                    .decorations(false)
+                    .build()
+                    .unwrap();
             }
             Some(window) => {
                 window.set_focus().expect("failed to focus window");
