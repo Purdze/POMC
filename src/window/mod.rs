@@ -1143,6 +1143,10 @@ impl ApplicationHandler for App {
         }
     }
 
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+    }
+
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,

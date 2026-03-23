@@ -6,7 +6,7 @@ pub(crate) mod shader;
 mod swapchain;
 pub(crate) mod util;
 
-pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 2;
+pub(crate) const MAX_FRAMES_IN_FLIGHT: usize = 3;
 
 use std::collections::HashSet;
 use std::path::Path;
