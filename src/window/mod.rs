@@ -11,11 +11,13 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
 
+use crate::entity::EntityStore;
 use crate::net::NetworkEvent;
 use crate::physics::movement;
 use crate::player::interaction::InteractionState;
 use crate::player::LocalPlayer;
 use crate::renderer::chunk::mesher::MeshDispatcher;
+use crate::renderer::pipelines::entity_renderer::EntityRenderInfo;
 use crate::renderer::pipelines::menu_overlay::MenuElement;
 use crate::renderer::Renderer;
 use crate::ui::chat::ChatState;
@@ -88,6 +90,7 @@ struct App {
     chat_sender: Option<crossbeam_channel::Sender<String>>,
     packet_sender: Option<crate::net::sender::PacketSender>,
     chunk_store: ChunkStore,
+    entity_store: EntityStore,
     assets_dir: PathBuf,
     game_dir: PathBuf,
     asset_index: Option<crate::assets::AssetIndex>,
@@ -179,6 +182,7 @@ impl App {
             chat_sender,
             packet_sender,
             chunk_store: ChunkStore::new(DEFAULT_RENDER_DISTANCE),
+            entity_store: EntityStore::new(),
             asset_index: crate::assets::AssetIndex::load(&assets_dir),
             assets_dir,
             game_dir: game_dir.clone(),
@@ -320,6 +324,7 @@ impl App {
         self.paused = false;
         self.position_set = false;
         self.chunk_store = ChunkStore::new(self.menu.render_distance);
+        self.entity_store.clear();
         if let Some(renderer) = &mut self.renderer {
             renderer.clear_chunk_meshes();
             self.mesh_dispatcher = Some(renderer.create_mesh_dispatcher());
@@ -472,6 +477,59 @@ impl App {
                     self.sky_state.game_time = game_time;
                     self.sky_state.day_time = day_time;
                 }
+                NetworkEvent::EntitySpawned {
+                    id,
+                    entity_type,
+                    x,
+                    y,
+                    z,
+                    yaw,
+                    pitch,
+                } => {
+                    if crate::entity::is_living_mob(&entity_type) {
+                        self.entity_store.spawn_living(
+                            id,
+                            entity_type,
+                            glam::DVec3::new(x, y, z),
+                            yaw,
+                            pitch,
+                        );
+                    }
+                }
+                NetworkEvent::EntityMoved { id, dx, dy, dz } => {
+                    self.entity_store.move_living_delta(id, dx, dy, dz);
+                }
+                NetworkEvent::EntityMovedRotated {
+                    id,
+                    dx,
+                    dy,
+                    dz,
+                    yaw,
+                    pitch,
+                } => {
+                    self.entity_store.move_living_delta(id, dx, dy, dz);
+                    self.entity_store.update_living_rotation(id, yaw, pitch);
+                }
+                NetworkEvent::EntityTeleported {
+                    id,
+                    x,
+                    y,
+                    z,
+                    yaw,
+                    pitch,
+                } => {
+                    self.entity_store.teleport_living(id, x, y, z);
+                    self.entity_store.update_living_rotation(id, yaw, pitch);
+                }
+                NetworkEvent::EntitiesRemoved { ids } => {
+                    for id in ids {
+                        self.entity_store.remove_living(id);
+                    }
+                }
+                NetworkEvent::EntityItemData { .. } => {}
+                NetworkEvent::EntityBabyFlag { id, is_baby } => {
+                    self.entity_store.set_baby(id, is_baby);
+                }
                 NetworkEvent::Disconnected { reason } => {
                     log::warn!("Disconnected: {reason}");
                     disconnect_reason = Some(reason);
@@ -504,6 +562,7 @@ impl App {
 
         self.prev_player_pos = self.player.position;
         movement::tick(&mut self.player, &self.input, &self.chunk_store);
+        self.entity_store.tick_living();
 
         if let Some(renderer) = &mut self.renderer {
             renderer.update_fov(self.player.sprinting);
@@ -1160,6 +1219,19 @@ impl ApplicationHandler for App {
                                     .get_swing_progress(self.tick_accumulator / TICK_RATE);
                                 let destroy_info = self.interaction.destroy_stage();
 
+                                let entity_renders: Vec<EntityRenderInfo> = self
+                                    .entity_store
+                                    .living
+                                    .values()
+                                    .map(|e| EntityRenderInfo {
+                                        x: e.position.x,
+                                        y: e.position.y,
+                                        z: e.position.z,
+                                        yaw: e.yaw,
+                                        is_baby: e.is_baby,
+                                    })
+                                    .collect();
+
                                 let sky = crate::renderer::SkyState {
                                     day_time: self.sky_state.day_time,
                                     game_time: self.sky_state.game_time,
@@ -1172,6 +1244,7 @@ impl ApplicationHandler for App {
                                     swing_progress,
                                     destroy_info,
                                     sky,
+                                    &entity_renders,
                                 ) {
                                     log::error!("Render error: {e}");
                                 }

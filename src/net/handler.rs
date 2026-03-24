@@ -161,6 +161,89 @@ pub fn handle_game_packet(
                 reason: format!("{}", p.reason),
             });
         }
+        ClientboundGamePacket::AddEntity(p) => {
+            let yaw = (p.y_rot as f32) * 360.0 / 256.0;
+            let pitch = (p.x_rot as f32) * 360.0 / 256.0;
+            let _ = event_tx.try_send(NetworkEvent::EntitySpawned {
+                id: p.id.0,
+                entity_type: p.entity_type,
+                x: p.position.x,
+                y: p.position.y,
+                z: p.position.z,
+                yaw,
+                pitch,
+            });
+        }
+        ClientboundGamePacket::MoveEntityPos(p) => {
+            use azalea_core::delta::PositionDeltaTrait;
+            let _ = event_tx.try_send(NetworkEvent::EntityMoved {
+                id: p.entity_id.0,
+                dx: p.delta.x(),
+                dy: p.delta.y(),
+                dz: p.delta.z(),
+            });
+        }
+        ClientboundGamePacket::MoveEntityPosRot(p) => {
+            use azalea_core::delta::PositionDeltaTrait;
+            let look: azalea_entity::LookDirection = p.look_direction.into();
+            let _ = event_tx.try_send(NetworkEvent::EntityMovedRotated {
+                id: p.entity_id.0,
+                dx: p.delta.x(),
+                dy: p.delta.y(),
+                dz: p.delta.z(),
+                yaw: look.y_rot(),
+                pitch: look.x_rot(),
+            });
+        }
+        ClientboundGamePacket::TeleportEntity(p) => {
+            let _ = event_tx.try_send(NetworkEvent::EntityTeleported {
+                id: p.id.0,
+                x: p.change.pos.x,
+                y: p.change.pos.y,
+                z: p.change.pos.z,
+                yaw: p.change.look_direction.y_rot(),
+                pitch: p.change.look_direction.x_rot(),
+            });
+        }
+        ClientboundGamePacket::EntityPositionSync(p) => {
+            let _ = event_tx.try_send(NetworkEvent::EntityTeleported {
+                id: p.id.0,
+                x: p.values.pos.x,
+                y: p.values.pos.y,
+                z: p.values.pos.z,
+                yaw: p.values.look_direction.y_rot(),
+                pitch: p.values.look_direction.x_rot(),
+            });
+        }
+        ClientboundGamePacket::RemoveEntities(p) => {
+            let ids: Vec<i32> = p.entity_ids.iter().map(|id| id.0).collect();
+            let _ = event_tx.try_send(NetworkEvent::EntitiesRemoved { ids });
+        }
+        ClientboundGamePacket::SetEntityData(p) => {
+            for item in p.packed_items.iter() {
+                if item.index == 8 {
+                    if let azalea_entity::EntityDataValue::ItemStack(
+                        azalea_inventory::ItemStack::Present(data),
+                    ) = &item.value
+                    {
+                        let name = crate::player::inventory::item_resource_name(data.kind);
+                        let _ = event_tx.try_send(NetworkEvent::EntityItemData {
+                            id: p.id.0,
+                            item_name: name,
+                            count: data.count,
+                        });
+                    }
+                }
+                if item.index == 16 {
+                    if let azalea_entity::EntityDataValue::Boolean(is_baby) = &item.value {
+                        let _ = event_tx.try_send(NetworkEvent::EntityBabyFlag {
+                            id: p.id.0,
+                            is_baby: *is_baby,
+                        });
+                    }
+                }
+            }
+        }
         _other => {}
     }
 }

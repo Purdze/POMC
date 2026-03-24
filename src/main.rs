@@ -1,6 +1,7 @@
 mod args;
 mod assets;
 mod data;
+mod entity;
 mod net;
 mod physics;
 mod player;

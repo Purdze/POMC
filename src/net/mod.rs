@@ -8,6 +8,7 @@ use azalea_block::BlockState;
 use azalea_core::heightmap_kind::HeightmapKind;
 use azalea_core::position::{BlockPos, ChunkPos};
 use azalea_inventory::ItemStack;
+use azalea_registry::builtin::EntityKind;
 
 pub enum NetworkEvent {
     Connected,
@@ -71,6 +72,50 @@ pub enum NetworkEvent {
     },
     ServerSimulationDistance {
         distance: u32,
+    },
+    EntitySpawned {
+        id: i32,
+        entity_type: EntityKind,
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f32,
+        pitch: f32,
+    },
+    EntityMoved {
+        id: i32,
+        dx: f64,
+        dy: f64,
+        dz: f64,
+    },
+    EntityMovedRotated {
+        id: i32,
+        dx: f64,
+        dy: f64,
+        dz: f64,
+        yaw: f32,
+        pitch: f32,
+    },
+    EntityTeleported {
+        id: i32,
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f32,
+        pitch: f32,
+    },
+    EntitiesRemoved {
+        ids: Vec<i32>,
+    },
+    #[allow(dead_code)]
+    EntityItemData {
+        id: i32,
+        item_name: String,
+        count: i32,
+    },
+    EntityBabyFlag {
+        id: i32,
+        is_baby: bool,
     },
     Disconnected {
         reason: String,
