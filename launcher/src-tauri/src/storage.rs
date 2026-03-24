@@ -1,4 +1,17 @@
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+
+static DATA_DIR: LazyLock<PathBuf> = {
+    LazyLock::new(|| {
+        directories::ProjectDirs::from("", "", ".pomc")
+            .map(|d| d.data_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from(".pomc"))
+    })
+};
+
+pub fn data_dir() -> &'static Path {
+    &DATA_DIR
+}
 
 fn ensure_file(path: &Path, default: &str) {
     if !path.exists() {
@@ -17,12 +30,6 @@ pub fn ensure_dirs() {
     ensure_file(&settings_file(), "{}");
     ensure_file(&accounts_file(), "[]");
     ensure_file(&installations_file(), "[]");
-}
-
-pub fn data_dir() -> PathBuf {
-    directories::ProjectDirs::from("", "", ".pomc")
-        .map(|d| d.data_dir().to_path_buf())
-        .unwrap_or_else(|| PathBuf::from(".pomc"))
 }
 
 pub fn assets_dir() -> PathBuf {
