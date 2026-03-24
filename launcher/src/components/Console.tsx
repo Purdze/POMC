@@ -55,32 +55,29 @@ export default function Console() {
 
       setLogs(initialLogs);
 
-      const unlistenFn = await listen<ConsoleMessage>(
-        "console_message",
-        (event) => {
-          let recv = event.payload;
-          switch (recv.type) {
-            case "message":
-              setLogs((prevLogs) => {
-                const updatedLogs = [...prevLogs, recv.val as string];
-                const maxLogs = 10_000;
+      const unlistenFn = await listen<ConsoleMessage>("console_message", (event) => {
+        let recv = event.payload;
+        switch (recv.type) {
+          case "message":
+            setLogs((prevLogs) => {
+              const updatedLogs = [...prevLogs, recv.val as string];
+              const maxLogs = 10_000;
 
-                if (updatedLogs.length > maxLogs) {
-                  return updatedLogs.slice(1);
-                }
-                return updatedLogs;
-              });
+              if (updatedLogs.length > maxLogs) {
+                return updatedLogs.slice(1);
+              }
+              return updatedLogs;
+            });
 
-              break;
+            break;
 
-            case "reset":
-              setLogs([]);
-              break;
-            default:
-              console.error(`Received bad event type '${recv.type}'.`, recv);
-          }
-        },
-      );
+          case "reset":
+            setLogs([]);
+            break;
+          default:
+            console.error(`Received bad event type '${recv.type}'.`, recv);
+        }
+      });
 
       if (eventsRegistered) {
         unlistenFn();

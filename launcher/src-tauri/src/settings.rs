@@ -12,9 +12,9 @@ pub struct LauncherSettings {
 impl Default for LauncherSettings {
     fn default() -> Self {
         LauncherSettings {
-            language: "French".into(),
-            keep_launcher_open: false,
-            launch_with_console: true,
+            language: "English".into(),
+            keep_launcher_open: true,
+            launch_with_console: false,
         }
     }
 }
@@ -37,29 +37,22 @@ impl LauncherSettings {
                     log::warn!("Settings file invalid ({}), using defaults", err);
                 }
             },
-            Err(err) => {
-                log::info!(
-                    "Settings file not found or unreadable ({}), using defaults",
-                    err
-                );
+            Err(_) => {
+                log::info!("Settings file not found, creating default settings");
             }
         }
 
-        LauncherSettings::default()
+        let default = LauncherSettings::default();
+        let _ = default.save();
+        default
     }
 
-    pub fn set_language(&mut self, language: String) -> Result<(), String> {
-        self.language = language;
-        self.save()
-    }
-
-    pub fn set_keep_launcher_open(&mut self, keep: bool) -> Result<(), String> {
-        self.keep_launcher_open = keep;
-        self.save()
-    }
-
-    pub fn set_launch_with_console(&mut self, launch_with_console: bool) -> Result<(), String> {
-        self.launch_with_console = launch_with_console;
-        self.save()
+    pub fn update_settings<F>(f: F) -> Result<(), String>
+    where
+        F: FnOnce(&mut LauncherSettings),
+    {
+        let mut settings = LauncherSettings::load();
+        f(&mut settings);
+        settings.save()
     }
 }

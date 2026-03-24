@@ -1,6 +1,6 @@
-import {createElement, createContext, useContext, useState, ReactNode, useEffect} from "react";
-import { Page, AuthAccount, Installation, GameVersion, PatchNote, LauncherSettings } from "./types";
-import {invoke} from "@tauri-apps/api/core";
+import { createContext, createElement, ReactNode, useContext, useEffect, useState } from "react";
+import { AuthAccount, GameVersion, Installation, LauncherSettings, Page, PatchNote } from "./types";
+import { invoke } from "@tauri-apps/api/core";
 
 const useLauncherSettings = () => {
   const [launcherSettings, setLauncherSettings] = useState<LauncherSettings>({
@@ -15,8 +15,38 @@ const useLauncherSettings = () => {
       .catch(console.error);
   }, []);
 
-  return launcherSettings;
-}
+  const setLanguage = async (language: string) => {
+    try {
+      await invoke("set_launcher_language", { language });
+      setLauncherSettings((prev) => ({ ...prev, language }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const setKeepLauncherOpen = async (keep: boolean) => {
+    try {
+      await invoke("set_keep_launcher_open", { keep });
+      setLauncherSettings((prev) => ({ ...prev, keepLauncherOpen: keep }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const setLaunchWithConsole = async (launch: boolean) => {
+    try {
+      await invoke("set_launch_with_console", { launch });
+      setLauncherSettings((prev) => ({ ...prev, launchWithConsole: launch }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return {
+    ...launcherSettings,
+    setLanguage,
+    setKeepLauncherOpen,
+    setLaunchWithConsole,
+  };
+};
 const useAppState = () => {
   const [page, setPage] = useState<Page>("home");
   const [accounts, setAccounts] = useState<AuthAccount[]>([]);
@@ -24,8 +54,6 @@ const useAppState = () => {
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
 
   const [server] = useState("");
-  const [keepOpen, setKeepOpen] = useState(true);
-  const [useConsole, setUseConsole] = useState(false);
 
   const [modView, setModView] = useState<"list" | "grid">("list");
   const [modSearch, setModSearch] = useState("");
@@ -44,8 +72,7 @@ const useAppState = () => {
   const [activeInstall, setActiveInstall] = useState("default");
   const [editingInstall, setEditingInstall] = useState<Installation | null>(null);
   const [dialogVersionOpen, setDialogVersionOpen] = useState(false);
-  const selectedVersion =
-    installations.find((i) => i.id === activeInstall)?.version || "1.21.11";
+  const selectedVersion = installations.find((i) => i.id === activeInstall)?.version || "1.21.11";
   const [versions, setVersions] = useState<GameVersion[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [launching, setLaunching] = useState(false);
@@ -61,8 +88,7 @@ const useAppState = () => {
     body: string;
   } | null>(null);
 
-  const launcherSettings= useLauncherSettings();
-  console.log(launcherSettings);
+  const launcherSettings = useLauncherSettings();
 
   return {
     account,
@@ -75,10 +101,6 @@ const useAppState = () => {
     accountDropdownOpen,
     setAccountDropdownOpen,
     server,
-    keepOpen,
-    setKeepOpen,
-    useConsole,
-    setUseConsole,
     modView,
     setModView,
     modSearch,
@@ -120,9 +142,9 @@ type AppState = ReturnType<typeof useAppState>;
 
 const AppStateContext = createContext<AppState | null>(null);
 
-export function AppStateProvider({children}: { children: ReactNode }) {
+export function AppStateProvider({ children }: { children: ReactNode }) {
   const state = useAppState();
-  return createElement(AppStateContext.Provider, {value: state}, children);
+  return createElement(AppStateContext.Provider, { value: state }, children);
 }
 
 export function useAppStateContext(): AppState {

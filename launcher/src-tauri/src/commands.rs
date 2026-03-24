@@ -1,6 +1,6 @@
+use crate::settings::LauncherSettings;
 use crate::storage;
 
-use crate::config::LauncherSettings;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::process::Stdio;
@@ -416,6 +416,21 @@ fn find_client_binary() -> Result<std::path::PathBuf, String> {
 }
 
 #[tauri::command]
-pub async fn load_launcher_settings() -> LauncherSettings{
+pub async fn load_launcher_settings() -> LauncherSettings {
     LauncherSettings::load()
+}
+
+#[tauri::command]
+pub async fn set_launcher_language(language: String) -> Result<(), String> {
+    LauncherSettings::update_settings(|s| s.language = language)
+}
+
+#[tauri::command]
+pub async fn set_keep_launcher_open(keep: bool) -> Result<(), String> {
+    LauncherSettings::update_settings(|s| s.keep_launcher_open = keep)
+}
+
+#[tauri::command]
+pub async fn set_launch_with_console(launch: bool) -> Result<(), String> {
+    LauncherSettings::update_settings(|s| s.launch_with_console = launch)
 }

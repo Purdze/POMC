@@ -1,4 +1,3 @@
-use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 fn ensure_file(path: &Path, default: &str) {

@@ -1,14 +1,11 @@
 import { useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import {
-  HiChevronDown,
-  HiFolder,
-} from "react-icons/hi2";
+import { HiChevronDown, HiFolder } from "react-icons/hi2";
 import { AuthAccount, GameVersion, PatchNote } from "./lib/types";
 import Homepage from "./pages/Home";
 import InstallationsPage from "./pages/Installations";
-import {useAppStateContext} from "./lib/state";
+import { useAppStateContext } from "./lib/state";
 import Navbar from "./components/Navbar";
 import ModsPage from "./pages/Mods";
 import ServersPage from "./pages/Servers";
@@ -44,7 +41,7 @@ function App() {
     setSkinUrl,
     setSelectedNote,
     username,
-    useConsole,
+    launcherSettings,
   } = useAppStateContext();
 
   const openPatchNote = useCallback(async (note: PatchNote) => {
@@ -108,19 +105,16 @@ function App() {
         loadSkin(accounts[index].uuid);
       }
     },
-    [accounts, loadSkin]
+    [accounts, loadSkin],
   );
 
-  const removeAccount = useCallback(
-    (uuid: string) => {
-      invoke("remove_account", { uuid });
-      setAccounts((prev) => prev.filter((a) => a.uuid !== uuid));
-      setActiveIndex(0);
-      setAccountDropdownOpen(false);
-      setSkinUrl(null);
-    },
-    []
-  );
+  const removeAccount = useCallback((uuid: string) => {
+    invoke("remove_account", { uuid });
+    setAccounts((prev) => prev.filter((a) => a.uuid !== uuid));
+    setActiveIndex(0);
+    setAccountDropdownOpen(false);
+    setSkinUrl(null);
+  }, []);
 
   const handleLaunch = useCallback(async () => {
     setLaunching(true);
@@ -131,7 +125,7 @@ function App() {
       const result = await invoke<string>("launch_game", {
         uuid: account?.uuid || null,
         server: server || null,
-        debugEnabled: useConsole || null,
+        debugEnabled: launcherSettings.launchWithConsole || null,
       });
       setStatus(result);
     } catch (e) {
@@ -141,7 +135,7 @@ function App() {
       setLaunching(false);
       setStatus("");
     }, 3000);
-  }, [username, server, selectedVersion, useConsole]);
+  }, [username, server, selectedVersion, launcherSettings.launchWithConsole]);
 
   return (
     <div className="app">
@@ -156,43 +150,38 @@ function App() {
 
         <main className="content">
           {page === "home" && (
-            <Homepage
-              handleLaunch={handleLaunch}
-              openPatchNote={openPatchNote}
-            />
+            <Homepage handleLaunch={handleLaunch} openPatchNote={openPatchNote} />
           )}
 
-          {page === "installations" && (
-            <InstallationsPage />
-          )}
+          {page === "installations" && <InstallationsPage />}
 
-          {page === "news" && (
-            <NewsPage
-              openPatchNote={openPatchNote}
-            />
-          )}
+          {page === "news" && <NewsPage openPatchNote={openPatchNote} />}
 
-          {page === "servers" && (
-            <ServersPage />
-          )}
+          {page === "servers" && <ServersPage />}
 
-          {page === "friends" && (
-            <FriendsPage />
-          )}
+          {page === "friends" && <FriendsPage />}
 
-          {page === "mods" && (
-            <ModsPage />
-          )}
+          {page === "mods" && <ModsPage />}
 
-          {page === "settings" && (
-            <SettingsPage />
-          )}
+          {page === "settings" && <SettingsPage />}
         </main>
       </div>
 
       {editingInstall && (
-        <div className="dialog-overlay" onClick={() => { setEditingInstall(null); setDialogVersionOpen(false); }}>
-          <div className="dialog" onClick={(e) => { e.stopPropagation(); if (dialogVersionOpen) setDialogVersionOpen(false); }}>
+        <div
+          className="dialog-overlay"
+          onClick={() => {
+            setEditingInstall(null);
+            setDialogVersionOpen(false);
+          }}
+        >
+          <div
+            className="dialog"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (dialogVersionOpen) setDialogVersionOpen(false);
+            }}
+          >
             <h2 className="dialog-title">
               {editingInstall.id ? "Edit Installation" : "New Installation"}
             </h2>
@@ -202,9 +191,7 @@ function App() {
                 <label>NAME</label>
                 <input
                   value={editingInstall.name}
-                  onChange={(e) =>
-                    setEditingInstall({ ...editingInstall, name: e.target.value })
-                  }
+                  onChange={(e) => setEditingInstall({ ...editingInstall, name: e.target.value })}
                   placeholder="My Installation"
                   autoFocus
                 />
@@ -252,9 +239,7 @@ function App() {
                           >
                             <span>{v.id}</span>
                             {v.version_type !== "release" && (
-                              <span className="custom-select-tag">
-                                {v.version_type}
-                              </span>
+                              <span className="custom-select-tag">{v.version_type}</span>
                             )}
                           </button>
                         ))}
@@ -320,10 +305,7 @@ function App() {
             </div>
 
             <div className="dialog-actions">
-              <button
-                className="dialog-cancel"
-                onClick={() => setEditingInstall(null)}
-              >
+              <button className="dialog-cancel" onClick={() => setEditingInstall(null)}>
                 Cancel
               </button>
               <button

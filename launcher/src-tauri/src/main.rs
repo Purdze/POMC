@@ -5,8 +5,8 @@ use tokio::sync::Mutex;
 
 mod auth;
 mod commands;
-mod config;
 mod downloader;
+mod settings;
 mod storage;
 
 use std::collections::VecDeque;
@@ -43,6 +43,9 @@ fn main() {
             commands::launch_game,
             commands::get_client_logs,
             commands::load_launcher_settings,
+            commands::set_launcher_language,
+            commands::set_keep_launcher_open,
+            commands::set_launch_with_console,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run POMC launcher");
