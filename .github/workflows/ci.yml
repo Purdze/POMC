@@ -22,16 +22,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: client
-          cache-on-failure: false
+          cache-on-failure: true
 
       - name: Format check
         run: cargo fmt -- --check
 
       - name: Clippy
         run: cargo clippy --release --all-targets --all-features -- -D warnings
-
-      - name: Build
-        run: cargo build --release
 
   launcher-backend:
     runs-on: windows-latest
@@ -46,7 +43,7 @@ jobs:
         with:
           workspaces: launcher/src-tauri
           shared-key: launcher
-          cache-on-failure: false
+          cache-on-failure: true
 
       - name: Format check
         working-directory: launcher/src-tauri
