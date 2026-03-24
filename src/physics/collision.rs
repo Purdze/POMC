@@ -1,7 +1,234 @@
+use azalea_registry::builtin::BlockKind;
 use glam::Vec3;
 
 use super::aabb::Aabb;
 use crate::world::chunk::ChunkStore;
+
+fn has_collision(state: azalea_block::BlockState) -> bool {
+    if state.is_air() {
+        return false;
+    }
+    let kind: BlockKind = state.into();
+    !matches!(
+        kind,
+        // Flowers
+        BlockKind::Dandelion
+            | BlockKind::Poppy
+            | BlockKind::BlueOrchid
+            | BlockKind::Allium
+            | BlockKind::AzureBluet
+            | BlockKind::RedTulip
+            | BlockKind::OrangeTulip
+            | BlockKind::WhiteTulip
+            | BlockKind::PinkTulip
+            | BlockKind::OxeyeDaisy
+            | BlockKind::Cornflower
+            | BlockKind::LilyOfTheValley
+            | BlockKind::WitherRose
+            | BlockKind::Torchflower
+            | BlockKind::CactusFlower
+            | BlockKind::OpenEyeblossom
+            | BlockKind::ClosedEyeblossom
+            | BlockKind::PinkPetals
+            | BlockKind::Wildflowers
+            | BlockKind::SporeBlossom
+            // Tall flowers
+            | BlockKind::Sunflower
+            | BlockKind::Lilac
+            | BlockKind::RoseBush
+            | BlockKind::Peony
+            | BlockKind::PitcherPlant
+            // Grass & ferns
+            | BlockKind::ShortGrass
+            | BlockKind::TallGrass
+            | BlockKind::Fern
+            | BlockKind::LargeFern
+            | BlockKind::DeadBush
+            | BlockKind::ShortDryGrass
+            | BlockKind::TallDryGrass
+            // Saplings
+            | BlockKind::OakSapling
+            | BlockKind::SpruceSapling
+            | BlockKind::BirchSapling
+            | BlockKind::JungleSapling
+            | BlockKind::AcaciaSapling
+            | BlockKind::DarkOakSapling
+            | BlockKind::CherrySapling
+            | BlockKind::PaleOakSapling
+            | BlockKind::BambooSapling
+            | BlockKind::MangrovePropagule
+            // Crops
+            | BlockKind::Wheat
+            | BlockKind::Carrots
+            | BlockKind::Potatoes
+            | BlockKind::Beetroots
+            | BlockKind::TorchflowerCrop
+            | BlockKind::PitcherCrop
+            | BlockKind::MelonStem
+            | BlockKind::PumpkinStem
+            | BlockKind::AttachedMelonStem
+            | BlockKind::AttachedPumpkinStem
+            | BlockKind::NetherWart
+            | BlockKind::SweetBerryBush
+            | BlockKind::SugarCane
+            // Underwater plants
+            | BlockKind::Seagrass
+            | BlockKind::TallSeagrass
+            | BlockKind::Kelp
+            | BlockKind::KelpPlant
+            // Corals
+            | BlockKind::BrainCoral
+            | BlockKind::BrainCoralFan
+            | BlockKind::BrainCoralWallFan
+            | BlockKind::BubbleCoral
+            | BlockKind::BubbleCoralFan
+            | BlockKind::BubbleCoralWallFan
+            | BlockKind::FireCoral
+            | BlockKind::FireCoralFan
+            | BlockKind::FireCoralWallFan
+            | BlockKind::HornCoral
+            | BlockKind::HornCoralFan
+            | BlockKind::HornCoralWallFan
+            | BlockKind::TubeCoral
+            | BlockKind::TubeCoralFan
+            | BlockKind::TubeCoralWallFan
+            | BlockKind::DeadBrainCoral
+            | BlockKind::DeadBrainCoralFan
+            | BlockKind::DeadBrainCoralWallFan
+            | BlockKind::DeadBubbleCoral
+            | BlockKind::DeadBubbleCoralFan
+            | BlockKind::DeadBubbleCoralWallFan
+            | BlockKind::DeadFireCoral
+            | BlockKind::DeadFireCoralFan
+            | BlockKind::DeadFireCoralWallFan
+            | BlockKind::DeadHornCoral
+            | BlockKind::DeadHornCoralFan
+            | BlockKind::DeadHornCoralWallFan
+            | BlockKind::DeadTubeCoral
+            | BlockKind::DeadTubeCoralFan
+            | BlockKind::DeadTubeCoralWallFan
+            // Mushrooms
+            | BlockKind::BrownMushroom
+            | BlockKind::RedMushroom
+            // Torches
+            | BlockKind::Torch
+            | BlockKind::WallTorch
+            | BlockKind::SoulTorch
+            | BlockKind::SoulWallTorch
+            | BlockKind::RedstoneTorch
+            | BlockKind::RedstoneWallTorch
+            | BlockKind::CopperTorch
+            | BlockKind::CopperWallTorch
+            // Redstone
+            | BlockKind::RedstoneWire
+            // Rails
+            | BlockKind::Rail
+            | BlockKind::PoweredRail
+            | BlockKind::DetectorRail
+            | BlockKind::ActivatorRail
+            // Signs
+            | BlockKind::OakSign
+            | BlockKind::SpruceSign
+            | BlockKind::BirchSign
+            | BlockKind::JungleSign
+            | BlockKind::AcaciaSign
+            | BlockKind::DarkOakSign
+            | BlockKind::CherrySign
+            | BlockKind::PaleOakSign
+            | BlockKind::MangroveSign
+            | BlockKind::BambooSign
+            | BlockKind::CrimsonSign
+            | BlockKind::WarpedSign
+            | BlockKind::OakWallSign
+            | BlockKind::SpruceWallSign
+            | BlockKind::BirchWallSign
+            | BlockKind::JungleWallSign
+            | BlockKind::AcaciaWallSign
+            | BlockKind::DarkOakWallSign
+            | BlockKind::CherryWallSign
+            | BlockKind::PaleOakWallSign
+            | BlockKind::MangroveWallSign
+            | BlockKind::BambooWallSign
+            | BlockKind::CrimsonWallSign
+            | BlockKind::WarpedWallSign
+            | BlockKind::OakHangingSign
+            | BlockKind::SpruceHangingSign
+            | BlockKind::BirchHangingSign
+            | BlockKind::JungleHangingSign
+            | BlockKind::AcaciaHangingSign
+            | BlockKind::DarkOakHangingSign
+            | BlockKind::CherryHangingSign
+            | BlockKind::PaleOakHangingSign
+            | BlockKind::MangroveHangingSign
+            | BlockKind::BambooHangingSign
+            | BlockKind::CrimsonHangingSign
+            | BlockKind::WarpedHangingSign
+            | BlockKind::OakWallHangingSign
+            | BlockKind::SpruceWallHangingSign
+            | BlockKind::BirchWallHangingSign
+            | BlockKind::JungleWallHangingSign
+            | BlockKind::AcaciaWallHangingSign
+            | BlockKind::DarkOakWallHangingSign
+            | BlockKind::CherryWallHangingSign
+            | BlockKind::PaleOakWallHangingSign
+            | BlockKind::MangroveWallHangingSign
+            | BlockKind::BambooWallHangingSign
+            | BlockKind::CrimsonWallHangingSign
+            | BlockKind::WarpedWallHangingSign
+            // Buttons
+            | BlockKind::StoneButton
+            | BlockKind::OakButton
+            | BlockKind::SpruceButton
+            | BlockKind::BirchButton
+            | BlockKind::JungleButton
+            | BlockKind::AcaciaButton
+            | BlockKind::DarkOakButton
+            | BlockKind::CherryButton
+            | BlockKind::PaleOakButton
+            | BlockKind::MangroveButton
+            | BlockKind::BambooButton
+            | BlockKind::CrimsonButton
+            | BlockKind::WarpedButton
+            | BlockKind::PolishedBlackstoneButton
+            // Vines & climbing plants
+            | BlockKind::Vine
+            | BlockKind::CaveVines
+            | BlockKind::CaveVinesPlant
+            | BlockKind::WeepingVines
+            | BlockKind::WeepingVinesPlant
+            | BlockKind::TwistingVines
+            | BlockKind::TwistingVinesPlant
+            | BlockKind::GlowLichen
+            | BlockKind::SculkVein
+            | BlockKind::ResinClump
+            // Nether plants
+            | BlockKind::CrimsonRoots
+            | BlockKind::WarpedRoots
+            | BlockKind::NetherSprouts
+            | BlockKind::HangingRoots
+            | BlockKind::WarpedFungus
+            | BlockKind::CrimsonFungus
+            // Fire
+            | BlockKind::Fire
+            | BlockKind::SoulFire
+            // Pale garden
+            | BlockKind::PaleHangingMoss
+            | BlockKind::PaleMossCarpet
+            // Other passable blocks
+            | BlockKind::Cobweb
+            | BlockKind::Water
+            | BlockKind::Lava
+            | BlockKind::Light
+            | BlockKind::StructureVoid
+            | BlockKind::VoidAir
+            | BlockKind::CaveAir
+            | BlockKind::Tripwire
+            | BlockKind::TripwireHook
+            | BlockKind::Frogspawn
+            | BlockKind::LeafLitter
+            | BlockKind::FireflyBush
+    )
+}
 
 pub fn collect_block_aabbs(chunk_store: &ChunkStore, region: &Aabb) -> Vec<Aabb> {
     let mut aabbs = Vec::new();
@@ -17,7 +244,7 @@ pub fn collect_block_aabbs(chunk_store: &ChunkStore, region: &Aabb) -> Vec<Aabb>
         for bz in min_z..max_z {
             for bx in min_x..max_x {
                 let state = chunk_store.get_block_state(bx, by, bz);
-                if !state.is_air() {
+                if has_collision(state) {
                     aabbs.push(Aabb::new(
                         Vec3::new(bx as f32, by as f32, bz as f32),
                         Vec3::new((bx + 1) as f32, (by + 1) as f32, (bz + 1) as f32),
