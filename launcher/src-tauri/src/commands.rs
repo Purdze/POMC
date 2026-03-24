@@ -417,20 +417,21 @@ fn find_client_binary() -> Result<std::path::PathBuf, String> {
 
 #[tauri::command]
 pub async fn load_launcher_settings() -> LauncherSettings {
-    LauncherSettings::load()
+    let settings = LauncherSettings::get().await;
+    settings.clone()
 }
 
 #[tauri::command]
 pub async fn set_launcher_language(language: String) -> Result<(), String> {
-    LauncherSettings::update_settings(|s| s.language = language)
+    LauncherSettings::update(|s| s.language = language).await
 }
 
 #[tauri::command]
 pub async fn set_keep_launcher_open(keep: bool) -> Result<(), String> {
-    LauncherSettings::update_settings(|s| s.keep_launcher_open = keep)
+    LauncherSettings::update(|s| s.keep_launcher_open = keep).await
 }
 
 #[tauri::command]
 pub async fn set_launch_with_console(launch: bool) -> Result<(), String> {
-    LauncherSettings::update_settings(|s| s.launch_with_console = launch)
+    LauncherSettings::update(|s| s.launch_with_console = launch).await
 }

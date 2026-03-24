@@ -1,7 +1,12 @@
 use crate::storage;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
+use tokio::sync::{RwLock, RwLockReadGuard};
 
-#[derive(Serialize, Deserialize, Debug)]
+static LAUNCHER_SETTINGS: LazyLock<RwLock<LauncherSettings>> =
+    LazyLock::new(|| RwLock::new(LauncherSettings::load()));
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherSettings {
     pub language: String,
@@ -20,14 +25,16 @@ impl Default for LauncherSettings {
 }
 
 impl LauncherSettings {
-    pub fn save(&self) -> Result<(), String> {
+    async fn save(&self) -> Result<(), String> {
         let path = storage::settings_file();
         let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
-        std::fs::write(path, json).map_err(|e| e.to_string())?;
+        tokio::fs::write(path, json)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
-    pub fn load() -> Self {
+    fn load() -> Self {
         let path = storage::settings_file();
 
         match std::fs::read_to_string(&path) {
@@ -43,16 +50,26 @@ impl LauncherSettings {
         }
 
         let default = LauncherSettings::default();
-        let _ = default.save();
+        if let Ok(json) = serde_json::to_string_pretty(&default) {
+            let _ = std::fs::write(&path, json);
+        }
         default
     }
 
-    pub fn update_settings<F>(f: F) -> Result<(), String>
+    pub async fn get() -> RwLockReadGuard<'static, LauncherSettings> {
+        LAUNCHER_SETTINGS.read().await
+    }
+
+    pub async fn update<F>(f: F) -> Result<(), String>
     where
         F: FnOnce(&mut LauncherSettings),
     {
-        let mut settings = LauncherSettings::load();
-        f(&mut settings);
-        settings.save()
+        let cloned = {
+            let mut settings = LAUNCHER_SETTINGS.write().await;
+            f(&mut settings);
+            settings.clone()
+        };
+
+        cloned.save().await
     }
 }
