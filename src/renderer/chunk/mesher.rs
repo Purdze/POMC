@@ -26,8 +26,8 @@ pub struct ChunkMeshData {
 }
 
 const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
-const GRASS_TINT: [f32; 3] = [0.28314874, 0.5088813, 0.09989873];
-const FOLIAGE_TINT: [f32; 3] = [0.18447499, 0.40724021, 0.02842604];
+const GRASS_TINT: [f32; 3] = [0.283_148_7, 0.508_881_3, 0.099_898_73];
+const FOLIAGE_TINT: [f32; 3] = [0.184_475, 0.407_240_2, 0.028_426_04];
 
 fn tint_color(tint: Tint) -> [f32; 3] {
     match tint {
