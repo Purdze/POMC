@@ -17,7 +17,11 @@ pub struct EntityRenderInfo {
     pub y: f64,
     pub z: f64,
     pub yaw: f32,
+    pub pitch: f32,
+    pub head_yaw: f32,
     pub is_baby: bool,
+    pub walk_anim_pos: f32,
+    pub walk_anim_speed: f32,
 }
 
 pub struct EntityRenderer {
@@ -32,10 +36,6 @@ pub struct EntityRenderer {
     camera_allocations: Vec<Allocation>,
     vertex_buffer: vk::Buffer,
     vertex_allocation: Allocation,
-    vertex_count: u32,
-    baby_vertex_buffer: vk::Buffer,
-    baby_vertex_allocation: Allocation,
-    baby_vertex_count: u32,
     texture_image: vk::Image,
     texture_view: vk::ImageView,
     texture_sampler: vk::Sampler,
@@ -159,28 +159,13 @@ impl EntityRenderer {
             .image_info(&image_info);
         unsafe { device.update_descriptor_sets(&[tex_write], &[]) };
 
-        let pig_model = entity_model::build_pig_model();
-        let verts = entity_model::generate_entity_vertices(&pig_model, 64, 64);
-        let vertex_count = verts.len() as u32;
-        let vertex_bytes = bytemuck::cast_slice::<ChunkVertex, u8>(&verts);
-        let (vertex_buffer, vertex_allocation) = util::create_mapped_buffer(
+        const MAX_ENTITY_VERTICES: usize = 50000;
+        let (vertex_buffer, vertex_allocation) = util::create_host_buffer(
             device,
             allocator,
-            vertex_bytes,
+            (MAX_ENTITY_VERTICES * std::mem::size_of::<ChunkVertex>()) as u64,
             vk::BufferUsageFlags::VERTEX_BUFFER,
             "entity_vertices",
-        );
-
-        let baby_model = entity_model::build_baby_pig_model();
-        let baby_verts = entity_model::generate_entity_vertices(&baby_model, 64, 64);
-        let baby_vertex_count = baby_verts.len() as u32;
-        let baby_bytes = bytemuck::cast_slice::<ChunkVertex, u8>(&baby_verts);
-        let (baby_vertex_buffer, baby_vertex_allocation) = util::create_mapped_buffer(
-            device,
-            allocator,
-            baby_bytes,
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            "entity_baby_vertices",
         );
 
         Self {
@@ -195,10 +180,6 @@ impl EntityRenderer {
             camera_allocations,
             vertex_buffer,
             vertex_allocation,
-            vertex_count,
-            baby_vertex_buffer,
-            baby_vertex_allocation,
-            baby_vertex_count,
             texture_image,
             texture_view,
             texture_sampler,
@@ -219,9 +200,12 @@ impl EntityRenderer {
         frame: usize,
         entities: &[EntityRenderInfo],
     ) {
-        if entities.is_empty() || self.vertex_count == 0 {
+        if entities.is_empty() {
             return;
         }
+
+        let mapped = self.vertex_allocation.mapped_slice().unwrap();
+        let mut offset = 0usize;
 
         unsafe {
             device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
@@ -236,13 +220,41 @@ impl EntityRenderer {
             device.cmd_bind_vertex_buffers(cmd, 0, &[self.vertex_buffer], &[0]);
 
             for info in entities {
-                let model = glam::Mat4::from_translation(glam::Vec3::new(
+                let mut model = if info.is_baby {
+                    entity_model::build_baby_pig_model()
+                } else {
+                    entity_model::build_pig_model()
+                };
+
+                entity_model::setup_quadruped_anim(
+                    &mut model,
+                    info.pitch,
+                    info.head_yaw - info.yaw,
+                    info.walk_anim_pos,
+                    info.walk_anim_speed,
+                );
+
+                let verts = entity_model::generate_entity_vertices(&model, 64, 64);
+                let vert_count = verts.len() as u32;
+                let bytes = bytemuck::cast_slice::<ChunkVertex, u8>(&verts);
+
+                if offset + bytes.len() > mapped.len() {
+                    break;
+                }
+
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    mapped.as_ptr().add(offset) as *mut u8,
+                    bytes.len(),
+                );
+
+                let model_mat = glam::Mat4::from_translation(glam::Vec3::new(
                     info.x as f32,
                     info.y as f32,
                     info.z as f32,
                 )) * glam::Mat4::from_rotation_y(-info.yaw.to_radians());
 
-                let model_array = model.to_cols_array();
+                let model_array = model_mat.to_cols_array();
                 let model_bytes: &[u8] = bytemuck::cast_slice(&model_array);
                 device.cmd_push_constants(
                     cmd,
@@ -252,13 +264,10 @@ impl EntityRenderer {
                     model_bytes,
                 );
 
-                if info.is_baby {
-                    device.cmd_bind_vertex_buffers(cmd, 0, &[self.baby_vertex_buffer], &[0]);
-                    device.cmd_draw(cmd, self.baby_vertex_count, 1, 0, 0);
-                    device.cmd_bind_vertex_buffers(cmd, 0, &[self.vertex_buffer], &[0]);
-                } else {
-                    device.cmd_draw(cmd, self.vertex_count, 1, 0, 0);
-                }
+                let first_vertex = (offset / std::mem::size_of::<ChunkVertex>()) as u32;
+                device.cmd_draw(cmd, vert_count, 1, first_vertex, 0);
+
+                offset += bytes.len();
             }
         }
     }
@@ -284,14 +293,6 @@ impl EntityRenderer {
             .free(std::mem::replace(&mut self.vertex_allocation, unsafe {
                 std::mem::zeroed()
             }))
-            .ok();
-
-        unsafe { device.destroy_buffer(self.baby_vertex_buffer, None) };
-        alloc
-            .free(std::mem::replace(
-                &mut self.baby_vertex_allocation,
-                unsafe { std::mem::zeroed() },
-            ))
             .ok();
 
         unsafe {

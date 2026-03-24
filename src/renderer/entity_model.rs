@@ -105,6 +105,38 @@ pub fn build_baby_pig_model() -> ModelPart {
     root
 }
 
+pub fn setup_quadruped_anim(
+    model: &mut ModelPart,
+    head_pitch: f32,
+    head_yaw: f32,
+    walk_pos: f32,
+    walk_speed: f32,
+) {
+    for (name, part) in &mut model.children {
+        match name.as_str() {
+            "head" => {
+                part.rotation.x = head_pitch.to_radians();
+                part.rotation.y = head_yaw.to_radians();
+            }
+            "right_hind_leg" => {
+                part.rotation.x = (walk_pos * 0.6662).cos() * 1.4 * walk_speed;
+            }
+            "left_hind_leg" => {
+                part.rotation.x =
+                    (walk_pos * 0.6662 + std::f32::consts::PI).cos() * 1.4 * walk_speed;
+            }
+            "right_front_leg" => {
+                part.rotation.x =
+                    (walk_pos * 0.6662 + std::f32::consts::PI).cos() * 1.4 * walk_speed;
+            }
+            "left_front_leg" => {
+                part.rotation.x = (walk_pos * 0.6662).cos() * 1.4 * walk_speed;
+            }
+            _ => {}
+        }
+    }
+}
+
 pub fn generate_entity_vertices(model: &ModelPart, tex_w: u32, tex_h: u32) -> Vec<ChunkVertex> {
     let mut vertices = Vec::new();
     generate_part_vertices(model, tex_w, tex_h, &glam::Mat4::IDENTITY, &mut vertices);

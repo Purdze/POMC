@@ -1228,7 +1228,11 @@ impl ApplicationHandler for App {
                                         y: e.position.y,
                                         z: e.position.z,
                                         yaw: e.yaw,
+                                        pitch: e.pitch,
+                                        head_yaw: e.head_yaw,
                                         is_baby: e.is_baby,
+                                        walk_anim_pos: e.walk_anim_pos,
+                                        walk_anim_speed: e.walk_anim_speed,
                                     })
                                     .collect();
 
