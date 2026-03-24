@@ -1,6 +1,7 @@
 use crate::settings::LauncherSettings;
 use crate::storage;
 
+use crate::installations::Installation;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::process::Stdio;
@@ -473,4 +474,9 @@ fn servers_path() -> std::path::PathBuf {
     storage::installations_dir()
         .join("default")
         .join("servers.json")
+}
+
+#[tauri::command]
+pub async fn create_installation(_installation: Installation) -> Result<(), String> {
+    Ok(())
 }

@@ -30,7 +30,6 @@ pub fn ensure_dirs() {
 
     ensure_file(&settings_file(), "{}");
     ensure_file(&accounts_file(), "[]");
-    ensure_file(&installations_file(), "[]");
 }
 
 pub fn assets_dir() -> PathBuf {
@@ -72,7 +71,4 @@ pub fn settings_file() -> PathBuf {
 }
 pub fn accounts_file() -> PathBuf {
     data_dir().join("accounts.json")
-}
-pub fn installations_file() -> PathBuf {
-    data_dir().join("installations.json")
 }
