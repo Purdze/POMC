@@ -251,6 +251,7 @@ pub async fn launch_game(
     uuid: Option<String>,
     server: Option<String>,
     debug_enabled: Option<bool>,
+    version: Option<String>,
 ) -> Result<String, String> {
     let exe = find_client_binary()?;
     let assets = storage::assets_dir();
@@ -314,6 +315,10 @@ pub async fn launch_game(
 
     if let Some(server) = &server {
         cmd.arg("--server").arg(server);
+    }
+
+    if let Some(ver) = &version {
+        cmd.arg("--version").arg(ver);
     }
 
     #[cfg(unix)]

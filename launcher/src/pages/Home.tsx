@@ -2,6 +2,7 @@ import { useState } from "react";
 import { HiPlay, HiChevronDown, HiCube } from "react-icons/hi2";
 import { PatchNote } from "../lib/types";
 import { useAppStateContext } from "../lib/state";
+import SkinRunner from "../components/SkinRunner";
 
 interface HomepageProps {
   handleLaunch: () => Promise<void>;
@@ -19,6 +20,8 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
     setActiveInstall,
     news,
     status,
+    downloadProgress,
+    skinUrl,
   } = useAppStateContext();
 
   return (
@@ -75,7 +78,31 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
         )}
       </div>
 
-      {status && <div className="status-toast">{status}</div>}
+      {downloadProgress && (
+        <div className="download-progress">
+          <div className="download-progress-text">{downloadProgress.status}</div>
+          <div className="download-progress-bar">
+            <SkinRunner
+              skinUrl={skinUrl}
+              progress={
+                downloadProgress.total > 0
+                  ? downloadProgress.downloaded / downloadProgress.total
+                  : 0
+              }
+            />
+            <div
+              className="download-progress-fill"
+              style={{
+                width:
+                  downloadProgress.total > 0
+                    ? `${(downloadProgress.downloaded / downloadProgress.total) * 100}%`
+                    : "0%",
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {!downloadProgress && status && <div className="status-toast">{status}</div>}
 
       <div className="news-section">
         <h2 className="news-heading">LATEST NEWS</h2>

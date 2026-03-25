@@ -765,7 +765,6 @@ impl ApplicationHandler for App {
             renderer.load_player_skin(&uuid, &self.tokio_rt);
         }
         self.renderer = Some(renderer);
-        window.request_redraw();
         self.window = Some(window);
         self.apply_cursor_grab();
     }
@@ -1354,6 +1353,9 @@ impl ApplicationHandler for App {
                 } // 'redraw
 
                 if let Some(window) = &self.window {
+                    if !window.is_visible().unwrap_or(true) {
+                        window.set_visible(true);
+                    }
                     window.request_redraw();
                 }
             }
