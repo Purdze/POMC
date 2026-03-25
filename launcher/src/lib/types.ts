@@ -32,6 +32,12 @@ export interface PatchNote {
   content_path: string;
 }
 
+export interface DownloadProgress {
+  downloaded: number;
+  total: number;
+  status: string;
+}
+
 export interface LauncherSettings {
   language: string;
   keepLauncherOpen: boolean;

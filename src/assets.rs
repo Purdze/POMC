@@ -23,6 +23,7 @@ pub fn resolve_asset_path(
     assets_dir.join("assets").join(asset_key)
 }
 
+
 #[derive(Clone)]
 pub struct AssetIndex {
     objects_dir: PathBuf,

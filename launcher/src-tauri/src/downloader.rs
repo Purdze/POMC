@@ -65,11 +65,11 @@ pub fn needs_download(version: &str) -> bool {
     let no_index = !storage::indexes_dir()
         .join(format!("{version}.json"))
         .exists();
-    let no_jar = !storage::assets_dir()
-        .join("jar")
-        .join(".extracted")
-        .exists();
-    no_index || no_jar
+    let marker = storage::assets_dir().join("jar").join(".extracted");
+    let wrong_version = std::fs::read_to_string(&marker)
+        .map(|v| v.trim() != version)
+        .unwrap_or(true);
+    no_index || wrong_version
 }
 
 pub async fn download(app: &AppHandle, version: &str) -> Result<(), String> {
@@ -127,49 +127,84 @@ pub async fn download(app: &AppHandle, version: &str) -> Result<(), String> {
     Ok(())
 }
 
+const CONCURRENT_DOWNLOADS: usize = 32;
+
 async fn download_objects(
     app: &AppHandle,
     client: &reqwest::Client,
     index: &AssetIndexJson,
 ) -> Result<(), String> {
-    let total = index.objects.len() as u32;
-    let mut downloaded = 0u32;
-    let mut skipped = 0u32;
     let objects = storage::objects_dir();
 
-    for (name, obj) in &index.objects {
+    let mut to_download: Vec<(String, String, u64)> = Vec::new();
+    let mut total_bytes: u64 = 0;
+    for obj in index.objects.values() {
         let prefix = &obj.hash[..2];
-        let dir = objects.join(prefix);
-        let path = dir.join(&obj.hash);
-
+        let path = objects.join(prefix).join(&obj.hash);
         if path.exists() && std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0) == obj.size {
-            skipped += 1;
             continue;
         }
+        total_bytes += obj.size;
+        to_download.push((
+            obj.hash.clone(),
+            format!("{RESOURCES_BASE_URL}/{prefix}/{}", obj.hash),
+            obj.size,
+        ));
+    }
 
-        let _ = std::fs::create_dir_all(&dir);
-        let url = format!("{RESOURCES_BASE_URL}/{prefix}/{}", obj.hash);
+    let total = to_download.len() as u32;
+    if total == 0 {
+        emit_progress(app, total, total, "Assets downloaded");
+        return Ok(());
+    }
 
-        let bytes = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to download {name}: {e}"))?
-            .bytes()
-            .await
+    let mut completed = 0u32;
+    let mut downloaded_bytes: u64 = 0;
+    let mut last_emit = std::time::Instant::now();
+    let mut tasks = tokio::task::JoinSet::new();
+    let mut pending = to_download.into_iter();
+
+    for _ in 0..CONCURRENT_DOWNLOADS {
+        if let Some((hash, url, size)) = pending.next() {
+            let c = client.clone();
+            tasks.spawn(async move {
+                let bytes = c.get(&url).send().await?.bytes().await?;
+                Ok::<_, reqwest::Error>((hash, bytes, size))
+            });
+        }
+    }
+
+    while let Some(result) = tasks.join_next().await {
+        let (hash, bytes, size) = result
+            .map_err(|e| e.to_string())?
             .map_err(|e| e.to_string())?;
 
-        std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
-        downloaded += 1;
+        let prefix = &hash[..2];
+        let dir = objects.join(prefix);
+        let _ = std::fs::create_dir_all(&dir);
+        std::fs::write(dir.join(&hash), &bytes).map_err(|e| e.to_string())?;
 
-        if downloaded.is_multiple_of(50) {
-            let need = total - skipped;
+        completed += 1;
+        downloaded_bytes += size;
+
+        if let Some((hash, url, size)) = pending.next() {
+            let c = client.clone();
+            tasks.spawn(async move {
+                let bytes = c.get(&url).send().await?.bytes().await?;
+                Ok::<_, reqwest::Error>((hash, bytes, size))
+            });
+        }
+
+        if last_emit.elapsed().as_millis() >= 100 {
+            let dl_mb = downloaded_bytes as f64 / (1024.0 * 1024.0);
+            let total_mb = total_bytes as f64 / (1024.0 * 1024.0);
             emit_progress(
                 app,
-                downloaded,
-                need,
-                &format!("Downloading assets ({downloaded}/{need})"),
+                completed,
+                total,
+                &format!("Downloading assets ({dl_mb:.1}/{total_mb:.1} MB)"),
             );
+            last_emit = std::time::Instant::now();
         }
     }
 
@@ -183,10 +218,15 @@ async fn download_jar(
     version: &str,
     cached_vj: Option<&VersionJson>,
 ) -> Result<(), String> {
+    let ver_dir = storage::version_dir(version);
+    let _ = std::fs::create_dir_all(&ver_dir);
     let jar_assets = storage::assets_dir().join("jar");
     let marker = jar_assets.join(".extracted");
     if marker.exists() {
-        return Ok(());
+        let extracted_ver = std::fs::read_to_string(&marker).unwrap_or_default();
+        if extracted_ver.trim() == version {
+            return Ok(());
+        }
     }
 
     let fetched;
@@ -219,7 +259,7 @@ async fn download_jar(
         &fetched
     };
 
-    let jar_path = storage::versions_dir().join(format!("{version}.jar"));
+    let jar_path = storage::version_jar(version);
     if !jar_path.exists() || std::fs::metadata(&jar_path).map(|m| m.len()).unwrap_or(0) != dl.size {
         emit_progress(app, 0, 1, "Downloading client JAR...");
         let bytes = client
@@ -239,16 +279,19 @@ async fn download_jar(
         std::fs::write(&jar_path, &bytes).map_err(|e| e.to_string())?;
     }
 
-    emit_progress(app, 0, 1, "Extracting client JAR...");
-    extract_jar(&jar_path, &jar_assets)?;
+    extract_jar(app, &jar_path, &jar_assets)?;
     std::fs::write(&marker, version).map_err(|e| e.to_string())?;
 
     Ok(())
 }
 
-fn extract_jar(jar_path: &Path, output_dir: &Path) -> Result<(), String> {
+fn extract_jar(app: &AppHandle, jar_path: &Path, output_dir: &Path) -> Result<(), String> {
     let file = std::fs::File::open(jar_path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+
+    let total = archive.len() as u32;
+    let mut extracted = 0u32;
+    let mut last_emit = std::time::Instant::now();
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
@@ -265,6 +308,17 @@ fn extract_jar(jar_path: &Path, output_dir: &Path) -> Result<(), String> {
 
         let mut out_file = std::fs::File::create(&out_path).map_err(|e| e.to_string())?;
         std::io::copy(&mut entry, &mut out_file).map_err(|e| e.to_string())?;
+
+        extracted += 1;
+        if last_emit.elapsed().as_millis() >= 100 {
+            emit_progress(
+                app,
+                extracted,
+                total,
+                &format!("Extracting client JAR ({extracted}/{total})"),
+            );
+            last_emit = std::time::Instant::now();
+        }
     }
 
     Ok(())

@@ -1,8 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { HiChevronDown, HiFolder } from "react-icons/hi2";
-import { AuthAccount, GameVersion, PatchNote } from "./lib/types";
+import { AuthAccount, DownloadProgress, GameVersion, PatchNote } from "./lib/types";
 import Homepage from "./pages/Home";
 import InstallationsPage from "./pages/Installations";
 import { useAppStateContext } from "./lib/state";
@@ -40,6 +42,7 @@ function App() {
     setNews,
     setSkinUrl,
     setSelectedNote,
+    setDownloadProgress,
     launcherSettings,
   } = useAppStateContext();
 
@@ -79,9 +82,32 @@ function App() {
       .then(setNews)
       .catch((e) => console.error("Failed to fetch news:", e));
     invoke<GameVersion[]>("get_versions", { showSnapshots: false })
-      .then(setVersions)
+      .then((v) => {
+        setVersions(v);
+        if (v.length > 0) {
+          const latest = v[0].id;
+          setInstallations((prev) =>
+            prev.map((inst) =>
+              inst.id === "default" && !inst.version ? { ...inst, version: latest } : inst,
+            ),
+          );
+        }
+      })
       .catch((e) => console.error("Failed to fetch versions:", e));
   }, [loadSkin, setAccounts, setActiveIndex, setNews, setVersions]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => getCurrentWindow().show());
+  }, []);
+
+  useEffect(() => {
+    const unlisten = listen<DownloadProgress>("download-progress", (event) => {
+      setDownloadProgress(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [setDownloadProgress]);
 
   const startAddAccount = useCallback(async () => {
     setAccountDropdownOpen(false);
@@ -137,14 +163,17 @@ function App() {
     setStatus("Checking assets...");
     try {
       await invoke("ensure_assets", { version: selectedVersion });
+      setDownloadProgress(null);
       setStatus("Launching POMC...");
       const result = await invoke<string>("launch_game", {
         uuid: account?.uuid || null,
         server: server || null,
         debugEnabled: launcherSettings.launchWithConsole || null,
+        version: selectedVersion,
       });
       setStatus(result);
     } catch (e) {
+      setDownloadProgress(null);
       setStatus(`${e}`);
     }
     setTimeout(() => {
@@ -154,6 +183,7 @@ function App() {
   }, [
     setLaunching,
     setStatus,
+    setDownloadProgress,
     selectedVersion,
     account?.uuid,
     server,
@@ -347,13 +377,15 @@ function App() {
                   });
                   setEditingInstall(null);
                   if (isNew) {
-                    setStatus(`Installing ${install.version}...`);
+                    setPage("home");
+                    setDownloadProgress({ downloaded: 0, total: 1, status: "Starting install..." });
                     try {
                       await invoke("ensure_assets", { version: install.version });
                       setStatus(`${install.name} ready`);
                     } catch (e) {
                       setStatus(`Install failed: ${e}`);
                     }
+                    setDownloadProgress(null);
                     setTimeout(() => setStatus(""), 3000);
                   }
                 }}

@@ -38,6 +38,12 @@ pub fn assets_dir() -> PathBuf {
 pub fn versions_dir() -> PathBuf {
     data_dir().join("versions")
 }
+pub fn version_dir(version: &str) -> PathBuf {
+    versions_dir().join(version)
+}
+pub fn version_jar(version: &str) -> PathBuf {
+    version_dir(version).join(format!("{version}.jar"))
+}
 pub fn installations_dir() -> PathBuf {
     data_dir().join("installations")
 }

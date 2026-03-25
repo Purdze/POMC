@@ -19,6 +19,7 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
     setActiveInstall,
     news,
     status,
+    downloadProgress,
   } = useAppStateContext();
 
   return (
@@ -75,7 +76,23 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
         )}
       </div>
 
-      {status && <div className="status-toast">{status}</div>}
+      {downloadProgress && (
+        <div className="download-progress">
+          <div className="download-progress-text">{downloadProgress.status}</div>
+          <div className="download-progress-bar">
+            <div
+              className="download-progress-fill"
+              style={{
+                width:
+                  downloadProgress.total > 0
+                    ? `${(downloadProgress.downloaded / downloadProgress.total) * 100}%`
+                    : "0%",
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {!downloadProgress && status && <div className="status-toast">{status}</div>}
 
       <div className="news-section">
         <h2 className="news-heading">LATEST NEWS</h2>

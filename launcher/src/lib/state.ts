@@ -1,5 +1,13 @@
 import { createContext, createElement, ReactNode, useContext, useEffect, useState } from "react";
-import { AuthAccount, GameVersion, Installation, LauncherSettings, Page, PatchNote } from "./types";
+import {
+  AuthAccount,
+  DownloadProgress,
+  GameVersion,
+  Installation,
+  LauncherSettings,
+  Page,
+  PatchNote,
+} from "./types";
 import { invoke } from "@tauri-apps/api/core";
 
 const useLauncherSettings = () => {
@@ -63,7 +71,7 @@ const useAppState = () => {
     {
       id: "default",
       name: "Latest Release",
-      version: "1.21.11",
+      version: "",
       lastPlayed: "Today",
       directory: "default",
       width: 854,
@@ -73,7 +81,7 @@ const useAppState = () => {
   const [activeInstall, setActiveInstall] = useState("default");
   const [editingInstall, setEditingInstall] = useState<Installation | null>(null);
   const [dialogVersionOpen, setDialogVersionOpen] = useState(false);
-  const selectedVersion = installations.find((i) => i.id === activeInstall)?.version || "1.21.11";
+  const selectedVersion = installations.find((i) => i.id === activeInstall)?.version || "";
   const [versions, setVersions] = useState<GameVersion[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [launching, setLaunching] = useState(false);
@@ -81,6 +89,7 @@ const useAppState = () => {
   const [status, setStatus] = useState("");
   const [news, setNews] = useState<PatchNote[]>([]);
   const [skinUrl, setSkinUrl] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
 
   const account = accounts[activeIndex] || null;
   const username = account?.username || "Steve";
@@ -131,6 +140,8 @@ const useAppState = () => {
     setNews,
     skinUrl,
     setSkinUrl,
+    downloadProgress,
+    setDownloadProgress,
     selectedNote,
     setSelectedNote,
     username,
