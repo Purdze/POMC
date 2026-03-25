@@ -31,13 +31,11 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Install Vulkan SDK (Linux)
+      - name: Install Vulkan dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
-          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
-          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
           sudo apt-get update
-          sudo apt-get install -y vulkan-sdk libxkbcommon-dev libwayland-dev
+          sudo apt-get install -y libvulkan-dev libxkbcommon-dev libwayland-dev
 
       - uses: Swatinem/rust-cache@v2
         with:
