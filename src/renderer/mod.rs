@@ -245,7 +245,12 @@ impl Renderer {
             asset_index,
         );
 
-        let chunk_buffers = ChunkBufferStore::new(&ctx.device, &ctx.allocator);
+        let chunk_buffers = ChunkBufferStore::new(
+            &ctx.device,
+            &ctx.instance,
+            ctx.physical_device,
+            &ctx.allocator,
+        );
 
         Ok(Self {
             ctx,

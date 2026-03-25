@@ -12,9 +12,40 @@ use crate::renderer::MAX_FRAMES_IN_FLIGHT;
 
 const BUCKET_VERTICES: u32 = 32768;
 const BUCKET_INDICES: u32 = 49152;
-const TOTAL_BUCKETS: u32 = 1024;
 const VERTEX_SIZE: u64 = std::mem::size_of::<ChunkVertex>() as u64;
 const INDEX_SIZE: u64 = std::mem::size_of::<u32>() as u64;
+const BYTES_PER_BUCKET: u64 =
+    BUCKET_VERTICES as u64 * VERTEX_SIZE + BUCKET_INDICES as u64 * INDEX_SIZE;
+const MIN_BUCKETS: u32 = 128;
+const MAX_BUCKETS: u32 = 2048;
+const VRAM_BUDGET_FRACTION: f64 = 0.25;
+
+fn compute_bucket_count(instance: &ash::Instance, physical_device: vk::PhysicalDevice) -> u32 {
+    let mem_props = unsafe { instance.get_physical_device_memory_properties(physical_device) };
+    let mut device_local_bytes: u64 = 0;
+    for i in 0..mem_props.memory_type_count as usize {
+        let mem_type = mem_props.memory_types[i];
+        if mem_type
+            .property_flags
+            .contains(vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        {
+            let heap = mem_props.memory_heaps[mem_type.heap_index as usize];
+            if heap.size > device_local_bytes {
+                device_local_bytes = heap.size;
+            }
+        }
+    }
+    let budget = (device_local_bytes as f64 * VRAM_BUDGET_FRACTION) as u64;
+    let buckets = (budget / BYTES_PER_BUCKET) as u32;
+    let count = buckets.clamp(MIN_BUCKETS, MAX_BUCKETS);
+    log::info!(
+        "GPU VRAM: {} MB, chunk budget: {} MB, buckets: {}",
+        device_local_bytes / (1024 * 1024),
+        (count as u64 * BYTES_PER_BUCKET) / (1024 * 1024),
+        count
+    );
+    count
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -59,6 +90,7 @@ struct ChunkAlloc {
 }
 
 pub struct ChunkBufferStore {
+    total_buckets: u32,
     vertex_buffer: vk::Buffer,
     vertex_alloc: Allocation,
     index_buffer: vk::Buffer,
@@ -86,9 +118,15 @@ pub struct ChunkBufferStore {
 }
 
 impl ChunkBufferStore {
-    pub fn new(device: &ash::Device, allocator: &Arc<Mutex<Allocator>>) -> Self {
-        let vertex_size = TOTAL_BUCKETS as u64 * BUCKET_VERTICES as u64 * VERTEX_SIZE;
-        let index_size = TOTAL_BUCKETS as u64 * BUCKET_INDICES as u64 * INDEX_SIZE;
+    pub fn new(
+        device: &ash::Device,
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        allocator: &Arc<Mutex<Allocator>>,
+    ) -> Self {
+        let total_buckets = compute_bucket_count(instance, physical_device);
+        let vertex_size = total_buckets as u64 * BUCKET_VERTICES as u64 * VERTEX_SIZE;
+        let index_size = total_buckets as u64 * BUCKET_INDICES as u64 * INDEX_SIZE;
 
         let (vertex_buffer, vertex_alloc) = util::create_host_buffer(
             device,
@@ -105,12 +143,12 @@ impl ChunkBufferStore {
             "index_pool",
         );
 
-        let mut free_buckets = VecDeque::with_capacity(TOTAL_BUCKETS as usize);
-        for i in 0..TOTAL_BUCKETS {
+        let mut free_buckets = VecDeque::with_capacity(total_buckets as usize);
+        for i in 0..total_buckets {
             free_buckets.push_back(i);
         }
 
-        let max_meta = (TOTAL_BUCKETS * 2) as u64;
+        let max_meta = (total_buckets * 2) as u64;
         let meta_size = max_meta * std::mem::size_of::<ChunkMeta>() as u64;
         let indirect_size = max_meta * std::mem::size_of::<DrawCommand>() as u64;
         let count_size = 4u64;
@@ -247,6 +285,7 @@ impl ChunkBufferStore {
         }
 
         Self {
+            total_buckets,
             vertex_buffer,
             vertex_alloc,
             index_buffer,
@@ -389,7 +428,7 @@ impl ChunkBufferStore {
     pub fn clear(&mut self) {
         self.chunks.clear();
         self.free_buckets.clear();
-        for i in 0..TOTAL_BUCKETS {
+        for i in 0..self.total_buckets {
             self.free_buckets.push_back(i);
         }
         self.cached_meta.clear();
