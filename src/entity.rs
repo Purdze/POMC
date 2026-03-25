@@ -20,6 +20,7 @@ pub struct LivingEntity {
     pub entity_type: EntityKind,
     pub walk_anim_pos: f32,
     pub walk_anim_speed: f32,
+    pub prev_walk_anim_speed: f32,
     pub is_baby: bool,
     pub on_ground: bool,
     interp_target: DVec3,
@@ -52,6 +53,7 @@ impl LivingEntity {
             entity_type,
             walk_anim_pos: 0.0,
             walk_anim_speed: 0.0,
+            prev_walk_anim_speed: 0.0,
             is_baby: false,
             on_ground: false,
             interp_target: position,
@@ -186,8 +188,9 @@ impl EntityStore {
             entity.tick_body_rotation();
             let dx = entity.position.x - entity.prev_position.x;
             let dz = entity.position.z - entity.prev_position.z;
-            let speed = ((dx * dx + dz * dz) as f32).sqrt();
-            let target_speed = speed.min(1.0);
+            let distance = ((dx * dx + dz * dz) as f32).sqrt();
+            let target_speed = (distance * 4.0).min(1.0);
+            entity.prev_walk_anim_speed = entity.walk_anim_speed;
             entity.walk_anim_speed += (target_speed - entity.walk_anim_speed) * 0.4;
             entity.walk_anim_pos += entity.walk_anim_speed;
         }

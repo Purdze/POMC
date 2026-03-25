@@ -1279,8 +1279,16 @@ impl ApplicationHandler for App {
                                             pitch: e.prev_pitch + (e.pitch - e.prev_pitch) * alpha,
                                             head_yaw,
                                             is_baby: e.is_baby,
-                                            walk_anim_pos: e.walk_anim_pos,
-                                            walk_anim_speed: e.walk_anim_speed,
+                                            walk_anim_pos: {
+                                                let scale = if e.is_baby { 3.0 } else { 1.0 };
+                                                (e.walk_anim_pos
+                                                    - e.walk_anim_speed * (1.0 - alpha))
+                                                    * scale
+                                            },
+                                            walk_anim_speed: (e.prev_walk_anim_speed
+                                                + (e.walk_anim_speed - e.prev_walk_anim_speed)
+                                                    * alpha)
+                                                .min(1.0),
                                             entity_kind: e.entity_type,
                                         }
                                     })
