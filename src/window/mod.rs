@@ -107,6 +107,9 @@ struct App {
     prev_player_pos: glam::Vec3,
     biome_climate:
         Arc<std::collections::HashMap<u32, crate::renderer::chunk::mesher::BiomeClimate>>,
+    player_walk_pos: f32,
+    player_walk_speed: f32,
+    player_prev_walk_speed: f32,
     mesh_dispatcher: Option<MeshDispatcher>,
     paused: bool,
     dead: bool,
@@ -218,6 +221,9 @@ impl App {
             tick_accumulator: 0.0,
             prev_player_pos: glam::Vec3::ZERO,
             biome_climate: Arc::new(std::collections::HashMap::new()),
+            player_walk_pos: 0.0,
+            player_walk_speed: 0.0,
+            player_prev_walk_speed: 0.0,
             mesh_dispatcher: None,
             paused: false,
             dead: false,
@@ -709,13 +715,27 @@ impl App {
             return;
         }
         if let Some(renderer) = &self.renderer {
-            self.player.yaw = renderer.camera_yaw();
+            self.player.yaw = if renderer.is_first_person() {
+                renderer.camera_yaw()
+            } else {
+                renderer.camera_yaw() + std::f32::consts::PI
+            };
             self.player.pitch = renderer.camera_pitch();
         }
 
         self.prev_player_pos = self.player.position;
         movement::tick(&mut self.player, &self.input, &self.chunk_store);
         self.entity_store.tick_living();
+
+        let dx = (self.player.position.x - self.prev_player_pos.x) as f64;
+        let dz = (self.player.position.z - self.prev_player_pos.z) as f64;
+        crate::entity::update_walk_animation(
+            dx,
+            dz,
+            &mut self.player_walk_pos,
+            &mut self.player_walk_speed,
+            &mut self.player_prev_walk_speed,
+        );
 
         if let Some(renderer) = &mut self.renderer {
             renderer.set_base_fov(self.menu.fov as f32);
@@ -1407,6 +1427,7 @@ impl ApplicationHandler for App {
                                     self.player.food,
                                     self.player.air_supply,
                                     self.player.inventory.hotbar_slots(),
+                                    renderer.is_first_person(),
                                     debug.as_ref(),
                                     self.menu.gui_scale_setting,
                                 );
@@ -1536,23 +1557,22 @@ impl ApplicationHandler for App {
                                     .collect();
 
                                 if !renderer.is_first_person() {
-                                    log::info!(
-                                        "Third person: self at ({}, {}, {}), yaw={}",
-                                        interp_pos.x,
-                                        interp_pos.y,
-                                        interp_pos.z,
-                                        renderer.camera_yaw().to_degrees()
-                                    );
+                                    let cam_yaw_deg = -renderer.camera_yaw().to_degrees();
                                     entity_renders.push(EntityRenderInfo {
                                         x: interp_pos.x as f64,
                                         y: interp_pos.y as f64,
                                         z: interp_pos.z as f64,
-                                        yaw: renderer.camera_yaw().to_degrees(),
-                                        pitch: 0.0,
-                                        head_yaw: renderer.camera_yaw().to_degrees(),
+                                        yaw: cam_yaw_deg,
+                                        pitch: renderer.camera_pitch().to_degrees(),
+                                        head_yaw: cam_yaw_deg,
                                         is_baby: false,
-                                        walk_anim_pos: 0.0,
-                                        walk_anim_speed: 0.0,
+                                        walk_anim_pos: self.player_walk_pos
+                                            - self.player_walk_speed * (1.0 - alpha),
+                                        walk_anim_speed: (self.player_prev_walk_speed
+                                            + (self.player_walk_speed
+                                                - self.player_prev_walk_speed)
+                                                * alpha)
+                                            .min(1.0),
                                         entity_kind: azalea_registry::builtin::EntityKind::Player,
                                     });
                                 }

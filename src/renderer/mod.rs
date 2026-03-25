@@ -558,26 +558,30 @@ impl Renderer {
         if self.camera.mode == camera::CameraMode::FirstPerson {
             return;
         }
-        let dir = match self.camera.mode {
-            camera::CameraMode::ThirdPersonBack => -self.camera.forward_vec(),
-            camera::CameraMode::ThirdPersonFront => self.camera.forward_vec(),
-            _ => return,
-        };
         let max = camera::THIRD_PERSON_DISTANCE;
+        let dir = self.camera.third_person_dir();
+        let jitters = self.camera.jitter_origins();
         let mut dist = max;
-        let step = 0.1;
-        let mut t = 0.0;
-        while t < max {
-            let p = eye_pos + dir * t;
-            let bx = p.x.floor() as i32;
-            let by = p.y.floor() as i32;
-            let bz = p.z.floor() as i32;
-            let state = chunks.get_block_state(bx, by, bz);
-            if !state.is_air() {
-                dist = (t - 0.2).max(0.0);
-                break;
+        for jitter in &jitters {
+            let from = eye_pos + *jitter;
+            let to = from + dir * max;
+            let mut t = 0.0;
+            let step = 0.1;
+            while t < max {
+                let p = from + (to - from).normalize() * t;
+                let bx = p.x.floor() as i32;
+                let by = p.y.floor() as i32;
+                let bz = p.z.floor() as i32;
+                let state = chunks.get_block_state(bx, by, bz);
+                if !state.is_air() {
+                    let hit_dist = t;
+                    if hit_dist < dist {
+                        dist = hit_dist;
+                    }
+                    break;
+                }
+                t += step;
             }
-            t += step;
         }
         self.camera.third_person_dist = dist;
     }
