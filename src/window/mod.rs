@@ -1007,6 +1007,11 @@ impl ApplicationHandler for App {
                                     KeyCode::KeyG if self.input.key_pressed(KeyCode::F3) => {
                                         self.show_chunk_borders = !self.show_chunk_borders;
                                     }
+                                    KeyCode::F5 => {
+                                        if let Some(r) = &mut self.renderer {
+                                            r.cycle_camera_mode();
+                                        }
+                                    }
                                     _ => {}
                                 }
                             }

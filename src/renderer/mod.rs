@@ -566,6 +566,15 @@ impl Renderer {
         self.camera.pitch
     }
 
+    pub fn cycle_camera_mode(&mut self) {
+        self.camera.mode = self.camera.mode.cycle();
+    }
+
+    #[allow(dead_code)]
+    pub fn is_first_person(&self) -> bool {
+        self.camera.mode == camera::CameraMode::FirstPerson
+    }
+
     pub fn gpu_name(&self) -> &str {
         &self.ctx.gpu_name
     }
@@ -979,14 +988,16 @@ impl Renderer {
                         .device
                         .cmd_clear_attachments(cmd, &[clear_attachment], &[clear_rect]);
 
-                    let aspect = sw / sh.max(1.0);
-                    self.hand_pipeline.update_and_draw(
-                        &self.ctx.device,
-                        cmd,
-                        frame,
-                        aspect,
-                        *swing_progress,
-                    );
+                    if self.camera.mode == camera::CameraMode::FirstPerson {
+                        let aspect = sw / sh.max(1.0);
+                        self.hand_pipeline.update_and_draw(
+                            &self.ctx.device,
+                            cmd,
+                            frame,
+                            aspect,
+                            *swing_progress,
+                        );
+                    }
 
                     self.menu_pipeline
                         .draw(&self.ctx.device, cmd, sw, sh, overlay);
