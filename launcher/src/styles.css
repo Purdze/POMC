@@ -839,10 +839,6 @@ body {
   cursor: wait;
 }
 
-.play-button.no-install:disabled {
-  cursor: not-allowed;
-}
-
 .play-icon {
   font-size: 20px;
   color: #0a1a0a;
@@ -1897,6 +1893,11 @@ body {
 .dialog-field input:focus {
   border-color: var(--border-glow);
   box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.dialog-field-info {
+  font-family: var(--font-display), sans-serif;
+  font-size: 12px;
 }
 
 .custom-select-wrapper {

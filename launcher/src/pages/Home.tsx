@@ -15,6 +15,7 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
     installations,
     activeInstall,
     setActiveInstall,
+    setEditingInstall,
     news,
     status,
     downloadProgress,
@@ -47,7 +48,12 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
       <div className="version-badge-wrapper" ref={versionDropdownRef}>
         <button className="version-badge" onClick={versionDropdown.toggle}>
           <HiCube className="version-badge-icon" />
-          <span>{activeInstall?.version}</span>
+          <span className="version-item-id">
+            {activeInstall?.name || "No installation selected"}
+          </span>
+          <span className="version-item-type" hidden={!activeInstall}>
+            {activeInstall?.version || ""}
+          </span>
           <HiChevronDown
             className={`version-badge-arrow ${versionDropdown.isOpen ? "open" : ""}`}
           />
@@ -55,19 +61,42 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
         {versionDropdown.isOpen && (
           <div className="version-dropdown">
             <div className="version-list">
-              {installations.map((inst) => (
+              {installations.length === 0 ? (
                 <button
-                  key={inst.id}
-                  className={`version-item ${inst.id === activeInstall?.id ? "active" : ""}`}
+                  className={`version-item`}
                   onClick={() => {
-                    setActiveInstall(inst);
                     versionDropdown.close();
+                    setEditingInstall({
+                      id: "",
+                      icon: null,
+                      name: "",
+                      version: "26.1",
+                      lastPlayed: null,
+                      createdAt: -1,
+                      directory: "",
+                      width: 854,
+                      height: 480,
+                      can_delete: true,
+                    });
                   }}
                 >
-                  <span className="version-item-id">{inst.name}</span>
-                  <span className="version-item-type">{inst.version}</span>
+                  <span className="version-item-id">Create a new installation</span>
                 </button>
-              ))}
+              ) : (
+                installations.map((inst) => (
+                  <button
+                    key={inst.id}
+                    className={`version-item ${inst.id === activeInstall?.id ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveInstall(inst);
+                      versionDropdown.close();
+                    }}
+                  >
+                    <span className="version-item-id">{inst.name}</span>
+                    <span className="version-item-type">{inst.version}</span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         )}
