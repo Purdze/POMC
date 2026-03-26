@@ -228,9 +228,12 @@ function App() {
     invoke<Installation[]>("get_installations")
       .then((installs) => {
         setInstallations(installs);
+        if (!activeInstall) {
+          setActiveInstall(installs[0]);
+        }
       })
       .catch((e) => console.error("Failed to get_installations: ", e));
-  }, [setInstallations]);
+  }, [setInstallations, setActiveInstall, activeInstall]);
 
   return (
     <div className="app">
