@@ -210,6 +210,23 @@ fn create_buffer(
     (buffer, allocation)
 }
 
+pub fn create_device_buffer(
+    device: &ash::Device,
+    allocator: &Arc<Mutex<Allocator>>,
+    size: u64,
+    usage: vk::BufferUsageFlags,
+    name: &str,
+) -> (vk::Buffer, Allocation) {
+    create_buffer(
+        device,
+        allocator,
+        size,
+        usage | vk::BufferUsageFlags::TRANSFER_DST,
+        MemoryLocation::GpuOnly,
+        name,
+    )
+}
+
 pub fn create_uniform_buffer(
     device: &ash::Device,
     allocator: &Arc<Mutex<Allocator>>,
