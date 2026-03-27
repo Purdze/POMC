@@ -13,7 +13,6 @@ const FAR: f32 = 1000.0;
 const SENSITIVITY: f32 = 0.003;
 const PITCH_LIMIT: f32 = std::f32::consts::FRAC_PI_2 - 0.01;
 pub const THIRD_PERSON_DISTANCE: f32 = 4.0;
-const JITTER: f32 = 0.1;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CameraMode {
@@ -149,17 +148,6 @@ impl Camera {
             CameraMode::ThirdPersonFront => fwd,
             _ => -fwd,
         }
-    }
-
-    pub fn jitter_origins(&self) -> [Vec3; 8] {
-        let mut origins = [Vec3::ZERO; 8];
-        for (i, origin) in origins.iter_mut().enumerate() {
-            let ox = ((i & 1) * 2) as f32 - 1.0;
-            let oy = (((i >> 1) & 1) * 2) as f32 - 1.0;
-            let oz = (((i >> 2) & 1) * 2) as f32 - 1.0;
-            *origin = Vec3::new(ox * JITTER, oy * JITTER, oz * JITTER);
-        }
-        origins
     }
 
     pub fn view_projection(&self) -> Mat4 {
