@@ -1317,7 +1317,6 @@ body {
   border-color: var(--border-light);
 }
 
-
 .servers-list {
   display: flex;
   flex-direction: column;

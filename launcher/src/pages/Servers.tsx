@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   HiArrowPath,
   HiChevronDown,
@@ -296,15 +296,13 @@ export default function ServersPage({
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={servers.map((s) => s.id)} strategy={rectSortingStrategy}>
-          <div className="servers-grid">
-            {servers.map((s, i) => {
-              const cat = s.category || "";
-              const prevCat = i > 0 ? servers[i - 1].category || "" : null;
-              const showHeader = cat && cat !== prevCat;
-              return (
-                <React.Fragment key={s.id}>
-                  {showHeader && <h3 className="servers-category">{cat}</h3>}
+          {categories.map((cat) => (
+            <div key={cat || "__uncategorized"}>
+              {cat && <h3 className="servers-category">{cat}</h3>}
+              <div className="servers-grid">
+                {grouped[cat].map((s) => (
                   <SortableServer
+                    key={s.id}
                     s={s}
                     handleLaunch={handleLaunch}
                     startEdit={startEdit}
@@ -312,10 +310,10 @@ export default function ServersPage({
                     menuOpen={menuOpen}
                     setMenuOpen={setMenuOpen}
                   />
-                </React.Fragment>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </SortableContext>
       </DndContext>
     </div>

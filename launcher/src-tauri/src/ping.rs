@@ -38,11 +38,17 @@ pub async fn ping_server(address: &str) -> ServerStatus {
 }
 
 async fn resolve_srv(host: &str) -> Option<(String, u16)> {
-    let resolver = hickory_resolver::TokioResolver::builder_tokio().ok()?.build();
+    let resolver = hickory_resolver::TokioResolver::builder_tokio()
+        .ok()?
+        .build();
     let srv_name = format!("_minecraft._tcp.{host}.");
     let lookup = resolver.srv_lookup(&srv_name).await.ok()?;
     let record = lookup.iter().next()?;
-    let target = record.target().to_string().trim_end_matches('.').to_string();
+    let target = record
+        .target()
+        .to_string()
+        .trim_end_matches('.')
+        .to_string();
     Some((target, record.port()))
 }
 

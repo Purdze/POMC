@@ -14,26 +14,6 @@ export const useServers = () => {
   const [servers, setServers] = useState<Server[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    invoke<SavedServer[]>("load_servers").then((saved) => {
-      setServers(
-        saved.map((s) => ({
-          id: crypto.randomUUID(),
-          name: s.name,
-          ip: s.address,
-          category: s.category || "",
-          players: 0,
-          max_players: 0,
-          ping: -1,
-          online: false,
-          motd: "",
-          version: "",
-        })),
-      );
-      setLoaded(true);
-    });
-  }, []);
-
   const persist = useCallback((list: Server[]) => {
     const saved: SavedServer[] = list.map((s) => ({
       name: s.name,
@@ -62,9 +42,7 @@ export const useServers = () => {
         ),
       );
     } catch {
-      setServers((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, online: false, ping: -1 } : s)),
-      );
+      setServers((prev) => prev.map((s) => (s.id === id ? { ...s, online: false, ping: -1 } : s)));
     }
   }, []);
 
@@ -78,8 +56,29 @@ export const useServers = () => {
   }, [pingOne]);
 
   useEffect(() => {
+    invoke<SavedServer[]>("load_servers").then((saved) => {
+      const list: Server[] = saved.map((s) => ({
+        id: crypto.randomUUID(),
+        name: s.name,
+        ip: s.address,
+        category: s.category || "",
+        players: 0,
+        max_players: 0,
+        ping: -1,
+        online: false,
+        motd: "",
+        version: "",
+      }));
+      setServers(list);
+      setLoaded(true);
+      for (const s of list) {
+        pingOne(s.id, s.ip);
+      }
+    });
+  }, [pingOne]);
+
+  useEffect(() => {
     if (!loaded || servers.length === 0) return;
-    pingAll();
     const interval = setInterval(pingAll, PING_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loaded, servers.length, pingAll]);
