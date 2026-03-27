@@ -1,4 +1,4 @@
-use crate::installations::{Installation, InstallationError};
+use crate::installations::{Directory, Installation, InstallationError};
 use crate::storage::installations_dir;
 use std::path::Path;
 
@@ -59,7 +59,7 @@ pub fn create_installation_fs(installation: &Installation) -> Result<(), Install
     Ok(())
 }
 
-pub fn remove_installation_fs(installation_dir: &str) -> Result<(), InstallationError> {
+pub fn remove_installation_fs(installation_dir: &Directory) -> Result<(), InstallationError> {
     let path = installations_dir().join(installation_dir);
     std::fs::remove_dir_all(path)?;
     Ok(())

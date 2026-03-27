@@ -3,6 +3,7 @@ pub mod registry;
 
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_NAME_LENGTH: usize = 35;
@@ -41,16 +42,116 @@ pub enum InstallationError {
     Json(String),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Id(String);
+impl Id {
+    fn new(created_at: u64) -> Self {
+        let mut state = created_at;
+        let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
+        let suffix: String = (0..4)
+            .map(|_| {
+                state = state
+                    // Knuth MMIX LCG constants - guarantee full 2^64 period
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                chars[((state >> 33) as usize) % chars.len()]
+            })
+            .collect();
+
+        Id(format!("{created_at}-{suffix}"))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Name(String);
+impl TryFrom<String> for Name {
+    type Error = InstallationError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.trim().is_empty() {
+            return Err(InstallationError::InvalidName);
+        }
+        if value.len() > MAX_NAME_LENGTH {
+            return Err(InstallationError::NameTooLong(MAX_NAME_LENGTH));
+        }
+        Ok(Name(value))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Version(String);
+impl From<String> for Version {
+    fn from(value: String) -> Self {
+        Version(value)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TimeStamp(NonZeroU64);
+impl TimeStamp {
+    pub fn now() -> Self {
+        TimeStamp(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .and_then(|d| NonZeroU64::new(d.as_millis() as u64))
+                .unwrap_or(NonZeroU64::MIN),
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Directory(String);
+impl TryFrom<String> for Directory {
+    type Error = InstallationError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.trim().is_empty() || value == "." || value == ".." {
+            return Err(InstallationError::InvalidDirectory);
+        }
+        if value.len() > MAX_DIRNAME_LENGTH {
+            return Err(InstallationError::DirectoryTooLong(MAX_DIRNAME_LENGTH));
+        }
+        if let Some(c) = value
+            .chars()
+            .find(|c| *c == '\0' || *c == '/' || *c == '\\')
+        {
+            return Err(InstallationError::InvalidCharacter(c));
+        }
+        if value.ends_with('.') {
+            return Err(InstallationError::TrailingDot);
+        }
+        #[cfg(target_os = "windows")]
+        Self::validate_directory_os(&value)?;
+        Ok(Directory(value))
+    }
+}
+#[cfg(target_os = "windows")]
+impl Directory {
+    fn validate_directory_os(dir: &str) -> Result<(), InstallationError> {
+        let stem = dir.split('.').next().unwrap_or("").to_uppercase();
+        if RESERVED_DIRNAMES.contains(&stem.as_str()) {
+            return Err(InstallationError::ReservedName(dir.to_string()));
+        }
+
+        if let Some(c) = dir.chars().find(|c| FORBIDDEN_CHAR.contains(c)) {
+            return Err(InstallationError::InvalidCharacter(c));
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Installation {
-    pub id: String,
+    pub id: Id,
     pub icon: Option<String>,
-    pub name: String,
-    pub version: String,
+    pub name: Name,
+    pub version: Version,
     pub last_played: Option<NonZeroU64>,
-    pub created_at: u64,
-    pub directory: String,
+    pub created_at: TimeStamp,
+    pub directory: Directory,
     pub width: u32,
     pub height: u32,
     pub can_delete: bool,
@@ -67,89 +168,26 @@ pub struct NewInstallPayload {
     pub height: u32,
 }
 
-impl Installation {
-    pub fn try_new(data: NewInstallPayload) -> Result<Self, InstallationError> {
-        let created_at = u64::from(Self::now_millis());
+impl TryFrom<NewInstallPayload> for Installation {
+    type Error = InstallationError;
+
+    fn try_from(value: NewInstallPayload) -> Result<Self, Self::Error> {
+        let ts = TimeStamp::now();
+        let millis: u64 = ts.clone().into();
 
         Ok(Self {
-            id: Self::generate_id(created_at),
+            id: Id::new(millis),
             last_played: None,
-            created_at,
+            created_at: ts,
             can_delete: true,
 
-            icon: data.icon,
-            name: Self::try_name(data.name)?,
-            version: data.version,
-            directory: Self::try_directory(data.directory)?,
-            width: data.width,
-            height: data.height,
+            icon: value.icon,
+            name: value.name.try_into()?,
+            version: value.version.into(),
+            directory: value.directory.try_into()?,
+            width: value.width,
+            height: value.height,
         })
-    }
-
-    fn generate_id(created_at: u64) -> String {
-        let mut state = created_at;
-        let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
-        let suffix: String = (0..4)
-            .map(|_| {
-                state = state
-                    // Knuth MMIX LCG constants - guarantee full 2^64 period
-                    .wrapping_mul(6364136223846793005)
-                    .wrapping_add(1442695040888963407);
-                chars[((state >> 33) as usize) % chars.len()]
-            })
-            .collect();
-
-        format!("{created_at}-{suffix}")
-    }
-
-    fn now_millis() -> NonZeroU64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .ok()
-            .and_then(|d| NonZeroU64::new(d.as_millis() as u64))
-            .unwrap_or(NonZeroU64::MIN)
-    }
-
-    fn try_name(name: String) -> Result<String, InstallationError> {
-        if name.trim().is_empty() {
-            return Err(InstallationError::InvalidName);
-        }
-        if name.len() > MAX_NAME_LENGTH {
-            return Err(InstallationError::NameTooLong(MAX_NAME_LENGTH));
-        }
-        Ok(name)
-    }
-
-    fn try_directory(dir: String) -> Result<String, InstallationError> {
-        if dir.trim().is_empty() || dir == "." || dir == ".." {
-            return Err(InstallationError::InvalidDirectory);
-        }
-        if dir.len() > MAX_DIRNAME_LENGTH {
-            return Err(InstallationError::DirectoryTooLong(MAX_DIRNAME_LENGTH));
-        }
-        if let Some(c) = dir.chars().find(|c| *c == '\0' || *c == '/' || *c == '\\') {
-            return Err(InstallationError::InvalidCharacter(c));
-        }
-        if dir.ends_with('.') {
-            return Err(InstallationError::TrailingDot);
-        }
-        #[cfg(target_os = "windows")]
-        Self::validate_directory_os(&dir)?;
-        Ok(dir)
-    }
-
-    #[cfg(target_os = "windows")]
-    fn validate_directory_os(dir: &str) -> Result<(), InstallationError> {
-        let stem = dir.split('.').next().unwrap_or("").to_uppercase();
-        if RESERVED_DIRNAMES.contains(&stem.as_str()) {
-            return Err(InstallationError::ReservedName(dir.to_string()));
-        }
-
-        if let Some(c) = dir.chars().find(|c| FORBIDDEN_CHAR.contains(c)) {
-            return Err(InstallationError::InvalidCharacter(c));
-        }
-
-        Ok(())
     }
 }
 
@@ -158,9 +196,36 @@ impl From<std::io::Error> for InstallationError {
         Self::Io(e.to_string())
     }
 }
-
 impl From<serde_json::Error> for InstallationError {
     fn from(e: serde_json::Error) -> Self {
         Self::Json(e.to_string())
+    }
+}
+
+impl From<String> for Id {
+    fn from(value: String) -> Self {
+        Id(value)
+    }
+}
+
+impl From<TimeStamp> for u64 {
+    fn from(value: TimeStamp) -> Self {
+        value.0.get()
+    }
+}
+impl From<NonZeroU64> for TimeStamp {
+    fn from(value: NonZeroU64) -> Self {
+        TimeStamp(value)
+    }
+}
+
+impl AsRef<Path> for Directory {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
+    }
+}
+impl AsRef<str> for Directory {
+    fn as_ref(&self) -> &str {
+        &self.0
     }
 }

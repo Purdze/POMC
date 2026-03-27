@@ -477,7 +477,7 @@ pub async fn create_installation(
 ) -> Result<Installation, InstallationError> {
     use installations::{fs, registry};
 
-    let installation = Installation::try_new(payload)?;
+    let installation = Installation::try_from(payload)?;
 
     let _guard = state.installations_lock.lock().await;
 
@@ -494,7 +494,7 @@ pub async fn get_installations(
     use installations::registry;
 
     let _guard = state.installations_lock.lock().await;
-    let installations = registry::load()?;
+    let installations = registry::get_all()?;
 
     Ok(installations)
 }
@@ -504,10 +504,12 @@ pub async fn delete_installation(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<(), InstallationError> {
-    use installations::{fs, registry};
+    use installations::{fs, registry, Id};
 
     let _guard = state.installations_lock.lock().await;
-    if let Some(install) = registry::get_install(&id)? {
+    let id = Id::from(id);
+
+    if let Some(install) = registry::get(&id)? {
         fs::remove_installation_fs(&install.directory)?;
     }
     registry::unregister(&id)

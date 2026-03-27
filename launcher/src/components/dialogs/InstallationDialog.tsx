@@ -31,6 +31,8 @@ function mapInstallationError(error: InstallationError): { name?: string; dir?: 
       return { dir: "Trailing dot not allowed" };
     case "DirectoryAlreadyExists":
       return { dir: "Directory already exists" };
+    case "ReservedName":
+      return { dir: `Reserved name: ${error.detail}` };
     case "Io":
       return { dir: `IO error: ${error.detail}` };
     case "Json":
@@ -168,10 +170,12 @@ export function InstallationDialog({
                 setDirectoryTouched(dirname !== "");
                 setEditingInstall((prev) => ({ ...prev, directory: dirname }));
               }}
-              placeholder="default"
+              placeholder="my-installation"
             />
             <button
               className="dialog-browse-btn"
+              disabled={true} // TODO: allow custom paths
+              style={{ cursor: "not-allowed" }} // TODO: allow custom paths
               onClick={async () => {
                 const path = await openNativeDialog({ directory: true });
                 if (path) {
