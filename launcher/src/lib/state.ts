@@ -5,6 +5,7 @@ import {
   GameVersion,
   Installation,
   LauncherSettings,
+  OpenedDialog,
   Page,
   PatchNote,
 } from "./types";
@@ -58,6 +59,7 @@ const useLauncherSettings = () => {
 
 const useAppState = () => {
   const [page, setPage] = useState<Page>("home");
+  const [openedDialog, setOpenedDialog] = useState<OpenedDialog>(null);
   const [accounts, setAccounts] = useState<AuthAccount[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
@@ -79,11 +81,8 @@ const useAppState = () => {
     },
   ]);
   const [activeInstall, setActiveInstall] = useState("default");
-  const [editingInstall, setEditingInstall] = useState<Installation | null>(null);
-  const [dialogVersionOpen, setDialogVersionOpen] = useState(false);
   const selectedVersion = installations.find((i) => i.id === activeInstall)?.version || "";
   const [versions, setVersions] = useState<GameVersion[]>([]);
-  const [showSnapshots, setShowSnapshots] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [status, setStatus] = useState("");
@@ -121,15 +120,9 @@ const useAppState = () => {
     setInstallations,
     activeInstall,
     setActiveInstall,
-    editingInstall,
-    setEditingInstall,
-    dialogVersionOpen,
-    setDialogVersionOpen,
     selectedVersion,
     versions,
     setVersions,
-    showSnapshots,
-    setShowSnapshots,
     launching,
     setLaunching,
     authLoading,
@@ -145,6 +138,8 @@ const useAppState = () => {
     selectedNote,
     setSelectedNote,
     username,
+    openedDialog,
+    setOpenedDialog,
 
     launcherSettings,
   };

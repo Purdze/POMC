@@ -1490,6 +1490,14 @@ body {
   gap: 6px;
 }
 
+.dialog-fields .dialog-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+}
+
 .dialog-field label {
   font-family: var(--font-display);
   font-size: 10px;
@@ -1742,6 +1750,30 @@ body {
 .dialog-save:hover {
   box-shadow: 0 2px 16px var(--accent-glow);
   transform: translateY(-1px);
+}
+
+.dialog-confirm {
+  padding: 9px 24px;
+  background: var(--accent-dark);
+  border: none;
+  border-radius: var(--radius);
+  color: #0a1a0a;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dialog-confirm:hover {
+  box-shadow: 0 2px 16px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.dialog-confirm:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 /* ═══ Note Viewer ═══ */

@@ -1,4 +1,21 @@
+import { InstallationDialogProps } from "../components/dialogs/InstallationDialog.tsx";
+import { ConfirmDialogProps } from "../components/dialogs/ConfirmDialog.tsx";
+
 export type Page = "home" | "installations" | "servers" | "friends" | "mods" | "news" | "settings";
+
+// dialog_name: typeof props
+type DialogMap = {
+  installation: InstallationDialogProps;
+  confirm_dialog: ConfirmDialogProps;
+};
+
+export type OpenedDialog =
+  | {
+      [K in keyof DialogMap]: DialogMap[K] extends undefined
+        ? { name: K }
+        : { name: K; props: DialogMap[K] };
+    }[keyof DialogMap]
+  | null;
 
 export interface AuthAccount {
   username: string;
@@ -11,7 +28,7 @@ export interface Installation {
   id: string;
   name: string;
   version: string;
-  lastPlayed: string;
+  lastPlayed: string | null;
   directory: string;
   width: number;
   height: number;

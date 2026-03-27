@@ -13,10 +13,10 @@ export default function InstallationsPage() {
   const {
     activeInstall,
     setActiveInstall,
-    setEditingInstall,
     installations,
     setInstallations,
     setPage,
+    setOpenedDialog,
   } = useAppStateContext();
 
   return (
@@ -25,17 +25,9 @@ export default function InstallationsPage() {
         <h2 className="installs-heading">INSTALLATIONS</h2>
         <button
           className="installs-new-btn"
-          onClick={() =>
-            setEditingInstall({
-              id: "",
-              name: "",
-              version: "1.21.11",
-              lastPlayed: "Never",
-              directory: "",
-              width: 854,
-              height: 480,
-            })
-          }
+          onClick={() => {
+            setOpenedDialog({ name: "installation", props: { editing: false } });
+          }}
         >
           <HiPlus /> New Installation
         </button>
@@ -54,7 +46,7 @@ export default function InstallationsPage() {
               <span className="install-card-name">{inst.name}</span>
               <span className="install-card-version">{inst.version}</span>
             </div>
-            <span className="install-card-played">{inst.lastPlayed}</span>
+            <span className="install-card-played">{inst.lastPlayed || "Never"}</span>
             <button
               className="install-play-btn"
               onClick={() => {
@@ -73,7 +65,12 @@ export default function InstallationsPage() {
             <div className="install-card-actions">
               <button
                 className="install-action-btn"
-                onClick={() => setEditingInstall({ ...inst })}
+                onClick={() => {
+                  setOpenedDialog({
+                    name: "installation",
+                    props: { editing: true, installation: { ...inst } },
+                  });
+                }}
                 title="Edit"
               >
                 <HiPencil />
@@ -97,10 +94,19 @@ export default function InstallationsPage() {
                   className="install-action-btn delete"
                   title="Delete"
                   onClick={() => {
-                    setInstallations((prev) => prev.filter((i) => i.id !== inst.id));
-                    if (activeInstall === inst.id) {
-                      setActiveInstall("default");
-                    }
+                    setOpenedDialog({
+                      name: "confirm_dialog",
+                      props: {
+                        title: `Deleting ${inst.name}`,
+                        message: "Are you sure you want to delete this installation?",
+                        onConfirm: async () => {
+                          setInstallations((prev) => prev.filter((i) => i.id !== inst.id));
+                          if (activeInstall === inst.id) {
+                            setActiveInstall("default");
+                          }
+                        },
+                      },
+                    });
                   }}
                 >
                   <HiTrash />

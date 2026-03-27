@@ -2,8 +2,6 @@ import { useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { HiChevronDown, HiFolder } from "react-icons/hi2";
 import { AuthAccount, DownloadProgress, GameVersion, PatchNote } from "./lib/types";
 import Homepage from "./pages/Home";
 import InstallationsPage from "./pages/Installations";
@@ -15,6 +13,8 @@ import FriendsPage from "./pages/Friends";
 import NewsPage from "./pages/News";
 import SettingsPage from "./pages/Settings";
 import Titlebar from "./components/Titlebar";
+import { InstallationDialog } from "./components/dialogs/InstallationDialog.tsx";
+import { ConfirmDialog } from "./components/dialogs/ConfirmDialog.tsx";
 
 function App() {
   const {
@@ -27,15 +27,8 @@ function App() {
     setAccountDropdownOpen,
     server,
     setInstallations,
-    editingInstall,
-    setEditingInstall,
-    dialogVersionOpen,
-    setDialogVersionOpen,
     selectedVersion,
-    versions,
     setVersions,
-    showSnapshots,
-    setShowSnapshots,
     setLaunching,
     setAuthLoading,
     setStatus,
@@ -43,6 +36,8 @@ function App() {
     setSkinUrl,
     setSelectedNote,
     setDownloadProgress,
+    openedDialog,
+    setOpenedDialog,
     launcherSettings,
   } = useAppStateContext();
 
@@ -220,180 +215,15 @@ function App() {
         </main>
       </div>
 
-      {editingInstall && (
+      {openedDialog !== null && (
         <div
           className="dialog-overlay"
           onClick={() => {
-            setEditingInstall(null);
-            setDialogVersionOpen(false);
+            setOpenedDialog(null);
           }}
         >
-          <div
-            className="dialog"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (dialogVersionOpen) setDialogVersionOpen(false);
-            }}
-          >
-            <h2 className="dialog-title">
-              {editingInstall.id ? "Edit Installation" : "New Installation"}
-            </h2>
-
-            <div className="dialog-fields">
-              <div className="dialog-field">
-                <label>NAME</label>
-                <input
-                  value={editingInstall.name}
-                  onChange={(e) => setEditingInstall({ ...editingInstall, name: e.target.value })}
-                  placeholder="My Installation"
-                  autoFocus
-                />
-              </div>
-              <div className="dialog-field">
-                <label>VERSION</label>
-                <div className="custom-select-wrapper">
-                  <button
-                    className="custom-select"
-                    onClick={() => setDialogVersionOpen(!dialogVersionOpen)}
-                    type="button"
-                  >
-                    <span>{editingInstall.version}</span>
-                    <HiChevronDown
-                      className={`custom-select-arrow ${dialogVersionOpen ? "open" : ""}`}
-                    />
-                  </button>
-                  {dialogVersionOpen && (
-                    <div className="custom-select-dropdown" onClick={(e) => e.stopPropagation()}>
-                      <label className="custom-select-toggle">
-                        <input
-                          type="checkbox"
-                          checked={showSnapshots}
-                          onChange={(e) => {
-                            setShowSnapshots(e.target.checked);
-                            invoke<GameVersion[]>("get_versions", {
-                              showSnapshots: e.target.checked,
-                            }).then(setVersions);
-                          }}
-                        />
-                        <span>Show snapshots</span>
-                      </label>
-                      <div className="custom-select-list">
-                        {versions.map((v) => (
-                          <button
-                            key={v.id}
-                            className={`custom-select-item ${v.id === editingInstall.version ? "active" : ""}`}
-                            onClick={() => {
-                              setEditingInstall({
-                                ...editingInstall,
-                                version: v.id,
-                              });
-                              setDialogVersionOpen(false);
-                            }}
-                          >
-                            <span>{v.id}</span>
-                            {v.version_type !== "release" && (
-                              <span className="custom-select-tag">{v.version_type}</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="dialog-field">
-                <label>GAME DIRECTORY</label>
-                <div className="dialog-browse">
-                  <input
-                    value={editingInstall.directory}
-                    onChange={(e) =>
-                      setEditingInstall({ ...editingInstall, directory: e.target.value })
-                    }
-                    placeholder="default"
-                  />
-                  <button
-                    className="dialog-browse-btn"
-                    onClick={async () => {
-                      const path = await openDialog({ directory: true });
-                      if (path) {
-                        setEditingInstall({
-                          ...editingInstall,
-                          directory: path as string,
-                        });
-                      }
-                    }}
-                  >
-                    <HiFolder />
-                  </button>
-                </div>
-              </div>
-              <div className="dialog-field">
-                <label>RESOLUTION</label>
-                <div className="dialog-resolution">
-                  <input
-                    type="number"
-                    value={editingInstall.width}
-                    onChange={(e) =>
-                      setEditingInstall({
-                        ...editingInstall,
-                        width: parseInt(e.target.value) || 854,
-                      })
-                    }
-                    placeholder="854"
-                  />
-                  <span className="dialog-resolution-x">×</span>
-                  <input
-                    type="number"
-                    value={editingInstall.height}
-                    onChange={(e) =>
-                      setEditingInstall({
-                        ...editingInstall,
-                        height: parseInt(e.target.value) || 480,
-                      })
-                    }
-                    placeholder="480"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="dialog-actions">
-              <button className="dialog-cancel" onClick={() => setEditingInstall(null)}>
-                Cancel
-              </button>
-              <button
-                className="dialog-save"
-                onClick={async () => {
-                  const isNew = !editingInstall.id;
-                  const install = {
-                    ...editingInstall,
-                    id: editingInstall.id || Date.now().toString(36),
-                    name: editingInstall.name || "Installation",
-                    directory: editingInstall.directory || "default",
-                  };
-                  setInstallations((prev) => {
-                    const filtered = prev.filter((i) => i.id !== install.id);
-                    return [...filtered, install];
-                  });
-                  setEditingInstall(null);
-                  if (isNew) {
-                    setPage("home");
-                    setDownloadProgress({ downloaded: 0, total: 1, status: "Starting install..." });
-                    try {
-                      await invoke("ensure_assets", { version: install.version });
-                      setStatus(`${install.name} ready`);
-                    } catch (e) {
-                      setStatus(`Install failed: ${e}`);
-                    }
-                    setDownloadProgress(null);
-                    setTimeout(() => setStatus(""), 3000);
-                  }
-                }}
-              >
-                {editingInstall.id ? "Save" : "Install"}
-              </button>
-            </div>
-          </div>
+          {openedDialog.name === "installation" && <InstallationDialog {...openedDialog.props} />}
+          {openedDialog.name === "confirm_dialog" && <ConfirmDialog {...openedDialog.props} />}
         </div>
       )}
     </div>
