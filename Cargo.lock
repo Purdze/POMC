@@ -743,12 +743,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "binary-greedy-meshing"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fc5ce373faa78fdfa1eb43b2647b596ac6273fc6183d364803d20107b152af1"
-
-[[package]]
 name = "bit_field"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3329,7 +3323,6 @@ dependencies = [
  "azalea-registry",
  "azalea-world",
  "base64",
- "binary-greedy-meshing",
  "bytemuck",
  "clap",
  "crossbeam-channel",
@@ -3350,6 +3343,7 @@ dependencies = [
  "serde_json",
  "sha1_smol",
  "shaderc",
+ "simdnbt",
  "thiserror 2.0.18",
  "tokio",
  "uuid",

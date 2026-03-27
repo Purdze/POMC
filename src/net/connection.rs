@@ -124,6 +124,10 @@ pub async fn connect_to_server(
 
     let conn = conn.game();
     log::info!("Entering game state");
+    let biome_colors = extract_biome_climate(&registry_holder);
+    let _ = event_tx.try_send(NetworkEvent::BiomeColors {
+        colors: biome_colors,
+    });
     let _ = event_tx.try_send(NetworkEvent::Connected);
 
     game_loop(
@@ -302,6 +306,84 @@ async fn config_sequence(
             }
         }
     }
+}
+
+fn extract_biome_climate(
+    holder: &azalea_core::registry_holder::RegistryHolder,
+) -> std::collections::HashMap<u32, crate::renderer::chunk::mesher::BiomeClimate> {
+    use crate::renderer::chunk::mesher::{int_to_rgb, BiomeClimate, GrassColorModifier};
+
+    let mut result = std::collections::HashMap::new();
+    let biome_key: azalea_registry::identifier::Identifier = "minecraft:worldgen/biome".into();
+    if let Some(registry) = holder.extra.get(&biome_key) {
+        for (id, (_, nbt)) in registry.map.iter().enumerate() {
+            let temp = nbt_float(nbt, "temperature").unwrap_or(0.8);
+            let downfall = nbt_float(nbt, "downfall").unwrap_or(0.4);
+
+            let effects = nbt.get("effects").and_then(|v| match v {
+                simdnbt::owned::NbtTag::Compound(c) => Some(c),
+                _ => None,
+            });
+
+            let grass_color_override = effects
+                .and_then(|e| nbt_color_from_compound(e, "grass_color"))
+                .map(int_to_rgb);
+
+            let foliage_color_override = effects
+                .and_then(|e| nbt_color_from_compound(e, "foliage_color"))
+                .map(int_to_rgb);
+
+            let grass_color_modifier = effects
+                .and_then(|e| nbt_string_from_compound(e, "grass_color_modifier"))
+                .map(|s| match s.as_str() {
+                    "dark_forest" => GrassColorModifier::DarkForest,
+                    "swamp" => GrassColorModifier::Swamp,
+                    _ => GrassColorModifier::None,
+                })
+                .unwrap_or(GrassColorModifier::None);
+
+            result.insert(
+                id as u32,
+                BiomeClimate {
+                    temperature: temp,
+                    downfall,
+                    grass_color_override,
+                    grass_color_modifier,
+                    foliage_color_override,
+                },
+            );
+        }
+    }
+    log::info!("Extracted {} biome climate entries", result.len());
+    result
+}
+
+fn nbt_float(nbt: &simdnbt::owned::NbtCompound, key: &str) -> Option<f32> {
+    nbt.get(key).and_then(|v| match v {
+        simdnbt::owned::NbtTag::Float(f) => Some(*f),
+        simdnbt::owned::NbtTag::Double(d) => Some(*d as f32),
+        _ => None,
+    })
+}
+
+fn nbt_color_from_compound(compound: &simdnbt::owned::NbtCompound, key: &str) -> Option<i32> {
+    compound.get(key).and_then(|v| match v {
+        simdnbt::owned::NbtTag::Int(i) => Some(*i),
+        simdnbt::owned::NbtTag::Long(l) => Some(*l as i32),
+        simdnbt::owned::NbtTag::String(s) => {
+            let s = s.to_string();
+            let hex = s.strip_prefix('#').unwrap_or(&s);
+            i32::from_str_radix(hex, 16).ok()
+        }
+        _ => None,
+    })
+}
+
+fn nbt_string_from_compound(compound: &simdnbt::owned::NbtCompound, key: &str) -> Option<String> {
+    compound.get(key).and_then(|v| match v {
+        simdnbt::owned::NbtTag::String(s) => Some(s.to_string()),
+        _ => None,
+    })
 }
 
 async fn game_loop(

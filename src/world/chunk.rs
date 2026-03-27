@@ -19,9 +19,47 @@ pub enum ChunkError {
     Parse(String),
 }
 
+#[derive(Clone)]
+pub struct ChunkLightData {
+    pub sky_sections: Vec<Option<Box<[u8; 2048]>>>,
+    pub block_sections: Vec<Option<Box<[u8; 2048]>>>,
+    pub min_y: i32,
+}
+
+impl ChunkLightData {
+    pub fn get_sky_light(&self, x: i32, y: i32, z: i32) -> u8 {
+        self.get_nibble(&self.sky_sections, x, y, z)
+    }
+
+    pub fn get_block_light(&self, x: i32, y: i32, z: i32) -> u8 {
+        self.get_nibble(&self.block_sections, x, y, z)
+    }
+
+    fn get_nibble(&self, sections: &[Option<Box<[u8; 2048]>>], x: i32, y: i32, z: i32) -> u8 {
+        let section_idx = ((y - self.min_y + 16) / 16) as usize;
+        if section_idx >= sections.len() {
+            return 15;
+        }
+        let Some(data) = &sections[section_idx] else {
+            return 15;
+        };
+        let lx = x.rem_euclid(16) as usize;
+        let ly = y.rem_euclid(16) as usize;
+        let lz = z.rem_euclid(16) as usize;
+        let idx = ly * 256 + lz * 16 + lx;
+        let byte = data[idx / 2];
+        if idx.is_multiple_of(2) {
+            byte & 0x0F
+        } else {
+            (byte >> 4) & 0x0F
+        }
+    }
+}
+
 pub struct ChunkStore {
     pub chunk_storage: ChunkStorage,
     pub partial_storage: PartialChunkStorage,
+    pub light_data: std::collections::HashMap<(i32, i32), ChunkLightData>,
 }
 
 impl ChunkStore {
@@ -33,6 +71,7 @@ impl ChunkStore {
         Self {
             chunk_storage: ChunkStorage::new(height, min_y),
             partial_storage: PartialChunkStorage::new(view_distance.max(64)),
+            light_data: std::collections::HashMap::new(),
         }
     }
 
@@ -48,7 +87,76 @@ impl ChunkStore {
             .map_err(|e| ChunkError::Parse(e.to_string()))
     }
 
+    pub fn store_light(
+        &mut self,
+        pos: ChunkPos,
+        sky_updates: &[Box<[u8]>],
+        block_updates: &[Box<[u8]>],
+        sky_y_mask: &azalea_core::bitset::BitSet,
+        block_y_mask: &azalea_core::bitset::BitSet,
+    ) {
+        let num_sections = (self.chunk_storage.height() / 16 + 2) as usize;
+        let mut sky_sections = vec![None; num_sections];
+        let mut block_sections = vec![None; num_sections];
+
+        let mut sky_idx = 0usize;
+        for (i, section) in sky_sections.iter_mut().enumerate().take(num_sections) {
+            if i < sky_y_mask.len() && sky_y_mask.index(i) {
+                if sky_idx < sky_updates.len() && sky_updates[sky_idx].len() == 2048 {
+                    let mut arr = Box::new([0u8; 2048]);
+                    arr.copy_from_slice(&sky_updates[sky_idx]);
+                    *section = Some(arr);
+                }
+                sky_idx += 1;
+            }
+        }
+
+        let mut block_idx = 0usize;
+        for (i, section) in block_sections.iter_mut().enumerate().take(num_sections) {
+            if i < block_y_mask.len() && block_y_mask.index(i) {
+                if block_idx < block_updates.len() && block_updates[block_idx].len() == 2048 {
+                    let mut arr = Box::new([0u8; 2048]);
+                    arr.copy_from_slice(&block_updates[block_idx]);
+                    *section = Some(arr);
+                }
+                block_idx += 1;
+            }
+        }
+
+        self.light_data.insert(
+            (pos.x, pos.z),
+            ChunkLightData {
+                sky_sections,
+                block_sections,
+                min_y: self.chunk_storage.min_y(),
+            },
+        );
+    }
+
+    #[allow(dead_code)]
+    pub fn get_sky_light(&self, x: i32, y: i32, z: i32) -> u8 {
+        let cx = x.div_euclid(16);
+        let cz = z.div_euclid(16);
+        if let Some(light) = self.light_data.get(&(cx, cz)) {
+            light.get_sky_light(x.rem_euclid(16), y, z.rem_euclid(16))
+        } else {
+            15
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_block_light(&self, x: i32, y: i32, z: i32) -> u8 {
+        let cx = x.div_euclid(16);
+        let cz = z.div_euclid(16);
+        if let Some(light) = self.light_data.get(&(cx, cz)) {
+            light.get_block_light(x.rem_euclid(16), y, z.rem_euclid(16))
+        } else {
+            0
+        }
+    }
+
     pub fn unload_chunk(&mut self, pos: &ChunkPos) {
+        self.light_data.remove(&(pos.x, pos.z));
         self.partial_storage.limited_set(pos, None);
     }
 

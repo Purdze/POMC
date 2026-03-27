@@ -12,6 +12,9 @@ use azalea_registry::builtin::EntityKind;
 
 pub enum NetworkEvent {
     Connected,
+    BiomeColors {
+        colors: std::collections::HashMap<u32, crate::renderer::chunk::mesher::BiomeClimate>,
+    },
     DimensionInfo {
         height: u32,
         min_y: i32,
@@ -20,6 +23,10 @@ pub enum NetworkEvent {
         pos: ChunkPos,
         data: Arc<Box<[u8]>>,
         heightmaps: Vec<(HeightmapKind, Box<[u64]>)>,
+        sky_light: Arc<Box<[Box<[u8]>]>>,
+        block_light: Arc<Box<[Box<[u8]>]>>,
+        sky_y_mask: azalea_core::bitset::BitSet,
+        block_y_mask: azalea_core::bitset::BitSet,
     },
     ChunkUnloaded {
         pos: ChunkPos,

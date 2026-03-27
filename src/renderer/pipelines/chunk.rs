@@ -248,7 +248,7 @@ fn create_pipeline(
     let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::default()
         .depth_test_enable(true)
         .depth_write_enable(true)
-        .depth_compare_op(vk::CompareOp::LESS);
+        .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL);
 
     let blend_attachment = [vk::PipelineColorBlendAttachmentState {
         blend_enable: vk::FALSE,

@@ -35,6 +35,10 @@ pub fn handle_game_packet(
                 pos: ChunkPos::new(p.x, p.z),
                 data: p.chunk_data.data.clone(),
                 heightmaps: p.chunk_data.heightmaps.clone(),
+                sky_light: p.light_data.sky_updates.clone(),
+                block_light: p.light_data.block_updates.clone(),
+                sky_y_mask: p.light_data.sky_y_mask.clone(),
+                block_y_mask: p.light_data.block_y_mask.clone(),
             });
         }
         ClientboundGamePacket::ForgetLevelChunk(p) => {
