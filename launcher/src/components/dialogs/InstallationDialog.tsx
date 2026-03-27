@@ -24,8 +24,8 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
     return {
       id: crypto.randomUUID(),
       name: "",
-      version: versions[0]?.id || "26.1",
-      lastPlayed: "Today",
+      version: versions[0]?.id || "",
+      lastPlayed: "Never",
       directory: "",
       width: 854,
       height: 480,
@@ -182,6 +182,12 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
             setInstallations((prev) =>
               editing ? prev.map((i) => (i.id === install.id ? install : i)) : [...prev, install],
             );
+
+            if (editingInstall.version === "") {
+              console.error("Invalid version");
+              return;
+            }
+
             setOpenedDialog(null);
             if (!editing) {
               setPage("home");

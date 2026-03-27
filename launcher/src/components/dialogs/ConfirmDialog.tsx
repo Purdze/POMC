@@ -43,15 +43,17 @@ export function ConfirmDialog(dialogProps: ConfirmDialogProps) {
           onClick={async () => {
             if (loading) return;
             setLoading(true);
-            setOpenedDialog(null);
             try {
               await dialogProps.onConfirm?.();
+              setOpenedDialog(null);
             } catch (e) {
               console.error(e);
+            } finally {
+              setLoading(false);
             }
           }}
         >
-          Confirm
+          {loading ? "..." : "Confirm"}
         </button>
       </div>
     </div>

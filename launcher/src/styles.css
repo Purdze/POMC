@@ -1754,7 +1754,7 @@ body {
 
 .dialog-confirm {
   padding: 9px 24px;
-  background: linear-gradient(135deg, var(--accent-dark), var(--accent-dark));
+  background: var(--accent-dark);
   border: none;
   border-radius: var(--radius);
   color: #0a1a0a;
@@ -1769,6 +1769,11 @@ body {
 .dialog-confirm:hover {
   box-shadow: 0 2px 16px var(--accent-glow);
   transform: translateY(-1px);
+}
+
+.dialog-confirm:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 /* ═══ Note Viewer ═══ */
