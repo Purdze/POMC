@@ -1,6 +1,6 @@
 {
   "productName": "POMC Launcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.pomc.launcher",
   "build": {
     "frontendDist": "../dist",
