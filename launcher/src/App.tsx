@@ -225,14 +225,14 @@ function App() {
   };
 
   useEffect(() => {
-    invoke<Installation[]>("get_installations")
+    invoke<Installation[]>("load_installations")
       .then((installs) => {
         setInstallations(installs);
         if (!activeInstall) {
           setActiveInstall(installs[0]);
         }
       })
-      .catch((e) => console.error("Failed to get_installations: ", e));
+      .catch((e) => console.error("Failed to load installations: ", e));
   }, [setInstallations, setActiveInstall, activeInstall]);
 
   return (

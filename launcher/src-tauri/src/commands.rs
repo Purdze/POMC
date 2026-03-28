@@ -487,32 +487,20 @@ fn servers_path() -> std::path::PathBuf {
 }
 
 #[tauri::command]
+pub async fn load_installations(
+    state: State<'_, AppState>,
+) -> Result<Vec<Installation>, InstallationError> {
+    let _guard = state.installations_lock.lock().await;
+    installations::load_installations().await
+}
+
+#[tauri::command]
 pub async fn create_installation(
     state: State<'_, AppState>,
     payload: NewInstallPayload,
 ) -> Result<Installation, InstallationError> {
-    use installations::{fs, registry};
-
-    let installation = Installation::try_from(payload)?;
-
     let _guard = state.installations_lock.lock().await;
-
-    fs::create_installation_fs(&installation)?;
-    registry::register(installation.clone())?;
-
-    Ok(installation)
-}
-
-#[tauri::command]
-pub async fn get_installations(
-    state: State<'_, AppState>,
-) -> Result<Vec<Installation>, InstallationError> {
-    use installations::registry;
-
-    let _guard = state.installations_lock.lock().await;
-    let installations = registry::get_all().await?;
-
-    Ok(installations)
+    installations::create_installation(payload).await
 }
 
 #[tauri::command]
@@ -520,16 +508,6 @@ pub async fn delete_installation(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<(), InstallationError> {
-    use installations::{Id, fs, registry};
-
     let _guard = state.installations_lock.lock().await;
-    let id = Id::from(id);
-
-    if let Some(install) = registry::get(&id)?
-        && !install.is_latest
-    {
-        fs::remove_installation_fs(&install.directory)?;
-        registry::unregister(&id)?;
-    }
-    Ok(())
+    installations::delete_installation(id).await
 }

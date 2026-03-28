@@ -52,8 +52,8 @@ fn main() {
             commands::ping_server,
             commands::load_servers,
             commands::save_servers,
+            commands::load_installations,
             commands::create_installation,
-            commands::get_installations,
             commands::delete_installation,
         ])
         .run(tauri::generate_context!())

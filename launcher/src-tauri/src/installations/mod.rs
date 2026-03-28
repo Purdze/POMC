@@ -5,19 +5,20 @@ use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::commands::fetch_versions;
+use crate::storage::installations_dir;
 
 const MAX_NAME_LENGTH: usize = 35;
-const MAX_DIRNAME_LENGTH: usize = 60;
 #[cfg(target_os = "windows")]
 const RESERVED_DIRNAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
     "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 #[cfg(target_os = "windows")]
-const FORBIDDEN_CHAR: &[char] = &['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
+const FORBIDDEN_CHAR: &[char] = &[':', '*', '?', '"', '<', '>', '|'];
 
 #[derive(Debug, thiserror::Error, Serialize)]
 #[serde(tag = "kind", content = "detail")]
@@ -26,17 +27,14 @@ pub enum InstallationError {
     InvalidName,
     #[error("Name too long, max {0} characters")]
     NameTooLong(usize),
-    #[error("Invalid directory")]
-    InvalidDirectory,
-    #[error("Directory too long, max {0} characters")]
-    DirectoryTooLong(usize),
+    #[error("Invalid path")]
+    InvalidPath,
+    #[cfg(target_os = "windows")]
     #[error("Invalid character in directory: {0}")]
     InvalidCharacter(char),
     #[cfg(target_os = "windows")]
     #[error("Reserved name: {0}")]
     ReservedName(String),
-    #[error("Trailing space or dot")]
-    TrailingDot,
     #[error("Directory already exists")]
     DirectoryAlreadyExists,
     #[error("IO error: {0}")]
@@ -45,6 +43,21 @@ pub enum InstallationError {
     Json(String),
     #[error("Error: {0}")]
     Other(String),
+}
+impl From<std::io::Error> for InstallationError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e.to_string())
+    }
+}
+impl From<serde_json::Error> for InstallationError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::Json(e.to_string())
+    }
+}
+impl From<String> for InstallationError {
+    fn from(value: String) -> Self {
+        Self::Other(value)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -67,6 +80,11 @@ impl Id {
 
     pub fn latest_snapshot() -> Self {
         Id("latest-snapshot".to_string())
+    }
+}
+impl From<String> for Id {
+    fn from(value: String) -> Self {
+        Id(value)
     }
 }
 
@@ -101,7 +119,6 @@ impl From<String> for Version {
         Version(value)
     }
 }
-
 impl Version {
     pub async fn try_latest_release() -> Result<Self, InstallationError> {
         let latest = &fetch_versions().await?.latest.release;
@@ -126,55 +143,72 @@ impl TimeStamp {
         )
     }
 }
+impl From<TimeStamp> for u64 {
+    fn from(value: TimeStamp) -> Self {
+        value.0.get()
+    }
+}
+impl From<NonZeroU64> for TimeStamp {
+    fn from(value: NonZeroU64) -> Self {
+        TimeStamp(value)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Directory(String);
+pub struct Directory(PathBuf);
 impl TryFrom<String> for Directory {
     type Error = InstallationError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.trim().is_empty() || value == "." || value == ".." {
-            return Err(InstallationError::InvalidDirectory);
+        if value.trim().is_empty() {
+            return Err(InstallationError::InvalidPath);
         }
-        if value.len() > MAX_DIRNAME_LENGTH {
-            return Err(InstallationError::DirectoryTooLong(MAX_DIRNAME_LENGTH));
-        }
-        if let Some(c) = value
-            .chars()
-            .find(|c| *c == '\0' || *c == '/' || *c == '\\')
+        let path = PathBuf::from(&value);
+        let path = if path.is_absolute() {
+            path
+        } else {
+            installations_dir().join(path)
+        };
+        if path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
         {
-            return Err(InstallationError::InvalidCharacter(c));
-        }
-        if value.ends_with('.') {
-            return Err(InstallationError::TrailingDot);
+            return Err(InstallationError::InvalidPath);
         }
         #[cfg(target_os = "windows")]
         Self::validate_directory_os(&value)?;
-        Ok(Directory(value))
+        Ok(Directory(path))
     }
 }
 impl Directory {
     pub fn latest() -> Self {
-        Directory("default".into())
+        Directory(installations_dir().join("default"))
     }
 
     #[cfg(target_os = "windows")]
-    pub fn validate_directory_os(dir: &str) -> Result<(), InstallationError> {
-        let stem = dir.split('.').next().unwrap_or("").to_uppercase();
-        if RESERVED_DIRNAMES.contains(&stem.as_str()) {
-            return Err(InstallationError::ReservedName(dir.to_string()));
+    pub fn validate_directory_os(path: &PathBuf) -> Result<(), InstallationError> {
+        for component in path.components() {
+            if let std::path::Component::Normal(name) = component {
+                let name_str = name.to_string_lossy();
+                let stem = name_str.split('.').next().unwrap_or("").to_uppercase();
+                if RESERVED_DIRNAMES.contains(&stem.as_str()) {
+                    return Err(InstallationError::ReservedName(name_str.into_owned()));
+                }
+                if let Some(c) = name_str.chars().find(|c| FORBIDDEN_CHAR.contains(c)) {
+                    return Err(InstallationError::InvalidCharacter(c));
+                }
+            }
         }
-
-        if let Some(c) = dir.chars().find(|c| FORBIDDEN_CHAR.contains(c)) {
-            return Err(InstallationError::InvalidCharacter(c));
-        }
-
         Ok(())
+    }
+}
+impl AsRef<Path> for Directory {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct Installation {
     pub id: Id,
     pub name: Name,
@@ -187,8 +221,37 @@ pub struct Installation {
     pub is_latest: bool,
 }
 
+impl Installation {
+    pub async fn try_latest_release() -> Result<Self, InstallationError> {
+        Ok(Self {
+            id: Id::latest_release(),
+            name: Name::latest_release(),
+            version: Version::try_latest_release().await?,
+            last_played: None,
+            created_at: TimeStamp::now(),
+            directory: Directory::latest(),
+            width: 854,
+            height: 480,
+            is_latest: true,
+        })
+    }
+
+    pub async fn try_latest_snapshot() -> Result<Self, InstallationError> {
+        Ok(Self {
+            id: Id::latest_snapshot(),
+            name: Name::latest_snapshot(),
+            version: Version::try_latest_snapshot().await?,
+            last_played: None,
+            created_at: TimeStamp::now(),
+            directory: Directory::latest(),
+            width: 854,
+            height: 480,
+            is_latest: true,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct NewInstallPayload {
     pub name: String,
     pub version: String,
@@ -219,46 +282,75 @@ impl TryFrom<NewInstallPayload> for Installation {
     }
 }
 
-impl From<std::io::Error> for InstallationError {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e.to_string())
+//
+//
+// empty intentionally
+//
+//
+
+pub async fn load_installations() -> Result<Vec<Installation>, InstallationError> {
+    let mut installs = registry::load()?;
+
+    if !installs.iter().any(|i| i.id == Id::latest_release()) {
+        installs.insert(0, Installation::try_latest_release().await?);
     }
-}
-impl From<serde_json::Error> for InstallationError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::Json(e.to_string())
+
+    if !installs.iter().any(|i| i.id == Id::latest_snapshot()) {
+        installs.insert(1, Installation::try_latest_snapshot().await?);
     }
-}
-impl From<String> for InstallationError {
-    fn from(value: String) -> Self {
-        Self::Other(value)
+
+    for install in &installs {
+        fs::ensure_install_fs(install)?;
     }
+
+    Ok(installs)
 }
 
-impl From<String> for Id {
-    fn from(value: String) -> Self {
-        Id(value)
+pub async fn create_installation(
+    payload: NewInstallPayload,
+) -> Result<Installation, InstallationError> {
+    let install: Installation = payload.try_into()?;
+
+    let path: &Path = install.directory.as_ref();
+    if path.exists() {
+        return Err(InstallationError::DirectoryAlreadyExists);
     }
+
+    registry::register(install.clone())?;
+
+    if let Err(e) = fs::ensure_install_fs(&install) {
+        if let Err(rollback_err) = registry::unregister(&install.id) {
+            log::warn!(
+                "Failed to roll back registry entry for `{:?}`: {}",
+                install.id,
+                rollback_err
+            );
+        }
+        return Err(e);
+    }
+
+    Ok(install)
 }
 
-impl From<TimeStamp> for u64 {
-    fn from(value: TimeStamp) -> Self {
-        value.0.get()
-    }
-}
-impl From<NonZeroU64> for TimeStamp {
-    fn from(value: NonZeroU64) -> Self {
-        TimeStamp(value)
-    }
-}
+pub async fn delete_installation(id: String) -> Result<(), InstallationError> {
+    let id: Id = id.into();
+    let install = registry::find_by_id(&id)?;
 
-impl AsRef<Path> for Directory {
-    fn as_ref(&self) -> &Path {
-        self.0.as_ref()
+    if install.is_latest {
+        return Err(InstallationError::Other(
+            "Cannot delete a default installation".to_string(),
+        ));
     }
-}
-impl AsRef<str> for Directory {
-    fn as_ref(&self) -> &str {
-        &self.0
+
+    registry::unregister(&id)?;
+
+    if let Err(e) = fs::remove_install_fs(&install.directory) {
+        log::warn!(
+            "Failed to delete installation directory for `{:?}`: {}",
+            install.id,
+            e
+        );
     }
+
+    Ok(())
 }

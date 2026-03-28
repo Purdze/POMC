@@ -1,102 +1,44 @@
-use crate::installations::{
-    Directory, Id, Installation, InstallationError, Name, TimeStamp, Version,
-};
-use crate::storage::data_dir;
+use crate::installations::{Id, Installation, InstallationError, fs};
 
-use fslock::LockFile;
-
-async fn defaults() -> Result<Vec<Installation>, InstallationError> {
-    Ok(vec![
-        Installation {
-            id: Id::latest_release(),
-            name: Name::latest_release(),
-            version: Version::try_latest_release().await?,
-            last_played: None,
-            created_at: TimeStamp::now(),
-            directory: Directory::latest(),
-            width: 854,
-            height: 480,
-            is_latest: true,
-        },
-        Installation {
-            id: Id::latest_snapshot(),
-            name: Name::latest_snapshot(),
-            version: Version::try_latest_snapshot().await?,
-            last_played: None,
-            created_at: TimeStamp::now(),
-            directory: Directory::latest(),
-            width: 854,
-            height: 480,
-            is_latest: true,
-        },
-    ])
-}
-
-fn lock() -> Result<LockFile, InstallationError> {
-    let path = data_dir().join("installations.lock");
-    let mut lock = LockFile::open(&path)?;
-    lock.lock()?;
-    Ok(lock)
-}
-
-fn load() -> Result<Vec<Installation>, InstallationError> {
-    let path = data_dir().join("installations.json");
-    if !path.exists() {
-        return Ok(vec![]);
-    }
-    let raw = std::fs::read_to_string(&path)?;
-    Ok(serde_json::from_str(&raw)?)
-}
-
-fn save(list: &[Installation]) -> Result<(), InstallationError> {
-    let json = serde_json::to_string_pretty(list)?;
-    std::fs::write(data_dir().join("installations.json"), json)?;
-    Ok(())
-}
-
-pub async fn get_all() -> Result<Vec<Installation>, InstallationError> {
-    let _lock = lock()?;
-    let mut list = load()?;
-
-    let mut dirty = false;
-    for (i, default) in defaults().await?.into_iter().enumerate() {
-        if !list.iter().any(|i| i.id == default.id) {
-            list.insert(i, default);
-            dirty = true;
-        }
-    }
-
-    if dirty {
-        save(&list)?;
-    }
+pub fn load() -> Result<Vec<Installation>, InstallationError> {
+    let contents = std::fs::read_to_string(fs::registry_file())?;
+    let list: Vec<Installation> = serde_json::from_str(&contents)?;
 
     Ok(list)
 }
 
-pub fn register(installation: Installation) -> Result<(), InstallationError> {
-    let _lock = lock()?;
+pub fn save(list: &[Installation]) -> Result<(), InstallationError> {
+    let contents = serde_json::to_string(list)?;
+    std::fs::write(fs::registry_file(), contents)?;
+    Ok(())
+}
+
+pub fn find_by_id(id: &Id) -> Result<Installation, InstallationError> {
+    let list = load()?;
+
+    list.into_iter()
+        .find(|i| i.id == *id)
+        .ok_or(InstallationError::Other(format!(
+            "Installation not found: {}",
+            id.0
+        )))
+}
+
+pub fn register(install: Installation) -> Result<(), InstallationError> {
     let mut list = load()?;
 
-    if !installation.is_latest && list.iter().any(|i| i.directory == installation.directory) {
+    if list.iter().any(|i| i.directory == install.directory) {
         return Err(InstallationError::DirectoryAlreadyExists);
     }
 
-    list.push(installation);
-    save(&list)
+    list.push(install);
+    save(&list)?;
+    Ok(())
 }
 
-pub fn unregister(id: &Id) -> Result<(), InstallationError> {
-    let _lock = lock()?;
+pub fn unregister(install_id: &Id) -> Result<(), InstallationError> {
     let mut list = load()?;
-
-    list.retain(|i| i.id != *id);
-
-    save(&list)
-}
-
-pub fn get(id: &Id) -> Result<Option<Installation>, InstallationError> {
-    let _lock = lock()?;
-    let list = load()?;
-
-    Ok(list.into_iter().find(|i| i.id == *id))
+    list.retain(|i| i.id != *install_id);
+    save(&list)?;
+    Ok(())
 }

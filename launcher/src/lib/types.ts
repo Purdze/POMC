@@ -1,5 +1,5 @@
-import { InstallationDialogProps } from "../components/dialogs/InstallationDialog.tsx";
 import { ConfirmDialogProps } from "../components/dialogs/ConfirmDialog.tsx";
+import { InstallationDialogProps } from "../components/dialogs/InstallationDialog.tsx";
 
 export type Page = "home" | "installations" | "servers" | "friends" | "mods" | "news" | "settings";
 
@@ -28,25 +28,24 @@ export interface Installation {
   id: string;
   name: string;
   version: string;
-  lastPlayed: number | null;
-  createdAt: number;
+  last_played: number | null;
+  created_at: number;
   directory: string;
   width: number;
   height: number;
-  isLatest: boolean;
+  is_latest: boolean;
 }
 
 export type InstallationError =
   | { kind: "InvalidName" }
   | { kind: "NameTooLong"; detail: number }
-  | { kind: "InvalidDirectory" }
-  | { kind: "DirectoryTooLong"; detail: number }
+  | { kind: "InvalidPath" }
   | { kind: "InvalidCharacter"; detail: string }
-  | { kind: "TrailingDot" }
-  | { kind: "DirectoryAlreadyExists" }
   | { kind: "ReservedName"; detail: string }
+  | { kind: "DirectoryAlreadyExists" }
   | { kind: "Io"; detail: string }
-  | { kind: "Json"; detail: string };
+  | { kind: "Json"; detail: string }
+  | { kind: "Other"; detail: string };
 
 export interface GameVersion {
   id: string;

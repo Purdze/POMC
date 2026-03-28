@@ -61,7 +61,7 @@ export default function InstallationsPage({ deleteInstallation }: InstallationsP
               <span className="install-card-version">{inst.version}</span>
             </div>
             <span className="install-card-played">
-              {inst.lastPlayed ? formatRelativeDate(inst.lastPlayed) : "Never"}
+              {inst.last_played ? formatRelativeDate(inst.last_played) : "Never"}
             </span>
             <button
               className="install-play-btn"
@@ -110,7 +110,7 @@ export default function InstallationsPage({ deleteInstallation }: InstallationsP
               >
                 <HiDocumentDuplicate />
               </button>
-              {!inst.isLatest && (
+              {!inst.is_latest && (
                 <button
                   className="install-action-btn delete"
                   title="Delete"

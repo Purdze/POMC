@@ -1,59 +1,42 @@
-use crate::installations::{Directory, Installation, InstallationError};
-use crate::storage::installations_dir;
-use std::path::Path;
+use crate::{
+    installations::{Directory, Installation, InstallationError},
+    storage::data_dir,
+};
 
-pub fn ensure_dirs(instance_dir: &Path) -> Result<(), InstallationError> {
-    for sub in &["mods", "resourcepacks", "shaderpacks"] {
-        std::fs::create_dir_all(instance_dir.join(sub))?;
+use std::path::{Path, PathBuf};
+
+pub fn registry_file() -> PathBuf {
+    let path = data_dir().join("installations.json");
+    if !path.exists() {
+        std::fs::write(&path, "[]").ok();
+    }
+    path
+}
+
+pub fn ensure_install_fs(install: &Installation) -> Result<(), InstallationError> {
+    let dir_path: &Path = install.directory.as_ref();
+
+    for sub_dir in ["mods", "resourcepacks", "shaderpacks"] {
+        std::fs::create_dir_all(dir_path.join(sub_dir))?;
     }
 
-    let servers = instance_dir.join("server.json");
-    if !servers.exists() {
-        std::fs::write(servers, "[]")?;
+    let servers_path = dir_path.join("servers.json");
+    if !servers_path.exists() {
+        std::fs::write(servers_path, "[]")?;
     }
 
-    let options = instance_dir.join("options.json");
-    if !options.exists() {
-        std::fs::write(options, "{}")?;
+    let options_path = dir_path.join("options.json");
+    if !options_path.exists() {
+        std::fs::write(options_path, "{}")?;
     }
 
     Ok(())
 }
 
-pub fn create_installation_fs(installation: &Installation) -> Result<(), InstallationError> {
-    let instance_dir = installations_dir().join(&installation.directory);
-    if instance_dir.exists() {
-        return Err(InstallationError::DirectoryAlreadyExists);
-    }
+pub fn remove_install_fs(dir: &Directory) -> Result<(), InstallationError> {
+    let dir_path: &Path = dir.as_ref();
 
-    ensure_dirs(&instance_dir)?;
+    std::fs::remove_dir_all(dir_path)?;
 
-    let install_json = serde_json::to_string_pretty(installation)?;
-    std::fs::write(instance_dir.join("installation.json"), install_json)?;
-
-    std::fs::write(
-        instance_dir.join("servers.json"),
-        serde_json::to_string_pretty(&serde_json::json!([{
-          "name": "Test server",
-          "address": "mc.kasane.love:29666",
-          "resourcePack": "prompt"
-        }]))?,
-    )?;
-
-    std::fs::write(
-        instance_dir.join("options.json"),
-        serde_json::to_string_pretty(&serde_json::json!({
-            "video_settings": {
-                "render_distance": 16
-            }
-        }))?,
-    )?;
-
-    Ok(())
-}
-
-pub fn remove_installation_fs(installation_dir: &Directory) -> Result<(), InstallationError> {
-    let path = installations_dir().join(installation_dir);
-    std::fs::remove_dir_all(path)?;
     Ok(())
 }

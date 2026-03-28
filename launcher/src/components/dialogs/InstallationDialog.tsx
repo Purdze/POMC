@@ -21,22 +21,20 @@ function mapInstallationError(error: InstallationError): { name?: string; dir?: 
       return { name: "Invalid name" };
     case "NameTooLong":
       return { name: `Name too long (max ${error.detail} characters)` };
-    case "InvalidDirectory":
-      return { dir: "Invalid directory" };
-    case "DirectoryTooLong":
-      return { dir: `Directory name too long (max ${error.detail} characters)` };
+    case "InvalidPath":
+      return { dir: "Invalid path" };
     case "InvalidCharacter":
       return { dir: `Invalid character: ${error.detail}` };
-    case "TrailingDot":
-      return { dir: "Trailing dot not allowed" };
-    case "DirectoryAlreadyExists":
-      return { dir: "Directory already exists" };
     case "ReservedName":
       return { dir: `Reserved name: ${error.detail}` };
+    case "DirectoryAlreadyExists":
+      return { dir: "Directory already exists" };
     case "Io":
       return { dir: `IO error: ${error.detail}` };
     case "Json":
       return { dir: `JSON error: ${error.detail}` };
+    case "Other":
+      return { dir: `Unexpected error: ${error.detail}` };
     default:
       assertNever(error);
   }
@@ -66,12 +64,12 @@ export function InstallationDialog({
       id: "",
       name: "",
       version: versions[0]?.id || "",
-      lastPlayed: null,
+      last_played: null,
       directory: "",
       width: 854,
       height: 480,
-      isLatest: false,
-      createdAt: 0,
+      is_latest: false,
+      created_at: 0,
     };
   }
 
@@ -94,7 +92,7 @@ export function InstallationDialog({
         <div className="dialog-field">
           <label>NAME</label>
           <input
-            disabled={editingInstall.isLatest}
+            disabled={editingInstall.is_latest}
             value={editingInstall.name}
             onChange={(e) => {
               const name = e.target.value;
