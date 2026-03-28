@@ -555,6 +555,46 @@ impl MenuOverlayPipeline {
                         push_nine_slice(&mut vertices, *x, *y, *w, *h, region, *border, *tint);
                     }
                 }
+                MenuElement::TiledImage {
+                    x,
+                    y,
+                    w,
+                    h,
+                    sprite,
+                    tile_size,
+                    tint,
+                } => {
+                    if let Some(region) = self.sprite_atlas.regions.get(sprite) {
+                        let tiles_x = (*w / *tile_size).ceil() as u32;
+                        let tiles_y = (*h / *tile_size).ceil() as u32;
+                        for ty in 0..tiles_y {
+                            for tx in 0..tiles_x {
+                                let qx = *x + tx as f32 * *tile_size;
+                                let qy = *y + ty as f32 * *tile_size;
+                                let qw = (*tile_size).min(*x + *w - qx);
+                                let qh = (*tile_size).min(*y + *h - qy);
+                                let u_frac = qw / *tile_size;
+                                let v_frac = qh / *tile_size;
+                                let clipped = SpriteRegion {
+                                    u0: region.u0,
+                                    v0: region.v0,
+                                    u1: region.u0 + (region.u1 - region.u0) * u_frac,
+                                    v1: region.v0 + (region.v1 - region.v0) * v_frac,
+                                };
+                                push_textured_quad(
+                                    &mut vertices,
+                                    qx,
+                                    qy,
+                                    qw,
+                                    qh,
+                                    &clipped,
+                                    *tint,
+                                    2.0,
+                                );
+                            }
+                        }
+                    }
+                }
                 MenuElement::ItemIcon {
                     x,
                     y,
@@ -834,6 +874,15 @@ pub enum MenuElement {
         scale: f32,
         centered: bool,
     },
+    TiledImage {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        sprite: SpriteId,
+        tile_size: f32,
+        tint: [f32; 4],
+    },
     GradientRect {
         x: f32,
         y: f32,
@@ -872,6 +921,13 @@ pub enum SpriteId {
     ButtonNormal,
     ButtonHover,
     ButtonDisabled,
+    SliderTrack,
+    SliderTrackHover,
+    SliderHandle,
+    SliderHandleHover,
+    HeaderSeparator,
+    FooterSeparator,
+    MenuBackground,
 }
 
 struct SpriteRegion {
@@ -971,6 +1027,34 @@ fn build_sprite_atlas(
         (
             SpriteId::ButtonDisabled,
             "minecraft/textures/gui/sprites/widget/button_disabled.png",
+        ),
+        (
+            SpriteId::SliderTrack,
+            "minecraft/textures/gui/sprites/widget/slider.png",
+        ),
+        (
+            SpriteId::SliderTrackHover,
+            "minecraft/textures/gui/sprites/widget/slider_highlighted.png",
+        ),
+        (
+            SpriteId::SliderHandle,
+            "minecraft/textures/gui/sprites/widget/slider_handle.png",
+        ),
+        (
+            SpriteId::SliderHandleHover,
+            "minecraft/textures/gui/sprites/widget/slider_handle_highlighted.png",
+        ),
+        (
+            SpriteId::HeaderSeparator,
+            "minecraft/textures/gui/inworld_header_separator.png",
+        ),
+        (
+            SpriteId::FooterSeparator,
+            "minecraft/textures/gui/inworld_footer_separator.png",
+        ),
+        (
+            SpriteId::MenuBackground,
+            "minecraft/textures/gui/inworld_menu_background.png",
         ),
     ];
 
@@ -1543,20 +1627,26 @@ fn push_mc_text(
                 continue;
             };
             let glyph_w = gi.width as f32 * px_scale;
+            let glyph_draw_h = gi.height as f32 * px_scale;
+            let glyph_y_off = gi.y_offset as f32 * px_scale;
 
             let u0 = gi.col as f32 * gm.cell_w as f32 * inv_w;
-            let v0 = gi.row as f32 * gm.cell_h as f32 * inv_h;
+            let v0 = (gi.row as f32 * gm.cell_h as f32 + gi.y_offset as f32) * inv_h;
             let u1 = (gi.col as f32 * gm.cell_w as f32 + gi.width as f32) * inv_w;
-            let v1 = (gi.row as f32 + 1.0) * gm.cell_h as f32 * inv_h;
+            let v1 =
+                (gi.row as f32 * gm.cell_h as f32 + gi.y_offset as f32 + gi.height as f32) * inv_h;
 
             let italic_offset = if span.italic { px_scale } else { 0.0 };
 
+            let sx = cx.round();
+            let sy = (cy + glyph_y_off).round();
+
             push_mc_glyph(
                 verts,
-                cx + px_scale,
-                cy + px_scale,
-                glyph_w,
-                glyph_h,
+                sx + px_scale,
+                sy + px_scale,
+                glyph_w.round(),
+                glyph_draw_h.round(),
                 u0,
                 v0,
                 u1,
@@ -1567,10 +1657,10 @@ fn push_mc_text(
             if span.bold {
                 push_mc_glyph(
                     verts,
-                    cx + 2.0 * px_scale,
-                    cy + px_scale,
-                    glyph_w,
-                    glyph_h,
+                    sx + 2.0 * px_scale,
+                    sy + px_scale,
+                    glyph_w.round(),
+                    glyph_draw_h.round(),
                     u0,
                     v0,
                     u1,
@@ -1582,10 +1672,10 @@ fn push_mc_text(
 
             push_mc_glyph(
                 verts,
-                cx,
-                cy,
-                glyph_w,
-                glyph_h,
+                sx,
+                sy,
+                glyph_w.round(),
+                glyph_draw_h.round(),
                 u0,
                 v0,
                 u1,
@@ -1596,10 +1686,10 @@ fn push_mc_text(
             if span.bold {
                 push_mc_glyph(
                     verts,
-                    cx + px_scale,
-                    cy,
-                    glyph_w,
-                    glyph_h,
+                    sx + px_scale,
+                    sy,
+                    glyph_w.round(),
+                    glyph_draw_h.round(),
                     u0,
                     v0,
                     u1,

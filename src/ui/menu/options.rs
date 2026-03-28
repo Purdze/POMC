@@ -25,7 +25,17 @@ impl MainMenu {
             ("Credits & Attribution...", Screen::OptionsCredits),
         ];
 
-        self.build_options_grid(sw, sh, input, "Options", Screen::Main, &rows, nav, &[])
+        self.build_options_grid(
+            sw,
+            sh,
+            input,
+            "Options",
+            Screen::Main,
+            &rows,
+            nav,
+            &[],
+            false,
+        )
     }
 
     pub(super) fn build_options_video(
@@ -71,6 +81,7 @@ impl MainMenu {
             &rows,
             &[],
             sliders,
+            true,
         )
     }
 
@@ -87,7 +98,17 @@ impl MainMenu {
             ["Sneak: Toggle", "Sprint: Hold"],
         ];
         let nav: &[(&str, Screen)] = &[("Key Binds...", Screen::OptionsKeybinds)];
-        self.build_options_grid(sw, sh, input, "Controls", Screen::Options, &rows, nav, &[])
+        self.build_options_grid(
+            sw,
+            sh,
+            input,
+            "Controls",
+            Screen::Options,
+            &rows,
+            nav,
+            &[],
+            true,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -101,6 +122,7 @@ impl MainMenu {
         rows: &[[&str; 2]],
         nav: &[(&str, Screen)],
         sliders: &[(&'static str, f32)],
+        header_footer: bool,
     ) -> MainMenuResult {
         if input.escape {
             self.screen = back.clone_screen();
@@ -111,8 +133,6 @@ impl MainMenu {
         let fs = common::FONT_SIZE * gs;
         let btn_h = common::BTN_H * gs;
         let gap = BTN_GAP * gs;
-        let header_h = HEADER_H * gs;
-        let sep_h = SEP_H * gs;
         let btn_w = 150.0 * gs;
         let half_w = (btn_w * 2.0 + gap) / 2.0;
         let cx = sw / 2.0;
@@ -122,31 +142,94 @@ impl MainMenu {
         let mut elements = Vec::new();
         let mut any_hovered = false;
 
-        common::push_overlay(&mut elements, sw, sh, 0.5);
+        let (content_top, content_bottom, done_y);
 
-        elements.push(MenuElement::Text {
-            x: cx,
-            y: (header_h - fs) / 2.0,
-            text: title.into(),
-            scale: fs,
-            color: WHITE,
-            centered: true,
-        });
-        push_separator(&mut elements, 0.0, header_h, sw, sep_h);
+        if header_footer {
+            let header_h = 33.0 * gs;
+            let footer_h = 33.0 * gs;
+            let sep_h = 2.0 * gs;
+            content_top = header_h + sep_h;
+            content_bottom = sh - footer_h - sep_h;
+            done_y = sh - footer_h + (footer_h - btn_h) / 2.0;
 
-        let done_pad = 8.0 * gs;
-        let done_y = sh - btn_h - done_pad;
-        let content_top = header_h + sep_h;
-        let content_bottom = done_y;
-        let grid_h = rows.len() as f32 * btn_h + (rows.len() as f32 - 1.0).max(0.0) * gap;
-        let top_y = content_top + (content_bottom - content_top - grid_h) / 2.0;
+            elements.push(MenuElement::TiledImage {
+                x: 0.0,
+                y: content_top,
+                w: sw,
+                h: content_bottom - content_top,
+                sprite: SpriteId::MenuBackground,
+                tile_size: 32.0 * gs,
+                tint: [0.25, 0.25, 0.25, 1.0],
+            });
+            elements.push(MenuElement::Rect {
+                x: 0.0,
+                y: content_top,
+                w: sw,
+                h: content_bottom - content_top,
+                corner_radius: 0.0,
+                color: [0.0, 0.0, 0.0, 0.3],
+            });
+
+            elements.push(MenuElement::Text {
+                x: cx,
+                y: (header_h - fs) / 2.0,
+                text: title.into(),
+                scale: fs,
+                color: WHITE,
+                centered: true,
+            });
+            elements.push(MenuElement::Image {
+                x: 0.0,
+                y: header_h,
+                w: sw,
+                h: sep_h,
+                sprite: SpriteId::HeaderSeparator,
+                tint: WHITE,
+            });
+            elements.push(MenuElement::Image {
+                x: 0.0,
+                y: content_bottom,
+                w: sw,
+                h: sep_h,
+                sprite: SpriteId::FooterSeparator,
+                tint: WHITE,
+            });
+        } else {
+            let title_y = 15.0 * gs;
+            let done_pad = 8.0 * gs;
+            content_top = title_y + fs + 10.0 * gs;
+            done_y = sh - btn_h - done_pad;
+            content_bottom = done_y;
+
+            common::push_overlay(&mut elements, sw, sh, 0.4);
+
+            elements.push(MenuElement::Text {
+                x: cx,
+                y: title_y,
+                text: title.into(),
+                scale: fs,
+                color: WHITE,
+                centered: true,
+            });
+        }
+
+        let content_pad = if header_footer { 30.0 * gs } else { 0.0 };
+        let first_row_gap = if header_footer { 0.0 } else { 24.0 * gs };
+        let grid_h =
+            rows.len() as f32 * btn_h + (rows.len() as f32 - 1.0).max(0.0) * gap + first_row_gap;
+        let top_y = if header_footer {
+            content_top + content_pad
+        } else {
+            content_top + (content_bottom - content_top - grid_h) / 2.0
+        };
         let lx = cx - half_w;
         let rx = lx + btn_w + gap;
 
         let mut slider_results: Vec<(&str, f32)> = Vec::new();
 
         for (row, pair) in rows.iter().enumerate() {
-            let by = top_y + row as f32 * (btn_h + gap);
+            let extra = if row > 0 { first_row_gap } else { 0.0 };
+            let by = top_y + row as f32 * (btn_h + gap) + extra;
             for (col, label) in pair.iter().enumerate() {
                 let bx = if col == 0 { lx } else { rx };
 
@@ -219,7 +302,7 @@ impl MainMenu {
             }
         }
 
-        let done_w = btn_w * 2.0 + gap;
+        let done_w = 200.0 * gs;
         let h = common::push_button(
             &mut elements,
             cursor,
@@ -262,15 +345,35 @@ impl MainMenu {
         let gs = crate::ui::hud::gui_scale(sw, sh, self.gui_scale_setting);
         let fs = common::FONT_SIZE * gs;
         let btn_h = common::BTN_H * gs;
-        let gap = BTN_GAP * gs;
-        let header_h = HEADER_H * gs;
-        let sep_h = SEP_H * gs;
         let cx = sw / 2.0;
+
+        let header_h = 33.0 * gs;
+        let footer_h = 33.0 * gs;
+        let sep_h = 2.0 * gs;
+        let content_top = header_h + sep_h;
+        let content_bottom = sh - footer_h - sep_h;
+        let done_y = sh - footer_h + (footer_h - btn_h) / 2.0;
 
         let mut elements = Vec::new();
         let mut any_hovered = false;
 
-        common::push_overlay(&mut elements, sw, sh, 0.5);
+        elements.push(MenuElement::TiledImage {
+            x: 0.0,
+            y: content_top,
+            w: sw,
+            h: content_bottom - content_top,
+            sprite: SpriteId::MenuBackground,
+            tile_size: 32.0 * gs,
+            tint: [0.25, 0.25, 0.25, 1.0],
+        });
+        elements.push(MenuElement::Rect {
+            x: 0.0,
+            y: content_top,
+            w: sw,
+            h: content_bottom - content_top,
+            corner_radius: 0.0,
+            color: [0.0, 0.0, 0.0, 0.3],
+        });
 
         elements.push(MenuElement::Text {
             x: cx,
@@ -280,20 +383,34 @@ impl MainMenu {
             color: WHITE,
             centered: true,
         });
-        push_separator(&mut elements, 0.0, header_h, sw, sep_h);
+        elements.push(MenuElement::Image {
+            x: 0.0,
+            y: header_h,
+            w: sw,
+            h: sep_h,
+            sprite: SpriteId::HeaderSeparator,
+            tint: WHITE,
+        });
+        elements.push(MenuElement::Image {
+            x: 0.0,
+            y: content_bottom,
+            w: sw,
+            h: sep_h,
+            sprite: SpriteId::FooterSeparator,
+            tint: WHITE,
+        });
 
         let body_fs = 10.0 * gs;
         elements.push(MenuElement::Text {
             x: cx,
-            y: sh / 2.0 - body_fs,
+            y: (content_top + content_bottom) / 2.0 - body_fs / 2.0,
             text: "Coming soon".into(),
             scale: body_fs,
             color: COL_DIM,
             centered: true,
         });
 
-        let done_w = 150.0 * gs * 2.0 + gap;
-        let done_y = sh - btn_h - 8.0 * gs;
+        let done_w = 200.0 * gs;
         let h = common::push_button(
             &mut elements,
             input.cursor,

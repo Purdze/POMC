@@ -49,7 +49,8 @@ void main() {
 
     if (v_mode > 3.5) {
         vec4 tex = texture(mc_font_tex, v_uv);
-        out_color = vec4(v_color.rgb * tex.a * v_color.a, tex.a * v_color.a);
+        vec3 linear_color = pow(v_color.rgb, vec3(2.2));
+        out_color = vec4(linear_color * tex.a * v_color.a, tex.a * v_color.a);
         return;
     }
 

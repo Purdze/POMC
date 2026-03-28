@@ -14,8 +14,9 @@ void main() {
 
     vec4 result = texture(src_tex, v_uv) * weights[0];
     for (int i = 1; i < 5; i++) {
-        result += texture(src_tex, v_uv + direction * float(i)) * weights[i];
-        result += texture(src_tex, v_uv - direction * float(i)) * weights[i];
+        vec2 offset = direction * float(i);
+        result += texture(src_tex, v_uv + offset) * weights[i];
+        result += texture(src_tex, v_uv - offset) * weights[i];
     }
     out_color = result;
 }

@@ -63,6 +63,7 @@ enum RenderMode<'a> {
         blur: f32,
         elements: Vec<MenuElement>,
         cursor: (f32, f32),
+        show_skin: bool,
     },
 }
 
@@ -651,6 +652,7 @@ impl Renderer {
         blur: f32,
         elements: Vec<MenuElement>,
         cursor: (f32, f32),
+        show_skin: bool,
     ) -> Result<(), RendererError> {
         self.render_frame(
             window,
@@ -661,6 +663,7 @@ impl Renderer {
                 blur,
                 elements,
                 cursor,
+                show_skin,
             },
         )
     }
@@ -932,6 +935,7 @@ impl Renderer {
                     blur,
                     elements,
                     cursor,
+                    show_skin,
                 } => {
                     let aspect = sw / sh.max(1.0);
                     self.panorama_pipeline
@@ -974,18 +978,20 @@ impl Renderer {
                         self.ctx.device.cmd_set_scissor(cmd, 0, &[scissor]);
                     }
 
-                    self.skin_preview.draw(
-                        &self.ctx.device,
-                        cmd,
-                        frame,
-                        aspect,
-                        0.7,
-                        0.5,
-                        cursor.0,
-                        cursor.1,
-                        sw,
-                        sh,
-                    );
+                    if *show_skin {
+                        self.skin_preview.draw(
+                            &self.ctx.device,
+                            cmd,
+                            frame,
+                            aspect,
+                            0.7,
+                            0.5,
+                            cursor.0,
+                            cursor.1,
+                            sw,
+                            sh,
+                        );
+                    }
 
                     self.menu_pipeline
                         .draw(&self.ctx.device, cmd, sw, sh, elements);

@@ -16,7 +16,7 @@ use crate::window::DisplayMode;
 
 use crate::renderer::pipelines::menu_overlay::{
     ICON_CHECK, ICON_CODE, ICON_COMMENT, ICON_GEAR, ICON_GLOBE, ICON_LINK, ICON_PAINTBRUSH,
-    ICON_USER, MenuElement,
+    ICON_USER, MenuElement, SpriteId,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -296,6 +296,10 @@ impl MainMenu {
         if let Some(ref mut tr) = self.transition {
             tr.open_start = Some(Instant::now());
         }
+    }
+
+    pub fn is_main_screen(&self) -> bool {
+        matches!(self.screen, Screen::Main)
     }
 
     pub fn show_disconnect(&mut self, reason: String) {

@@ -921,7 +921,7 @@ impl ApplicationHandler for App {
                 'redraw: {
                     match self.state {
                         GameState::Menu => {
-                            self.panorama_scroll += dt * 0.01;
+                            self.panorama_scroll += dt * 0.00556;
                             if self.panorama_scroll > 1.0 {
                                 self.panorama_scroll -= 1.0;
                             }
@@ -965,6 +965,7 @@ impl ApplicationHandler for App {
                                     result.blur,
                                     result.elements,
                                     self.input.cursor_pos(),
+                                    self.menu.is_main_screen(),
                                 ) {
                                     log::error!("Render error: {e}");
                                 }
@@ -1045,7 +1046,7 @@ impl ApplicationHandler for App {
                                 "Connecting to the server..."
                             };
 
-                            self.panorama_scroll += dt * 0.01;
+                            self.panorama_scroll += dt * 0.00556;
                             if self.panorama_scroll > 1.0 {
                                 self.panorama_scroll -= 1.0;
                             }
@@ -1103,6 +1104,7 @@ impl ApplicationHandler for App {
                                     2.0,
                                     elements,
                                     self.input.cursor_pos(),
+                                    false,
                                 ) {
                                     log::error!("Render error: {e}");
                                 }
