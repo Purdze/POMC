@@ -555,6 +555,46 @@ impl MenuOverlayPipeline {
                         push_nine_slice(&mut vertices, *x, *y, *w, *h, region, *border, *tint);
                     }
                 }
+                MenuElement::TiledImage {
+                    x,
+                    y,
+                    w,
+                    h,
+                    sprite,
+                    tile_size,
+                    tint,
+                } => {
+                    if let Some(region) = self.sprite_atlas.regions.get(sprite) {
+                        let tiles_x = (*w / *tile_size).ceil() as u32;
+                        let tiles_y = (*h / *tile_size).ceil() as u32;
+                        for ty in 0..tiles_y {
+                            for tx in 0..tiles_x {
+                                let qx = *x + tx as f32 * *tile_size;
+                                let qy = *y + ty as f32 * *tile_size;
+                                let qw = (*tile_size).min(*x + *w - qx);
+                                let qh = (*tile_size).min(*y + *h - qy);
+                                let u_frac = qw / *tile_size;
+                                let v_frac = qh / *tile_size;
+                                let clipped = SpriteRegion {
+                                    u0: region.u0,
+                                    v0: region.v0,
+                                    u1: region.u0 + (region.u1 - region.u0) * u_frac,
+                                    v1: region.v0 + (region.v1 - region.v0) * v_frac,
+                                };
+                                push_textured_quad(
+                                    &mut vertices,
+                                    qx,
+                                    qy,
+                                    qw,
+                                    qh,
+                                    &clipped,
+                                    *tint,
+                                    2.0,
+                                );
+                            }
+                        }
+                    }
+                }
                 MenuElement::ItemIcon {
                     x,
                     y,
@@ -834,6 +874,15 @@ pub enum MenuElement {
         scale: f32,
         centered: bool,
     },
+    TiledImage {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        sprite: SpriteId,
+        tile_size: f32,
+        tint: [f32; 4],
+    },
     GradientRect {
         x: f32,
         y: f32,
@@ -876,6 +925,9 @@ pub enum SpriteId {
     SliderTrackHover,
     SliderHandle,
     SliderHandleHover,
+    HeaderSeparator,
+    FooterSeparator,
+    MenuBackground,
 }
 
 struct SpriteRegion {
@@ -991,6 +1043,18 @@ fn build_sprite_atlas(
         (
             SpriteId::SliderHandleHover,
             "minecraft/textures/gui/sprites/widget/slider_handle_highlighted.png",
+        ),
+        (
+            SpriteId::HeaderSeparator,
+            "minecraft/textures/gui/inworld_header_separator.png",
+        ),
+        (
+            SpriteId::FooterSeparator,
+            "minecraft/textures/gui/inworld_footer_separator.png",
+        ),
+        (
+            SpriteId::MenuBackground,
+            "minecraft/textures/gui/inworld_menu_background.png",
         ),
     ];
 

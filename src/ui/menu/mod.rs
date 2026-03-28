@@ -16,7 +16,7 @@ use crate::window::DisplayMode;
 
 use crate::renderer::pipelines::menu_overlay::{
     ICON_CHECK, ICON_CODE, ICON_COMMENT, ICON_GEAR, ICON_GLOBE, ICON_LINK, ICON_PAINTBRUSH,
-    ICON_USER, MenuElement,
+    ICON_USER, MenuElement, SpriteId,
 };
 
 #[derive(Serialize, Deserialize)]
