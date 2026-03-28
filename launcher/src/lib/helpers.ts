@@ -48,3 +48,7 @@ export function normalizeDirectoryName(name: string): string {
 
   return normalized;
 }
+
+export function isAbsolutePath(path: string): boolean {
+  return /^[A-Za-z]:[\\\/]/.test(path) || path.startsWith("/");
+}

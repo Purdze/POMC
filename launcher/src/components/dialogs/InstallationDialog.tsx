@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openNativeDialog } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 import { HiChevronDown, HiFolder } from "react-icons/hi2";
-import { normalizeDirectoryName } from "../../lib/helpers.ts";
+import { isAbsolutePath, normalizeDirectoryName } from "../../lib/helpers.ts";
 import { useDropdown } from "../../lib/hooks.ts";
 import { useAppStateContext } from "../../lib/state.ts";
 import { GameVersion, Installation, InstallationError } from "../../lib/types.ts";
@@ -78,8 +78,10 @@ export function InstallationDialog({
   const { ref: versionDropdownRef, ...versionDropdown } = useDropdown();
   const [directoryTouched, setDirectoryTouched] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+
   const [nameError, setNameError] = useState<string | null>(null);
   const [dirError, setDirError] = useState<string | null>(null);
+
   const [editingInstall, setEditingInstall] = useState<Installation>(() =>
     dialogProps.editing ? { ...dialogProps.installation } : createEmptyInstallation(),
   );
@@ -172,12 +174,11 @@ export function InstallationDialog({
             />
             <button
               className="dialog-browse-btn"
-              disabled={true} // TODO: allow custom paths
-              style={{ cursor: "not-allowed" }} // TODO: allow custom paths
               onClick={async () => {
                 const path = await openNativeDialog({ directory: true });
                 if (path) {
-                  setEditingInstall((prev) => ({ ...prev, directory: path as string }));
+                  setDirectoryTouched(true);
+                  setEditingInstall((prev) => ({ ...prev, directory: path }));
                 }
               }}
             >
@@ -186,8 +187,9 @@ export function InstallationDialog({
           </div>
           <span className={`dialog-field-info${dirError ? " error" : ""}`}>
             {dirError ||
-              (editingInstall.directory !== normalizeDirectoryName(editingInstall.directory) &&
-                "Will be created as: /" +
+              (!isAbsolutePath(editingInstall.directory) &&
+                editingInstall.directory !== normalizeDirectoryName(editingInstall.directory) &&
+                "Will be created as: " +
                   normalizeDirectoryName(editingInstall.directory || "my-installation"))}
           </span>
         </div>
@@ -235,9 +237,9 @@ export function InstallationDialog({
               width: editingInstall.width || 854,
               height: editingInstall.height || 480,
             };
-            editedInstall.directory = normalizeDirectoryName(
-              editingInstall.directory || editedInstall.name,
-            );
+            editedInstall.directory = isAbsolutePath(editingInstall.directory)
+              ? editingInstall.directory
+              : normalizeDirectoryName(editingInstall.directory || editedInstall.name);
 
             if (editingInstall.version === "") {
               console.error("Invalid version");

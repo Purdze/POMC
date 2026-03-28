@@ -190,7 +190,6 @@ function App() {
       setStatus("");
     }, 3000);
   }, [
-    activeInstall,
     setLaunching,
     setStatus,
     setDownloadProgress,

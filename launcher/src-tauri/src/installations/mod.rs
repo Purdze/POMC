@@ -311,11 +311,6 @@ pub async fn create_installation(
 ) -> Result<Installation, InstallationError> {
     let install: Installation = payload.try_into()?;
 
-    let path: &Path = install.directory.as_ref();
-    if path.exists() {
-        return Err(InstallationError::DirectoryAlreadyExists);
-    }
-
     registry::register(install.clone())?;
 
     if let Err(e) = fs::ensure_install_fs(&install) {
