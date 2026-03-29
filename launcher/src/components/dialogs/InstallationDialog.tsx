@@ -35,7 +35,7 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
 
   const editing = dialogProps.editing;
 
-  const versionDropdown = useDropdown();
+  const { ref: versionDropdownRef, ...versionDropdown } = useDropdown();
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [editingInstall, setEditingInstall] = useState<Installation>(() =>
     dialogProps.editing ? { ...dialogProps.installation } : createEmptyInstallation(),
@@ -57,7 +57,7 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
         </div>
         <div className="dialog-field">
           <label>VERSION</label>
-          <div className="custom-select-wrapper" ref={versionDropdown.ref}>
+          <div className="custom-select-wrapper" ref={versionDropdownRef}>
             <button className="custom-select" onClick={versionDropdown.toggle} type="button">
               <span>{editingInstall.version}</span>
               <HiChevronDown

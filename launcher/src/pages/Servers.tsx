@@ -127,7 +127,7 @@ export default function ServersPage({
   const [newIp, setNewIp] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [customCategory, setCustomCategory] = useState(false);
-  const categoryDropdown = useDropdown();
+  const { ref: categoryDropdownRef, ...categoryDropdown } = useDropdown();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -229,7 +229,7 @@ export default function ServersPage({
               onKeyDown={(e) => e.key === "Enter" && (editingId ? handleEdit() : handleAdd())}
             />
           ) : (
-            <div className="category-dropdown-wrapper" ref={categoryDropdown.ref}>
+            <div className="category-dropdown-wrapper" ref={categoryDropdownRef}>
               <button className="category-dropdown-btn" onClick={categoryDropdown.toggle}>
                 <span>{newCategory || "No category"}</span>
                 <HiChevronDown

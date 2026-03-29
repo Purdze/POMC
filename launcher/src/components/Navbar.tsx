@@ -14,6 +14,7 @@ import {
 } from "react-icons/hi2";
 import { useAppStateContext } from "../lib/state";
 import { Page } from "../lib/types";
+import React from "react";
 
 interface NavItem {
   id: Page;
@@ -57,6 +58,8 @@ export default function Navbar({ startAddAccount, switchAccount, removeAccount }
     authLoading,
   } = useAppStateContext();
 
+  const { ref: accountDropdownRef } = accountDropdown;
+
   return (
     <nav className="sidebar">
       <div className="sidebar-brand">
@@ -86,7 +89,7 @@ export default function Navbar({ startAddAccount, switchAccount, removeAccount }
 
       <div className="sidebar-bottom">
         {account ? (
-          <div className="account-switcher" ref={accountDropdown.ref}>
+          <div className="account-switcher" ref={accountDropdownRef}>
             <button className="account-bar" onClick={accountDropdown.toggle}>
               <div
                 className="mc-head"

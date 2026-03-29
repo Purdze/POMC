@@ -10,8 +10,6 @@ interface HomepageProps {
 }
 
 export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps) {
-  const versionDropdown = useDropdown();
-
   const {
     launching,
     installations,
@@ -23,6 +21,8 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
     downloadProgress,
     skinUrl,
   } = useAppStateContext();
+
+  const { ref: versionDropdownRef, ...versionDropdown } = useDropdown();
 
   return (
     <div className="page home-page">
@@ -40,12 +40,12 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
           onClick={handleLaunch}
           disabled={launching}
         >
-          <HiPlay className="play-icon" />
+          <HiPlay className="play-icon" />{" "}
           <span className="play-text">{launching ? "LAUNCHING..." : "PLAY"}</span>
         </button>
       </div>
 
-      <div className="version-badge-wrapper" ref={versionDropdown.ref}>
+      <div className="version-badge-wrapper" ref={versionDropdownRef}>
         <button className="version-badge" onClick={versionDropdown.toggle}>
           <HiCube className="version-badge-icon" />
           <span>{selectedVersion}</span>
