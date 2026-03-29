@@ -118,7 +118,7 @@ impl Renderer {
             let asset_index = asset_index.clone();
             let game_dir = game_dir.to_path_buf();
             std::thread::spawn(move || {
-                BlockRegistry::load(&jar_assets_dir, &asset_index, &game_dir)
+                BlockRegistry::load(&jar_assets_dir, &asset_index, &game_dir, None)
             })
         };
 
@@ -174,6 +174,7 @@ impl Renderer {
             jar_assets_dir,
             asset_index,
             &texture_names,
+            None,
         )?;
 
         splash(&mut menu_pipeline, 0.5, "Creating pipelines...");
@@ -612,16 +613,19 @@ impl Renderer {
         biome_climate: std::sync::Arc<
             std::collections::HashMap<u32, crate::renderer::chunk::mesher::BiomeClimate>,
         >,
+        packs: Option<&crate::resource_pack::ResourcePackManager>,
     ) -> MeshDispatcher {
         let grass_colormap = crate::renderer::chunk::mesher::Colormap::load(
             &self.jar_assets_dir,
             &self.asset_index,
             "minecraft/textures/colormap/grass.png",
+            packs,
         );
         let foliage_colormap = crate::renderer::chunk::mesher::Colormap::load(
             &self.jar_assets_dir,
             &self.asset_index,
             "minecraft/textures/colormap/foliage.png",
+            packs,
         );
         MeshDispatcher::new(
             self.registry.clone(),
@@ -689,6 +693,41 @@ impl Renderer {
                 show_skin,
             },
         )
+    }
+
+    pub fn reload_assets(
+        &mut self,
+        game_dir: &Path,
+        packs: &crate::resource_pack::ResourcePackManager,
+    ) {
+        unsafe { self.ctx.device.device_wait_idle().unwrap() };
+
+        let cache_path = game_dir.join("pomc_block_cache.json");
+        let _ = std::fs::remove_file(&cache_path);
+        log::info!("Invalidated block cache");
+
+        self.registry =
+            BlockRegistry::load(&self.assets_dir, &self.asset_index, game_dir, Some(packs));
+
+        self.atlas.destroy(&self.ctx.device, &self.ctx.allocator);
+        let texture_names: std::collections::HashSet<&str> =
+            self.registry.texture_names().collect();
+        self.atlas = TextureAtlas::build(
+            &self.ctx.device,
+            self.ctx.graphics_queue,
+            self.ctx.command_pool,
+            &self.ctx.allocator,
+            &self.assets_dir,
+            &self.asset_index,
+            &texture_names,
+            Some(packs),
+        )
+        .expect("failed to rebuild atlas");
+
+        self.chunk_pipeline
+            .rebind_atlas(&self.ctx.device, &self.atlas);
+
+        log::info!("Assets reloaded");
     }
 
     pub fn reload_panorama(

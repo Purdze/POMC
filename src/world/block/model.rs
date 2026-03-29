@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::assets::{AssetIndex, resolve_asset_path};
+use crate::assets::{AssetIndex, resolve_asset_path_with_packs};
 
 use super::registry::{FaceTextures, Tint};
 
@@ -224,17 +224,19 @@ const GRASS_TINTED: &[&str] = &[
 pub fn load_all_block_textures(
     jar_assets_dir: &Path,
     asset_index: &Option<AssetIndex>,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
 ) -> HashMap<String, FaceTextures> {
     let mut results = HashMap::new();
     let mut model_cache = HashMap::new();
 
-    for_each_blockstate(jar_assets_dir, |block_name, blockstate| {
+    for_each_blockstate(jar_assets_dir, asset_index, packs, |block_name, blockstate| {
         let model_ref = extract_default_model_ref(blockstate)?;
         let resolved = resolve_model(
             &model_ref.model,
             jar_assets_dir,
             asset_index,
             &mut model_cache,
+            packs,
         );
         let face_textures = build_face_textures(block_name, &resolved.textures)?;
         results.insert(block_name.to_string(), face_textures);
@@ -254,13 +256,14 @@ type MultipartMap = HashMap<String, Vec<MultipartEntry>>;
 pub fn bake_all_models(
     jar_assets_dir: &Path,
     asset_index: &Option<AssetIndex>,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
 ) -> (BakedModelMap, MultipartMap) {
     let mut results: HashMap<String, HashMap<String, BakedModel>> = HashMap::new();
     let mut multipart_results: HashMap<String, Vec<MultipartEntry>> = HashMap::new();
     let mut model_cache = HashMap::new();
     let mut total = 0u32;
 
-    for_each_blockstate(jar_assets_dir, |block_name, blockstate| {
+    for_each_blockstate(jar_assets_dir, asset_index, packs, |block_name, blockstate| {
         total += 1;
         let block_tint = determine_tint(block_name);
         let mut variants_map: HashMap<String, BakedModel> = HashMap::new();
@@ -273,6 +276,7 @@ pub fn bake_all_models(
                     jar_assets_dir,
                     asset_index,
                     &mut model_cache,
+                    packs,
                 );
                 if let Some(baked) =
                     bake_resolved_model(&resolved, model_ref.x, model_ref.y, block_tint)
@@ -289,6 +293,7 @@ pub fn bake_all_models(
                     jar_assets_dir,
                     asset_index,
                     &mut model_cache,
+                    packs,
                 );
                 if let Some(baked) =
                     bake_resolved_model(&resolved, model_ref.x, model_ref.y, block_tint)
@@ -312,7 +317,7 @@ pub fn bake_all_models(
     });
 
     let mut missing_names: Vec<String> = Vec::new();
-    for_each_blockstate(jar_assets_dir, |block_name, _| {
+    for_each_blockstate(jar_assets_dir, asset_index, packs, |block_name, _| {
         if !results.contains_key(block_name) && !multipart_results.contains_key(block_name) {
             missing_names.push(block_name.to_string());
         }
@@ -348,9 +353,11 @@ fn parse_when_condition(when: &Option<serde_json::Value>) -> HashMap<String, Str
 
 fn for_each_blockstate(
     jar_assets_dir: &Path,
+    asset_index: &Option<AssetIndex>,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
     mut callback: impl FnMut(&str, &BlockstateFile) -> Option<()>,
 ) {
-    let Some(blockstates_dir) = resolve_blockstates_dir(jar_assets_dir) else {
+    let Some(blockstates_dir) = resolve_blockstates_dir(jar_assets_dir, asset_index, packs) else {
         tracing::warn!("Blockstates directory not found");
         return;
     };
@@ -383,9 +390,42 @@ fn for_each_blockstate(
     }
 }
 
-fn resolve_blockstates_dir(jar_assets_dir: &Path) -> Option<PathBuf> {
+fn resolve_blockstates_dir(
+    jar_assets_dir: &Path,
+    asset_index: &Option<AssetIndex>,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
+) -> Option<PathBuf> {
+    let candidates = [
+        jar_assets_dir.join("assets/minecraft/blockstates"),
+        jar_assets_dir.join("jar/assets/minecraft/blockstates"),
+        PathBuf::from("reference/assets/assets/minecraft/blockstates"),
+    ];
+
+    for c in &candidates {
+        if c.is_dir() {
+            return Some(c.clone());
+        }
+    }
+
+    // Also check the original simple path
     let path = jar_assets_dir.join("minecraft/blockstates");
-    path.is_dir().then_some(path)
+    if path.is_dir() {
+        return Some(path);
+    }
+
+    if asset_index.is_some() {
+        let test_path = resolve_asset_path_with_packs(
+            jar_assets_dir,
+            asset_index,
+            "minecraft/blockstates/stone.json",
+            packs,
+        );
+        if test_path.exists() {
+            return test_path.parent().map(|p| p.to_path_buf());
+        }
+    }
+
+    None
 }
 
 fn extract_default_model_ref(blockstate: &BlockstateFile) -> Option<ModelRef> {
@@ -421,13 +461,14 @@ fn resolve_model(
     jar_assets_dir: &Path,
     asset_index: &Option<AssetIndex>,
     cache: &mut HashMap<String, ModelFile>,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
 ) -> ResolvedModel {
     let mut texture_map: HashMap<String, String> = HashMap::new();
     let mut elements: Option<Vec<ElementDef>> = None;
     let mut current_id = model_id.to_string();
 
     for _ in 0..20 {
-        let Some(model) = load_model(&current_id, jar_assets_dir, asset_index, cache) else {
+        let Some(model) = load_model(&current_id, jar_assets_dir, asset_index, cache, packs) else {
             break;
         };
 
@@ -475,13 +516,14 @@ fn load_model<'a>(
     jar_assets_dir: &Path,
     asset_index: &Option<AssetIndex>,
     cache: &'a mut HashMap<String, ModelFile>,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
 ) -> Option<&'a ModelFile> {
     if cache.contains_key(model_id) {
         return cache.get(model_id);
     }
 
     let asset_key = model_id_to_asset_key(model_id);
-    let file_path = resolve_model_path(jar_assets_dir, asset_index, &asset_key)?;
+    let file_path = resolve_model_path(jar_assets_dir, asset_index, &asset_key, packs)?;
 
     let contents = std::fs::read_to_string(&file_path).ok()?;
     let model: ModelFile = serde_json::from_str(&contents).ok()?;
@@ -493,8 +535,9 @@ fn resolve_model_path(
     jar_assets_dir: &Path,
     asset_index: &Option<AssetIndex>,
     asset_key: &str,
+    packs: Option<&crate::resource_pack::ResourcePackManager>,
 ) -> Option<PathBuf> {
-    let primary = resolve_asset_path(jar_assets_dir, asset_index, asset_key);
+    let primary = resolve_asset_path_with_packs(jar_assets_dir, asset_index, asset_key, packs);
     if primary.exists() {
         return Some(primary);
     }
