@@ -1,9 +1,10 @@
-import { useAppStateContext } from "../../lib/state.ts";
-import { HiChevronDown, HiFolder } from "react-icons/hi2";
 import { invoke } from "@tauri-apps/api/core";
-import { GameVersion, Installation } from "../../lib/types.ts";
 import { open as openNativeDialog } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
+import { HiChevronDown, HiFolder } from "react-icons/hi2";
+import { useDropdown } from "../../lib/hooks.ts";
+import { useAppStateContext } from "../../lib/state.ts";
+import { GameVersion, Installation } from "../../lib/types.ts";
 
 export type InstallationDialogProps =
   | { editing: false }
@@ -34,20 +35,14 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
 
   const editing = dialogProps.editing;
 
-  const [versionDialogOpen, setVersionDialogOpen] = useState(false);
+  const versionDropdown = useDropdown();
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [editingInstall, setEditingInstall] = useState<Installation>(() =>
     dialogProps.editing ? { ...dialogProps.installation } : createEmptyInstallation(),
   );
 
   return (
-    <div
-      className="dialog"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (versionDialogOpen) setVersionDialogOpen(false);
-      }}
-    >
+    <div className="dialog">
       <h2 className="dialog-title">{editing ? "Edit Installation" : "New Installation"}</h2>
 
       <div className="dialog-fields">
@@ -62,17 +57,15 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
         </div>
         <div className="dialog-field">
           <label>VERSION</label>
-          <div className="custom-select-wrapper">
-            <button
-              className="custom-select"
-              onClick={() => setVersionDialogOpen((prev) => !prev)}
-              type="button"
-            >
+          <div className="custom-select-wrapper" ref={versionDropdown.ref}>
+            <button className="custom-select" onClick={versionDropdown.toggle} type="button">
               <span>{editingInstall.version}</span>
-              <HiChevronDown className={`custom-select-arrow ${versionDialogOpen ? "open" : ""}`} />
+              <HiChevronDown
+                className={`custom-select-arrow ${versionDropdown.isOpen ? "open" : ""}`}
+              />
             </button>
-            {versionDialogOpen && (
-              <div className="custom-select-dropdown" onClick={(e) => e.stopPropagation()}>
+            {versionDropdown.isOpen && (
+              <div className="custom-select-dropdown">
                 <label className="custom-select-toggle">
                   <input
                     type="checkbox"
@@ -92,11 +85,8 @@ export function InstallationDialog(dialogProps: InstallationDialogProps) {
                       key={v.id}
                       className={`custom-select-item ${v.id === editingInstall.version ? "active" : ""}`}
                       onClick={() => {
-                        setEditingInstall((prev) => ({
-                          ...prev,
-                          version: v.id,
-                        }));
-                        setVersionDialogOpen(false);
+                        setEditingInstall((prev) => ({ ...prev, version: v.id }));
+                        versionDropdown.close();
                       }}
                     >
                       <span>{v.id}</span>

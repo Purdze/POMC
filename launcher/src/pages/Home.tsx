@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { HiPlay, HiChevronDown, HiCube } from "react-icons/hi2";
-import { PatchNote } from "../lib/types";
-import { useAppStateContext } from "../lib/state";
+import { HiChevronDown, HiCube, HiPlay } from "react-icons/hi2";
 import SkinRunner from "../components/SkinRunner";
+import { useDropdown } from "../lib/hooks";
+import { useAppStateContext } from "../lib/state";
+import { PatchNote } from "../lib/types";
 
 interface HomepageProps {
   handleLaunch: () => Promise<void>;
@@ -10,7 +10,7 @@ interface HomepageProps {
 }
 
 export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps) {
-  const [versionDropdownOpen, setVersionDropdownOpen] = useState(false);
+  const versionDropdown = useDropdown();
 
   const {
     launching,
@@ -45,19 +45,15 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
         </button>
       </div>
 
-      <div className="version-badge-wrapper">
-        {versionDropdownOpen && (
-          <div className="click-away" onClick={() => setVersionDropdownOpen(false)} />
-        )}
-        <button
-          className="version-badge"
-          onClick={() => setVersionDropdownOpen(!versionDropdownOpen)}
-        >
+      <div className="version-badge-wrapper" ref={versionDropdown.ref}>
+        <button className="version-badge" onClick={versionDropdown.toggle}>
           <HiCube className="version-badge-icon" />
           <span>{selectedVersion}</span>
-          <HiChevronDown className={`version-badge-arrow ${versionDropdownOpen ? "open" : ""}`} />
+          <HiChevronDown
+            className={`version-badge-arrow ${versionDropdown.isOpen ? "open" : ""}`}
+          />
         </button>
-        {versionDropdownOpen && (
+        {versionDropdown.isOpen && (
           <div className="version-dropdown">
             <div className="version-list">
               {installations.map((inst) => (
@@ -66,7 +62,7 @@ export default function Homepage({ handleLaunch, openPatchNote }: HomepageProps)
                   className={`version-item ${inst.id === activeInstall ? "active" : ""}`}
                   onClick={() => {
                     setActiveInstall(inst.id);
-                    setVersionDropdownOpen(false);
+                    versionDropdown.close();
                   }}
                 >
                   <span className="version-item-id">{inst.name}</span>

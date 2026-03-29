@@ -1,30 +1,30 @@
-import { useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useCallback, useEffect, useRef } from "react";
+import Navbar from "./components/Navbar";
+import Titlebar from "./components/Titlebar";
+import { ConfirmDialog } from "./components/dialogs/ConfirmDialog.tsx";
+import { InstallationDialog } from "./components/dialogs/InstallationDialog.tsx";
+import { useAppStateContext } from "./lib/state";
 import { AuthAccount, DownloadProgress, GameVersion, PatchNote } from "./lib/types";
+import FriendsPage from "./pages/Friends";
 import Homepage from "./pages/Home";
 import InstallationsPage from "./pages/Installations";
-import { useAppStateContext } from "./lib/state";
-import Navbar from "./components/Navbar";
 import ModsPage from "./pages/Mods";
-import ServersPage from "./pages/Servers";
-import FriendsPage from "./pages/Friends";
 import NewsPage from "./pages/News";
+import ServersPage from "./pages/Servers";
 import SettingsPage from "./pages/Settings";
-import Titlebar from "./components/Titlebar";
-import { InstallationDialog } from "./components/dialogs/InstallationDialog.tsx";
-import { ConfirmDialog } from "./components/dialogs/ConfirmDialog.tsx";
 
 function App() {
   const {
     account,
+    accountDropdown,
     page,
     setPage,
     accounts,
     setAccounts,
     setActiveIndex,
-    setAccountDropdownOpen,
     server,
     setInstallations,
     selectedVersion,
@@ -40,6 +40,8 @@ function App() {
     setOpenedDialog,
     launcherSettings,
   } = useAppStateContext();
+
+  const { setIsOpen: setAccountDropdownOpen } = accountDropdown;
 
   const openPatchNote = useCallback(
     async (note: PatchNote) => {
@@ -144,7 +146,7 @@ function App() {
 
   const removeAccount = useCallback(
     (uuid: string) => {
-      invoke("remove_account", { uuid });
+      invoke("remove_account", { uuid }).then((r) => console.error("Failed to remove account:", r));
       setAccounts((prev) => prev.filter((a) => a.uuid !== uuid));
       setActiveIndex(0);
       setAccountDropdownOpen(false);
@@ -185,6 +187,8 @@ function App() {
     launcherSettings.launchWithConsole,
   ]);
 
+  const dialogDragStartedInside = useRef(false);
+
   return (
     <div className="app">
       <Titlebar />
@@ -218,8 +222,13 @@ function App() {
       {openedDialog !== null && (
         <div
           className="dialog-overlay"
-          onClick={() => {
-            setOpenedDialog(null);
+          onMouseDown={(e) => {
+            dialogDragStartedInside.current = e.target !== e.currentTarget;
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !dialogDragStartedInside.current) {
+              setOpenedDialog(null);
+            }
           }}
         >
           {openedDialog.name === "installation" && <InstallationDialog {...openedDialog.props} />}

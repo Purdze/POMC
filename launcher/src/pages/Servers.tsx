@@ -19,6 +19,7 @@ import {
   HiPlus,
   HiTrash,
 } from "react-icons/hi2";
+import { useDropdown } from "../lib/hooks";
 import { useAppStateContext } from "../lib/state";
 import { Server } from "../lib/types";
 
@@ -126,7 +127,7 @@ export default function ServersPage({
   const [newIp, setNewIp] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [customCategory, setCustomCategory] = useState(false);
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropdown = useDropdown();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -166,7 +167,7 @@ export default function ServersPage({
     setNewIp("");
     setNewCategory("");
     setCustomCategory(false);
-    setCategoryDropdownOpen(false);
+    categoryDropdown.close();
   };
 
   const existingCategories = [...new Set(servers.map((s) => s.category).filter((c) => c))];
@@ -228,26 +229,20 @@ export default function ServersPage({
               onKeyDown={(e) => e.key === "Enter" && (editingId ? handleEdit() : handleAdd())}
             />
           ) : (
-            <div className="category-dropdown-wrapper">
-              {categoryDropdownOpen && (
-                <div className="click-away" onClick={() => setCategoryDropdownOpen(false)} />
-              )}
-              <button
-                className="category-dropdown-btn"
-                onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-              >
+            <div className="category-dropdown-wrapper" ref={categoryDropdown.ref}>
+              <button className="category-dropdown-btn" onClick={categoryDropdown.toggle}>
                 <span>{newCategory || "No category"}</span>
                 <HiChevronDown
-                  className={`category-chevron ${categoryDropdownOpen ? "open" : ""}`}
+                  className={`category-chevron ${categoryDropdown.isOpen ? "open" : ""}`}
                 />
               </button>
-              {categoryDropdownOpen && (
+              {categoryDropdown.isOpen && (
                 <div className="category-dropdown">
                   <button
                     className={`category-dropdown-item ${!newCategory ? "active" : ""}`}
                     onClick={() => {
                       setNewCategory("");
-                      setCategoryDropdownOpen(false);
+                      categoryDropdown.close();
                     }}
                   >
                     No category
@@ -258,7 +253,7 @@ export default function ServersPage({
                       className={`category-dropdown-item ${newCategory === cat ? "active" : ""}`}
                       onClick={() => {
                         setNewCategory(cat);
-                        setCategoryDropdownOpen(false);
+                        categoryDropdown.close();
                       }}
                     >
                       {cat}
@@ -269,7 +264,7 @@ export default function ServersPage({
                     onClick={() => {
                       setCustomCategory(true);
                       setNewCategory("");
-                      setCategoryDropdownOpen(false);
+                      categoryDropdown.close();
                     }}
                   >
                     + New category

@@ -1,4 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
 import { createContext, createElement, ReactNode, useContext, useEffect, useState } from "react";
+import { useDropdown } from "./hooks";
+import { useServers } from "./servers";
 import {
   AuthAccount,
   DownloadProgress,
@@ -9,8 +12,6 @@ import {
   Page,
   PatchNote,
 } from "./types";
-import { invoke } from "@tauri-apps/api/core";
-import { useServers } from "./servers";
 
 const useLauncherSettings = () => {
   const [launcherSettings, setLauncherSettings] = useState<LauncherSettings>({
@@ -63,7 +64,7 @@ const useAppState = () => {
   const [openedDialog, setOpenedDialog] = useState<OpenedDialog>(null);
   const [accounts, setAccounts] = useState<AuthAccount[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const accountDropdown = useDropdown();
 
   const [server, setServer] = useState("");
 
@@ -102,14 +103,13 @@ const useAppState = () => {
 
   return {
     account,
+    accountDropdown,
     page,
     setPage,
     accounts,
     setAccounts,
     activeIndex,
     setActiveIndex,
-    accountDropdownOpen,
-    setAccountDropdownOpen,
     server,
     setServer,
     modView,
