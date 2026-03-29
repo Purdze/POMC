@@ -702,8 +702,8 @@ impl App {
                     let cache_dir = self.resource_packs.server_cache_dir().to_path_buf();
                     let hash_clone = hash.clone();
                     let url_clone = url.clone();
-                    self.pending_pack_download = Some(std::thread::spawn(move || {
-                        PackDownloadResult {
+                    self.pending_pack_download =
+                        Some(std::thread::spawn(move || PackDownloadResult {
                             id,
                             hash: hash_clone.clone(),
                             required,
@@ -712,8 +712,7 @@ impl App {
                                 &url_clone,
                                 &hash_clone,
                             ),
-                        }
-                    }));
+                        }));
                 }
                 NetworkEvent::ResourcePackPop { id } => {
                     if let Some(id) = id {
@@ -744,8 +743,7 @@ impl App {
                     Err(e) => {
                         log::error!("Resource pack {} failed: {e}", dl.id);
                         if dl.required {
-                            disconnect_reason =
-                                Some(format!("Required resource pack failed: {e}"));
+                            disconnect_reason = Some(format!("Required resource pack failed: {e}"));
                         }
                         s_resource_pack::Action::FailedDownload
                     }
