@@ -259,7 +259,6 @@ body {
 .nav-btn::after {
   content: "";
   position: absolute;
-  right: 0;
   left: 0;
   top: 8px;
   bottom: 8px;
@@ -278,8 +277,15 @@ body {
 .nav-icon {
   font-size: 16px;
   width: 22px;
-  text-align: center;
+  height: 22px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-text {
+  padding-top: 1px;
 }
 
 /* ═══ Sidebar Bottom ═══ */
@@ -2864,6 +2870,7 @@ body {
 }
 
 .console-chip-button {
+  cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
   outline: none;
