@@ -960,6 +960,14 @@ impl ApplicationHandler for App {
                                     window.set_cursor(cursor_icon);
                                 }
 
+                                if self.menu.is_server_list_screen() && self.menu.favicons_changed()
+                                {
+                                    let favicons = self.menu.collect_favicons();
+                                    if !favicons.is_empty() {
+                                        renderer.update_favicon_atlas(&favicons);
+                                    }
+                                }
+
                                 if let Err(e) = renderer.render_menu(
                                     window,
                                     self.panorama_scroll,

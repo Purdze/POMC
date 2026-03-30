@@ -21,9 +21,9 @@ impl MainMenu {
         let cursor = input.cursor;
         let clicked = input.clicked;
 
-        let footer_h = btn_h * 2.0 + gap * 3.0;
-        let list_top = header_h + sep_h + gap;
-        let list_bottom = screen_h - footer_h - sep_h;
+        let footer_h = 60.0 * gs;
+        let list_top = header_h;
+        let list_bottom = screen_h - footer_h;
         let list_h = list_bottom - list_top;
 
         let mut elements = Vec::new();
@@ -47,26 +47,56 @@ impl MainMenu {
         elements.push(MenuElement::Text {
             x: screen_w / 2.0,
             y: (header_h - fs) / 2.0,
-            text: "Multiplayer".into(),
+            text: "Play Multiplayer".into(),
             scale: fs,
             color: WHITE,
             centered: true,
         });
 
-        push_separator(&mut elements, 0.0, header_h, screen_w, sep_h);
+        elements.push(MenuElement::TiledImage {
+            x: 0.0,
+            y: list_top,
+            w: screen_w,
+            h: list_h,
+            sprite: SpriteId::MenuBackground,
+            tile_size: 32.0 * gs,
+            tint: [0.25, 0.25, 0.25, 1.0],
+        });
+        elements.push(MenuElement::Rect {
+            x: 0.0,
+            y: list_top,
+            w: screen_w,
+            h: list_h,
+            corner_radius: 0.0,
+            color: [0.0, 0.0, 0.0, 0.3],
+        });
+
+        push_separator(&mut elements, 0.0, list_top - sep_h, screen_w, sep_h);
         push_separator(&mut elements, 0.0, list_bottom, screen_w, sep_h);
 
-        let total_content = self.server_list.servers.len() as f32 * entry_h;
+        let list_pad = 4.0 * gs;
+        let entries_h = self.server_list.servers.len() as f32 * entry_h;
+        let total_content = list_pad + entries_h + list_pad + fs * 3.0;
         let max_scroll = (total_content - list_h).max(0.0);
-        self.scroll_offset =
-            (self.scroll_offset - input.scroll_delta * entry_h).clamp(0.0, max_scroll);
+        if common::hit_test(cursor, [0.0, list_top, screen_w, list_h]) {
+            self.scroll_offset -= input.scroll_delta * 20.0 * gs;
+        }
+        self.scroll_offset = self.scroll_offset.clamp(0.0, max_scroll);
 
         let list_cx = screen_w / 2.0;
         let list_left = list_cx - row_w / 2.0;
         let ping_results = self.ping_results.read().clone();
 
+        elements.push(MenuElement::ScissorPush {
+            x: 0.0,
+            y: list_top,
+            w: screen_w,
+            h: list_h,
+        });
+
+        let mut pending_swap: Option<(usize, usize)> = None;
         for (i, server) in self.server_list.servers.iter().enumerate() {
-            let ey = list_top + i as f32 * entry_h - self.scroll_offset;
+            let ey = list_top + list_pad + i as f32 * entry_h - self.scroll_offset;
             if ey + entry_h < list_top || ey > list_bottom {
                 continue;
             }
@@ -87,7 +117,7 @@ impl MainMenu {
                     color: if selected {
                         [1.0, 1.0, 1.0, 0.12]
                     } else {
-                        [1.0, 1.0, 1.0, 0.06]
+                        [1.0, 1.0, 1.0, 0.04]
                     },
                 });
             }
@@ -95,8 +125,84 @@ impl MainMenu {
                 push_outline(&mut elements, rect[0], rect[1], rect[2], rect[3], gs);
             }
 
-            let text_x = rect[0] + 3.0 * gs;
-            let name_y = rect[1] + 1.0 * gs;
+            let icon_size = 32.0 * gs;
+            let icon_pad = 2.0 * gs;
+            let icon_y = rect[1] + icon_pad;
+            let text_x = rect[0] + icon_size + 3.0 * gs;
+            let name_y = icon_y + 1.0 * gs;
+
+            elements.push(MenuElement::Favicon {
+                x: rect[0],
+                y: icon_y,
+                size: icon_size,
+                address: server.address.clone(),
+            });
+            if hovered {
+                elements.push(MenuElement::Rect {
+                    x: rect[0],
+                    y: icon_y,
+                    w: icon_size,
+                    h: icon_size,
+                    corner_radius: 0.0,
+                    color: [0.56, 0.56, 0.56, 0.63],
+                });
+
+                let rel_x = cursor.0 - rect[0];
+                let rel_y = cursor.1 - icon_y;
+                let right_half = rel_x >= icon_size / 2.0 && rel_x < icon_size;
+                let icon_area =
+                    rel_x >= 0.0 && rel_x < icon_size && rel_y >= 0.0 && rel_y < icon_size;
+                let top_left = rel_x < icon_size / 2.0 && rel_y < icon_size / 2.0;
+                let bottom_left = rel_x < icon_size / 2.0 && rel_y >= icon_size / 2.0;
+
+                if icon_area {
+                    let join_sprite = if right_half {
+                        SpriteId::ServerJoinHighlighted
+                    } else {
+                        SpriteId::ServerJoin
+                    };
+                    elements.push(MenuElement::Image {
+                        x: rect[0],
+                        y: icon_y,
+                        w: icon_size,
+                        h: icon_size,
+                        sprite: join_sprite,
+                        tint: WHITE,
+                    });
+
+                    if i > 0 {
+                        let up_sprite = if top_left {
+                            SpriteId::ServerMoveUpHighlighted
+                        } else {
+                            SpriteId::ServerMoveUp
+                        };
+                        elements.push(MenuElement::Image {
+                            x: rect[0],
+                            y: icon_y,
+                            w: icon_size,
+                            h: icon_size,
+                            sprite: up_sprite,
+                            tint: WHITE,
+                        });
+                    }
+
+                    if i < self.server_list.servers.len() - 1 {
+                        let down_sprite = if bottom_left {
+                            SpriteId::ServerMoveDownHighlighted
+                        } else {
+                            SpriteId::ServerMoveDown
+                        };
+                        elements.push(MenuElement::Image {
+                            x: rect[0],
+                            y: icon_y,
+                            w: icon_size,
+                            h: icon_size,
+                            sprite: down_sprite,
+                            tint: WHITE,
+                        });
+                    }
+                }
+            }
             elements.push(MenuElement::Text {
                 x: text_x,
                 y: name_y,
@@ -106,7 +212,7 @@ impl MainMenu {
                 centered: false,
             });
 
-            let motd_y = name_y + fs + 3.0 * gs;
+            let motd_y = icon_y + 12.0 * gs;
             push_server_status(
                 &mut elements,
                 &ping_results,
@@ -116,25 +222,59 @@ impl MainMenu {
                 &rect,
                 fs,
                 gs,
+                cursor,
+                screen_w,
+                screen_h,
                 text_width_fn,
             );
 
             if clicked && hovered {
-                let now = Instant::now();
-                let is_double = self.last_click_index == Some(i)
-                    && now.duration_since(self.last_click_time).as_millis() < DOUBLE_CLICK_MS;
+                let rel_x = cursor.0 - rect[0];
+                let rel_y_click = cursor.1 - icon_y;
+                let on_icon = rel_x >= 0.0
+                    && rel_x < icon_size
+                    && rel_y_click >= 0.0
+                    && rel_y_click < icon_size;
 
-                if is_double {
+                if on_icon && rel_x >= icon_size / 2.0 {
                     action = MenuAction::Connect {
                         server: server.address.clone(),
                         username: self.username.clone(),
                     };
+                } else if on_icon
+                    && rel_x < icon_size / 2.0
+                    && rel_y_click < icon_size / 2.0
+                    && i > 0
+                {
+                    pending_swap = Some((i, i - 1));
+                } else if on_icon
+                    && rel_x < icon_size / 2.0
+                    && rel_y_click >= icon_size / 2.0
+                    && i < self.server_list.servers.len() - 1
+                {
+                    pending_swap = Some((i, i + 1));
                 } else {
-                    self.selected_server = Some(i);
-                    self.last_click_time = now;
-                    self.last_click_index = Some(i);
+                    let now = Instant::now();
+                    let is_double = self.last_click_index == Some(i)
+                        && now.duration_since(self.last_click_time).as_millis() < DOUBLE_CLICK_MS;
+
+                    if is_double {
+                        action = MenuAction::Connect {
+                            server: server.address.clone(),
+                            username: self.username.clone(),
+                        };
+                    } else {
+                        self.selected_server = Some(i);
+                        self.last_click_time = now;
+                        self.last_click_index = Some(i);
+                    }
                 }
             }
+        }
+
+        if let Some((a, b)) = pending_swap {
+            self.server_list.swap(a, b);
+            self.selected_server = Some(b);
         }
 
         if self.server_list.servers.is_empty() {
@@ -148,8 +288,66 @@ impl MainMenu {
             });
         }
 
+        let lan_y = list_top + list_pad + entries_h + list_pad - self.scroll_offset;
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        elements.push(MenuElement::Text {
+            x: screen_w / 2.0,
+            y: lan_y,
+            text: "Scanning for games on your local network".into(),
+            scale: fs,
+            color: WHITE,
+            centered: true,
+        });
+        let loading_dots = match (millis / 300) % 4 {
+            0 => "O o o",
+            1 => "o O o",
+            2 => "o o O",
+            _ => "o O o",
+        };
+        elements.push(MenuElement::Text {
+            x: screen_w / 2.0,
+            y: lan_y + fs * 1.5,
+            text: loading_dots.into(),
+            scale: fs,
+            color: COL_DIM,
+            centered: true,
+        });
+
+        elements.push(MenuElement::ScissorPop);
+
+        if max_scroll > 0.0 {
+            let track_w = 6.0 * gs;
+            let track_x = screen_w - track_w - 2.0 * gs;
+            let thumb_frac = list_h / total_content;
+            let thumb_h = (list_h * thumb_frac).max(8.0 * gs);
+            let thumb_y = list_top + (self.scroll_offset / max_scroll) * (list_h - thumb_h);
+            elements.push(MenuElement::NineSlice {
+                x: track_x,
+                y: list_top,
+                w: track_w,
+                h: list_h,
+                sprite: SpriteId::ScrollerBackground,
+                border: 1.0 * gs,
+                tint: WHITE,
+            });
+            elements.push(MenuElement::NineSlice {
+                x: track_x,
+                y: thumb_y,
+                w: track_w,
+                h: thumb_h,
+                sprite: SpriteId::Scroller,
+                border: 1.0 * gs,
+                tint: WHITE,
+            });
+        }
+
         let has_sel = self.selected_server.is_some();
-        let footer_y = list_bottom + sep_h + gap;
+        let buttons_h = btn_h * 2.0 + gap;
+        let footer_pad = (footer_h - buttons_h) / 2.0;
+        let footer_y = list_bottom + footer_pad;
 
         let row1_w = top_w * 3.0 + gap * 2.0;
         let row1_x = (screen_w - row1_w) / 2.0;

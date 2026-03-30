@@ -30,8 +30,10 @@ pub enum PingState {
         online: i32,
         max: i32,
         latency_ms: u64,
-        #[allow(dead_code)]
         version: String,
+        protocol_match: bool,
+        favicon_rgba: Option<Vec<u8>>,
+        player_names: Vec<String>,
     },
     Failed(String),
 }
@@ -69,6 +71,13 @@ impl ServerList {
     pub fn update(&mut self, index: usize, entry: ServerEntry) {
         if index < self.servers.len() {
             self.servers[index] = entry;
+            self.save();
+        }
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        if a < self.servers.len() && b < self.servers.len() {
+            self.servers.swap(a, b);
             self.save();
         }
     }
@@ -152,7 +161,16 @@ async fn ping_server(address: String, results: PingResults) {
 
         let motd = format_motd_spans(&status.description);
         let version = status.version.name.clone();
+        let protocol_match = status.version.protocol == azalea_protocol::packets::PROTOCOL_VERSION;
         let (online, max) = (status.players.online, status.players.max);
+
+        let favicon_rgba = status.favicon.as_deref().and_then(decode_favicon);
+        let player_names: Vec<String> = status
+            .players
+            .sample
+            .iter()
+            .map(|p| p.name.clone())
+            .collect();
 
         Ok(PingState::Success {
             motd,
@@ -160,6 +178,9 @@ async fn ping_server(address: String, results: PingResults) {
             max,
             latency_ms,
             version,
+            protocol_match,
+            favicon_rgba,
+            player_names,
         })
     }
     .await;
@@ -169,6 +190,13 @@ async fn ping_server(address: String, results: PingResults) {
         Err(e) => PingState::Failed(e),
     };
     results.write().insert(address, state);
+}
+
+fn decode_favicon(data: &str) -> Option<Vec<u8>> {
+    let b64 = data.strip_prefix("data:image/png;base64,").unwrap_or(data);
+    let png_bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64).ok()?;
+    let img = image::load_from_memory(&png_bytes).ok()?.to_rgba8();
+    Some(img.into_raw())
 }
 
 fn with_default_port(address: &str) -> String {

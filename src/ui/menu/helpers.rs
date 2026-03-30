@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::server_list::MotdSpan;
 
 pub(super) fn empty_result(blur: f32) -> MainMenuResult {
     MainMenuResult {
@@ -164,6 +165,9 @@ pub(super) fn push_server_status(
     entry_rect: &[f32; 4],
     fs: f32,
     gs: f32,
+    cursor: (f32, f32),
+    screen_w: f32,
+    screen_h: f32,
     text_width_fn: &dyn Fn(&str, f32) -> f32,
 ) {
     let Some(state) = ping_results.get(address) else {
@@ -180,22 +184,33 @@ pub(super) fn push_server_status(
 
     match state {
         PingState::Pinging => {
-            let dots = match (std::time::SystemTime::now()
+            let millis = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_millis()
-                / 500)
-                % 4
-            {
-                0 => "Pinging",
-                1 => "Pinging.",
-                2 => "Pinging..",
-                _ => "Pinging...",
+                .as_millis();
+            let icon_idx = (millis / 100) & 7;
+            let frame = if icon_idx > 4 { 8 - icon_idx } else { icon_idx };
+            let sprite = match frame {
+                0 => SpriteId::Pinging1,
+                1 => SpriteId::Pinging2,
+                2 => SpriteId::Pinging3,
+                3 => SpriteId::Pinging4,
+                _ => SpriteId::Pinging5,
             };
+            let bw = 10.0 * gs;
+            let bh = 8.0 * gs;
+            elements.push(MenuElement::Image {
+                x: entry_rect[0] + entry_rect[2] - bw - 5.0 * gs,
+                y: entry_rect[1],
+                w: bw,
+                h: bh,
+                sprite,
+                tint: WHITE,
+            });
             elements.push(MenuElement::Text {
                 x: text_x,
                 y: motd_y,
-                text: dots.into(),
+                text: "Pinging...".into(),
                 scale: fs,
                 color: COL_DARK_DIM,
                 centered: false,
@@ -206,34 +221,76 @@ pub(super) fn push_server_status(
             online,
             max,
             latency_ms,
+            version,
+            protocol_match,
+            player_names,
             ..
         } => {
-            elements.push(MenuElement::McText {
-                x: text_x,
-                y: motd_y,
-                spans: motd.clone(),
-                scale: fs,
-                centered: false,
-            });
+            let motd_max_w = entry_rect[2] - 32.0 * gs - 2.0 * gs;
+            let line_h = fs * 1.2;
+            let lines = wrap_motd_spans(motd, motd_max_w, fs, text_width_fn);
+            for (i, line) in lines.iter().take(2).enumerate() {
+                elements.push(MenuElement::McText {
+                    x: text_x,
+                    y: motd_y + i as f32 * line_h,
+                    spans: line.clone(),
+                    scale: fs,
+                    centered: false,
+                });
+            }
 
-            let player_text = format!("{online}/{max}");
-            let right_x = entry_rect[0] + entry_rect[2] - 10.0 * gs;
-            let pw = text_width_fn(&player_text, fs);
-            elements.push(MenuElement::Text {
-                x: right_x - pw,
-                y: entry_rect[1] + 1.0 * gs,
-                text: player_text,
-                scale: fs,
-                color: COL_DARK_DIM,
-                centered: false,
-            });
-
-            let (bars, bar_color) = ping_level(*latency_ms);
+            let status_sprite = if !protocol_match {
+                SpriteId::Incompatible
+            } else {
+                ping_sprite(*latency_ms)
+            };
             let bw = 10.0 * gs;
             let bh = 8.0 * gs;
-            let bx = right_x - pw - 6.0 * gs - bw;
-            let by = entry_rect[1] + 1.0 * gs;
-            push_ping_bars(elements, bx, by, bw, bh, bars, bar_color);
+            let bx = entry_rect[0] + entry_rect[2] - bw - 5.0 * gs;
+            let by = entry_rect[1];
+            elements.push(MenuElement::Image {
+                x: bx,
+                y: by,
+                w: bw,
+                h: bh,
+                sprite: status_sprite,
+                tint: WHITE,
+            });
+
+            let status_text = if !protocol_match {
+                version.clone()
+            } else {
+                format!("{online}/{max}")
+            };
+            let status_color = if !protocol_match {
+                COL_RED
+            } else {
+                COL_DARK_DIM
+            };
+            let pw = text_width_fn(&status_text, fs);
+            let status_x = bx - pw - 5.0 * gs;
+            elements.push(MenuElement::Text {
+                x: status_x,
+                y: entry_rect[1] + 1.0 * gs,
+                text: status_text,
+                scale: fs,
+                color: status_color,
+                centered: false,
+            });
+
+            if common::hit_test(cursor, [bx, by, bw, bh]) {
+                let tip = if !protocol_match {
+                    "Incompatible version!".to_string()
+                } else {
+                    format!("{latency_ms} ms")
+                };
+                common::push_tooltip(elements, cursor, screen_w, screen_h, gs, &tip);
+            } else if common::hit_test(cursor, [status_x, entry_rect[1], pw, fs])
+                && !player_names.is_empty()
+            {
+                let tip = player_names.join("\n");
+                common::push_tooltip(elements, cursor, screen_w, screen_h, gs, &tip);
+            }
         }
         PingState::Failed(err) => {
             let display = if err.len() > 40 {
@@ -249,50 +306,84 @@ pub(super) fn push_server_status(
                 color: COL_RED,
                 centered: false,
             });
+            let bw = 10.0 * gs;
+            let bh = 8.0 * gs;
+            elements.push(MenuElement::Image {
+                x: entry_rect[0] + entry_rect[2] - bw - 5.0 * gs,
+                y: entry_rect[1],
+                w: bw,
+                h: bh,
+                sprite: SpriteId::Unreachable,
+                tint: WHITE,
+            });
         }
     }
 }
 
-const PING_THRESHOLDS: [(u64, u8, [f32; 4]); 5] = [
-    (150, 5, [0.26, 0.63, 0.28, 1.0]),
-    (300, 4, [0.51, 0.78, 0.52, 1.0]),
-    (600, 3, [1.0, 0.93, 0.35, 1.0]),
-    (1000, 2, [1.0, 0.65, 0.15, 1.0]),
-    (u64::MAX, 1, [0.9, 0.22, 0.21, 1.0]),
-];
+fn wrap_motd_spans(
+    spans: &[MotdSpan],
+    max_w: f32,
+    fs: f32,
+    text_width_fn: &dyn Fn(&str, f32) -> f32,
+) -> Vec<Vec<MotdSpan>> {
+    let mut lines: Vec<Vec<MotdSpan>> = Vec::new();
+    let mut current_line: Vec<MotdSpan> = Vec::new();
+    let mut current_w: f32 = 0.0;
 
-pub(super) fn ping_level(ms: u64) -> (u8, [f32; 4]) {
-    for &(threshold, bars, color) in &PING_THRESHOLDS {
-        if ms < threshold {
-            return (bars, color);
+    for span in spans {
+        let make_span = |text: String| MotdSpan {
+            text,
+            color: span.color,
+            bold: span.bold,
+            italic: span.italic,
+            strikethrough: span.strikethrough,
+            underline: span.underline,
+        };
+
+        for part in span.text.split_inclusive([' ', '\n']) {
+            if part.contains('\n') {
+                let text = part.trim_end_matches('\n');
+                if !text.is_empty() {
+                    current_line.push(make_span(text.to_string()));
+                }
+                lines.push(std::mem::take(&mut current_line));
+                current_w = 0.0;
+                continue;
+            }
+
+            let part_w = text_width_fn(part, fs);
+            if current_w + part_w > max_w && !current_line.is_empty() {
+                lines.push(std::mem::take(&mut current_line));
+                current_w = 0.0;
+            }
+            current_w += part_w;
+            if let Some(last) = current_line.last_mut()
+                && last.color == span.color
+                && last.bold == span.bold
+            {
+                last.text.push_str(part);
+                continue;
+            }
+            current_line.push(make_span(part.to_string()));
         }
     }
-    (1, PING_THRESHOLDS[4].2)
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+    lines
 }
 
-pub(super) fn push_ping_bars(
-    elements: &mut Vec<MenuElement>,
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    bars: u8,
-    color: [f32; 4],
-) {
-    let bw = w / 5.0;
-    let inactive = [0.12, 0.12, 0.16, 1.0];
-    for i in 0..5u8 {
-        let bh = h * (i as f32 + 1.0) / 5.0;
-        let bx = x + i as f32 * bw;
-        let by = y + h - bh;
-        elements.push(MenuElement::Rect {
-            x: bx,
-            y: by,
-            w: bw - 1.0,
-            h: bh,
-            corner_radius: 0.0,
-            color: if i < bars { color } else { inactive },
-        });
+fn ping_sprite(ms: u64) -> SpriteId {
+    if ms < 150 {
+        SpriteId::Ping5
+    } else if ms < 300 {
+        SpriteId::Ping4
+    } else if ms < 600 {
+        SpriteId::Ping3
+    } else if ms < 1000 {
+        SpriteId::Ping2
+    } else {
+        SpriteId::Ping1
     }
 }
 

@@ -65,13 +65,14 @@ pub fn push_button(
         (SpriteId::ButtonNormal, WHITE)
     };
 
+    let border = if enabled { BTN_BORDER } else { 1.0 };
     elements.push(MenuElement::NineSlice {
         x,
         y,
         w,
         h,
         sprite,
-        border: BTN_BORDER * gs,
+        border: border * gs,
         tint: WHITE,
     });
 

@@ -168,6 +168,12 @@ pub struct MenuOverlayPipeline {
     vertex_buffer: vk::Buffer,
     vertex_allocation: Option<Allocation>,
     atlas: FontAtlas,
+    favicon_image: vk::Image,
+    favicon_view: vk::ImageView,
+    favicon_sampler: vk::Sampler,
+    favicon_allocation: Option<Allocation>,
+    favicon_regions: std::collections::HashMap<String, [f32; 4]>,
+    favicon_atlas_size: u32,
 }
 
 impl MenuOverlayPipeline {
@@ -224,6 +230,13 @@ impl MenuOverlayPipeline {
                 stage_flags: vk::ShaderStageFlags::FRAGMENT,
                 ..Default::default()
             },
+            vk::DescriptorSetLayoutBinding {
+                binding: 5,
+                descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                descriptor_count: 1,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            },
         ];
         let tex_layout_info = vk::DescriptorSetLayoutCreateInfo::default().bindings(&tex_bindings);
         let tex_layout = unsafe { device.create_descriptor_set_layout(&tex_layout_info, None) }
@@ -243,7 +256,7 @@ impl MenuOverlayPipeline {
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: 5,
+                descriptor_count: 6,
             },
         ];
         let pool_info = vk::DescriptorPoolCreateInfo::default()
@@ -387,6 +400,38 @@ impl MenuOverlayPipeline {
             image_view: mc_font_view,
             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         }];
+        let (favicon_image, favicon_view, favicon_alloc) = util::create_gpu_image_with_format(
+            device,
+            allocator,
+            1,
+            1,
+            vk::Format::R8G8B8A8_SRGB,
+            "favicon_placeholder",
+        );
+        let (fav_staging, fav_staging_alloc) = util::create_staging_buffer(
+            device,
+            allocator,
+            &[255u8, 255, 255, 255],
+            "favicon_staging",
+        );
+        util::upload_image(
+            device,
+            queue,
+            command_pool,
+            fav_staging,
+            favicon_image,
+            1,
+            1,
+        );
+        unsafe { device.destroy_buffer(fav_staging, None) };
+        allocator.lock().unwrap().free(fav_staging_alloc).ok();
+        let favicon_sampler = unsafe { util::create_nearest_sampler(device) };
+
+        let favicon_img_info = [vk::DescriptorImageInfo {
+            sampler: favicon_sampler,
+            image_view: favicon_view,
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }];
         let writes = [
             vk::WriteDescriptorSet::default()
                 .dst_set(tex_set)
@@ -413,6 +458,11 @@ impl MenuOverlayPipeline {
                 .dst_binding(4)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .image_info(&font_img_info),
+            vk::WriteDescriptorSet::default()
+                .dst_set(tex_set)
+                .dst_binding(5)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&favicon_img_info),
         ];
         unsafe { device.update_descriptor_sets(&writes, &[]) };
 
@@ -464,6 +514,12 @@ impl MenuOverlayPipeline {
             vertex_buffer,
             vertex_allocation: Some(vertex_allocation),
             atlas,
+            favicon_image,
+            favicon_view,
+            favicon_sampler,
+            favicon_allocation: Some(favicon_alloc),
+            favicon_regions: std::collections::HashMap::new(),
+            favicon_atlas_size: 1,
         }
     }
 
@@ -699,6 +755,48 @@ impl MenuOverlayPipeline {
                         *corner_radius,
                     );
                 }
+                MenuElement::Favicon {
+                    x,
+                    y,
+                    size,
+                    address,
+                } => {
+                    if let Some([u0, v0, u1, v1]) = self.favicon_regions.get(address.as_str()) {
+                        push_quad(
+                            &mut vertices,
+                            *x,
+                            *y,
+                            *size,
+                            *size,
+                            *u0,
+                            *v0,
+                            *u1,
+                            *v1,
+                            [1.0, 1.0, 1.0, 1.0],
+                            6.0,
+                            [*size, *size],
+                            0.0,
+                        );
+                    } else if let Some(region) =
+                        self.sprite_atlas.regions.get(&SpriteId::UnknownServer)
+                    {
+                        push_quad(
+                            &mut vertices,
+                            *x,
+                            *y,
+                            *size,
+                            *size,
+                            region.u0,
+                            region.v0,
+                            region.u1,
+                            region.v1,
+                            [1.0, 1.0, 1.0, 1.0],
+                            2.0,
+                            [*size, *size],
+                            0.0,
+                        );
+                    }
+                }
                 _ => {}
             }
         }
@@ -882,6 +980,102 @@ impl MenuOverlayPipeline {
         unsafe { device.update_descriptor_sets(&write, &[]) };
     }
 
+    pub fn update_favicon_atlas(
+        &mut self,
+        device: &ash::Device,
+        queue: vk::Queue,
+        command_pool: vk::CommandPool,
+        allocator: &std::sync::Arc<std::sync::Mutex<gpu_allocator::vulkan::Allocator>>,
+        favicons: &[(String, Vec<u8>, u32)],
+    ) {
+        if favicons.is_empty() {
+            return;
+        }
+
+        let icon_size = 64u32;
+        let cols = (favicons.len() as f32).sqrt().ceil() as u32;
+        let rows = (favicons.len() as u32).div_ceil(cols);
+        let atlas_w = cols * icon_size;
+        let atlas_h = rows * icon_size;
+        let mut pixels = vec![0u8; (atlas_w * atlas_h * 4) as usize];
+        let mut regions = std::collections::HashMap::new();
+
+        for (i, (addr, rgba, src_size)) in favicons.iter().enumerate() {
+            let col = i as u32 % cols;
+            let row = i as u32 / cols;
+            let dst_x = col * icon_size;
+            let dst_y = row * icon_size;
+
+            for py in 0..icon_size {
+                for px in 0..icon_size {
+                    let sx = (px * src_size / icon_size).min(src_size - 1);
+                    let sy = (py * src_size / icon_size).min(src_size - 1);
+                    let src_off = ((sy * src_size + sx) * 4) as usize;
+                    let dst_off = (((dst_y + py) * atlas_w + dst_x + px) * 4) as usize;
+                    if src_off + 3 < rgba.len() && dst_off + 3 < pixels.len() {
+                        pixels[dst_off..dst_off + 4].copy_from_slice(&rgba[src_off..src_off + 4]);
+                    }
+                }
+            }
+
+            let u0 = dst_x as f32 / atlas_w as f32;
+            let v0 = dst_y as f32 / atlas_h as f32;
+            let u1 = (dst_x + icon_size) as f32 / atlas_w as f32;
+            let v1 = (dst_y + icon_size) as f32 / atlas_h as f32;
+            regions.insert(addr.clone(), [u0, v0, u1, v1]);
+        }
+
+        unsafe { device.device_wait_idle().unwrap() };
+
+        if let Some(alloc) = self.favicon_allocation.take() {
+            unsafe {
+                device.destroy_image_view(self.favicon_view, None);
+                device.destroy_image(self.favicon_image, None);
+            }
+            allocator.lock().unwrap().free(alloc).ok();
+        }
+
+        let (image, view, alloc) = util::create_gpu_image_with_format(
+            device,
+            allocator,
+            atlas_w,
+            atlas_h,
+            vk::Format::R8G8B8A8_SRGB,
+            "favicon_atlas",
+        );
+        let (staging, staging_alloc) =
+            util::create_staging_buffer(device, allocator, &pixels, "favicon_atlas_staging");
+        util::upload_image(
+            device,
+            queue,
+            command_pool,
+            staging,
+            image,
+            atlas_w,
+            atlas_h,
+        );
+        unsafe { device.destroy_buffer(staging, None) };
+        allocator.lock().unwrap().free(staging_alloc).ok();
+
+        self.favicon_image = image;
+        self.favicon_view = view;
+        self.favicon_allocation = Some(alloc);
+        self.favicon_regions = regions;
+        self.favicon_atlas_size = atlas_w;
+
+        let info = [vk::DescriptorImageInfo {
+            sampler: self.favicon_sampler,
+            image_view: view,
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }];
+        let write = [vk::WriteDescriptorSet::default()
+            .dst_set(self.tex_set)
+            .dst_binding(5)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(&info)];
+        unsafe { device.update_descriptor_sets(&write, &[]) };
+    }
+
     pub fn text_width(&self, text: &str, scale: f32) -> f32 {
         self.mc_text_width(text, scale)
     }
@@ -967,6 +1161,15 @@ impl MenuOverlayPipeline {
                 staging_alloc: self.mc_font_staging_allocation.take(),
             },
         );
+
+        unsafe {
+            device.destroy_sampler(self.favicon_sampler, None);
+            device.destroy_image_view(self.favicon_view, None);
+            device.destroy_image(self.favicon_image, None);
+        }
+        if let Some(a) = self.favicon_allocation.take() {
+            alloc.free(a).ok();
+        }
 
         drop(alloc);
 
@@ -1078,6 +1281,12 @@ pub enum MenuElement {
         corner_radius: f32,
         tint: [f32; 4],
     },
+    Favicon {
+        x: f32,
+        y: f32,
+        size: f32,
+        address: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -1110,6 +1319,26 @@ pub enum SpriteId {
     TooltipFrame,
     Scroller,
     ScrollerBackground,
+    Ping1,
+    Ping2,
+    Ping3,
+    Ping4,
+    Ping5,
+    PingUnknown,
+    ServerJoin,
+    ServerJoinHighlighted,
+    ServerMoveUp,
+    ServerMoveUpHighlighted,
+    ServerMoveDown,
+    ServerMoveDownHighlighted,
+    UnknownServer,
+    Pinging1,
+    Pinging2,
+    Pinging3,
+    Pinging4,
+    Pinging5,
+    Incompatible,
+    Unreachable,
 }
 
 struct SpriteRegion {
@@ -1283,6 +1512,106 @@ fn build_sprite_atlas(
             SpriteId::ScrollerBackground,
             "minecraft/textures/gui/sprites/widget/scroller_background.png",
             1.0,
+        ),
+        (
+            SpriteId::Ping1,
+            "minecraft/textures/gui/sprites/icon/ping_1.png",
+            0.0,
+        ),
+        (
+            SpriteId::Ping2,
+            "minecraft/textures/gui/sprites/icon/ping_2.png",
+            0.0,
+        ),
+        (
+            SpriteId::Ping3,
+            "minecraft/textures/gui/sprites/icon/ping_3.png",
+            0.0,
+        ),
+        (
+            SpriteId::Ping4,
+            "minecraft/textures/gui/sprites/icon/ping_4.png",
+            0.0,
+        ),
+        (
+            SpriteId::Ping5,
+            "minecraft/textures/gui/sprites/icon/ping_5.png",
+            0.0,
+        ),
+        (
+            SpriteId::PingUnknown,
+            "minecraft/textures/gui/sprites/icon/ping_unknown.png",
+            0.0,
+        ),
+        (
+            SpriteId::ServerJoin,
+            "minecraft/textures/gui/sprites/server_list/join.png",
+            0.0,
+        ),
+        (
+            SpriteId::ServerJoinHighlighted,
+            "minecraft/textures/gui/sprites/server_list/join_highlighted.png",
+            0.0,
+        ),
+        (
+            SpriteId::ServerMoveUp,
+            "minecraft/textures/gui/sprites/server_list/move_up.png",
+            0.0,
+        ),
+        (
+            SpriteId::ServerMoveUpHighlighted,
+            "minecraft/textures/gui/sprites/server_list/move_up_highlighted.png",
+            0.0,
+        ),
+        (
+            SpriteId::ServerMoveDown,
+            "minecraft/textures/gui/sprites/server_list/move_down.png",
+            0.0,
+        ),
+        (
+            SpriteId::ServerMoveDownHighlighted,
+            "minecraft/textures/gui/sprites/server_list/move_down_highlighted.png",
+            0.0,
+        ),
+        (
+            SpriteId::UnknownServer,
+            "minecraft/textures/misc/unknown_server.png",
+            0.0,
+        ),
+        (
+            SpriteId::Pinging1,
+            "minecraft/textures/gui/sprites/server_list/pinging_1.png",
+            0.0,
+        ),
+        (
+            SpriteId::Pinging2,
+            "minecraft/textures/gui/sprites/server_list/pinging_2.png",
+            0.0,
+        ),
+        (
+            SpriteId::Pinging3,
+            "minecraft/textures/gui/sprites/server_list/pinging_3.png",
+            0.0,
+        ),
+        (
+            SpriteId::Pinging4,
+            "minecraft/textures/gui/sprites/server_list/pinging_4.png",
+            0.0,
+        ),
+        (
+            SpriteId::Pinging5,
+            "minecraft/textures/gui/sprites/server_list/pinging_5.png",
+            0.0,
+        ),
+        (
+            SpriteId::Incompatible,
+            "minecraft/textures/gui/sprites/server_list/incompatible.png",
+            0.0,
+        ),
+        (
+            SpriteId::Unreachable,
+            "minecraft/textures/gui/sprites/server_list/unreachable.png",
+            0.0,
         ),
     ];
 

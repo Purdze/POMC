@@ -717,6 +717,16 @@ impl Renderer {
         }
     }
 
+    pub fn update_favicon_atlas(&mut self, favicons: &[(String, Vec<u8>, u32)]) {
+        self.menu_pipeline.update_favicon_atlas(
+            &self.ctx.device,
+            self.ctx.graphics_queue,
+            self.ctx.command_pool,
+            &self.ctx.allocator,
+            favicons,
+        );
+    }
+
     pub fn menu_text_width(&self, text: &str, scale: f32) -> f32 {
         self.menu_pipeline.text_width(text, scale)
     }
