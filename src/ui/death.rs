@@ -59,6 +59,15 @@ pub fn build_death_screen(
         });
     }
 
+    elements.push(MenuElement::Text {
+        x: cx,
+        y: 100.0 * gs,
+        text: "Score: 0".into(),
+        scale: fs,
+        color: [1.0, 1.0, 0.33, 1.0],
+        centered: true,
+    });
+
     let respawn_y = screen_h / 4.0 + 72.0 * gs;
     let h = common::push_button(
         elements,
