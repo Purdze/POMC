@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 pub const CURRENT_PACK_FORMAT: u32 = 84;
 
@@ -25,15 +24,10 @@ pub enum PackSource {
     Local,
 }
 
-enum PackStorage {
-    Directory(PathBuf),
-    Zip(Mutex<zip::ZipArchive<std::io::Cursor<Vec<u8>>>>),
-}
-
 struct ActivePack {
     id: String,
     source: PackSource,
-    storage: PackStorage,
+    dir: PathBuf,
     info: PackInfo,
 }
 
@@ -62,27 +56,9 @@ impl ResourcePackManager {
 
     pub fn resolve_asset(&self, asset_key: &str) -> Option<PathBuf> {
         for pack in self.active_packs.iter().rev() {
-            match &pack.storage {
-                PackStorage::Directory(dir) => {
-                    let path = dir.join("assets").join(asset_key);
-                    if path.exists() {
-                        return Some(path);
-                    }
-                }
-                PackStorage::Zip(archive) => {
-                    let zip_path = format!("assets/{asset_key}");
-                    let mut archive = archive.lock().unwrap();
-                    if let Ok(mut entry) = archive.by_name(&zip_path) {
-                        let cache_path = self.server_cache_dir.join("_zip_cache").join(asset_key);
-                        if let Some(parent) = cache_path.parent() {
-                            let _ = std::fs::create_dir_all(parent);
-                        }
-                        if let Ok(mut out) = std::fs::File::create(&cache_path) {
-                            let _ = std::io::copy(&mut entry, &mut out);
-                            return Some(cache_path);
-                        }
-                    }
-                }
+            let path = pack.dir.join("assets").join(asset_key);
+            if path.exists() {
+                return Some(path);
             }
         }
         None
@@ -118,7 +94,7 @@ impl ResourcePackManager {
         self.active_packs.push(ActivePack {
             id: pack_id,
             source: PackSource::Server,
-            storage: PackStorage::Directory(dir),
+            dir,
             info: PackInfo {
                 enabled: true,
                 source: PackSource::Server,
@@ -161,10 +137,10 @@ impl ResourcePackManager {
 
             if path.is_dir() {
                 if path.join("pack.mcmeta").exists() {
-                    let already_active = self.active_packs.iter().any(|p| {
-                        p.source == PackSource::Local
-                            && matches!(&p.storage, PackStorage::Directory(d) if d == &path)
-                    });
+                    let already_active = self
+                        .active_packs
+                        .iter()
+                        .any(|p| p.source == PackSource::Local && p.dir == path);
                     let mut info = parse_pack_meta_dir(&path, &name);
                     info.enabled = already_active;
                     info.source = PackSource::Local;
@@ -192,7 +168,7 @@ impl ResourcePackManager {
             self.active_packs.push(ActivePack {
                 id: name.to_owned(),
                 source: PackSource::Local,
-                storage: PackStorage::Directory(path),
+                dir: path,
                 info: PackInfo {
                     enabled: true,
                     source: PackSource::Local,
@@ -203,28 +179,24 @@ impl ResourcePackManager {
         } else if path.extension().is_some_and(|e| e == "zip")
             && let Ok(data) = std::fs::read(&path)
         {
-            let cursor = std::io::Cursor::new(data);
-            if let Ok(archive) = zip::ZipArchive::new(cursor) {
-                let info = parse_pack_meta_zip(&path, name).unwrap_or(PackInfo {
-                    name: name.to_owned(),
-                    description: name.to_owned(),
-                    compat: PackCompat::Compatible,
-                    source: PackSource::Local,
-                    enabled: false,
-                });
-                self.active_packs.retain(|p| p.id != name);
-                self.active_packs.push(ActivePack {
-                    id: name.to_owned(),
-                    source: PackSource::Local,
-                    storage: PackStorage::Zip(Mutex::new(archive)),
-                    info: PackInfo {
-                        enabled: true,
-                        source: PackSource::Local,
-                        ..info
-                    },
-                });
-                log::info!("Enabled local resource pack: {name}");
+            let extract_dir = self.server_cache_dir.join(format!("_local_{name}"));
+            if let Err(e) = extract_zip(&data, &extract_dir) {
+                log::error!("Failed to extract zip pack {name}: {e}");
+                return;
             }
+            let info = parse_pack_meta_dir(&extract_dir, name);
+            self.active_packs.retain(|p| p.id != name);
+            self.active_packs.push(ActivePack {
+                id: name.to_owned(),
+                source: PackSource::Local,
+                dir: extract_dir,
+                info: PackInfo {
+                    enabled: true,
+                    source: PackSource::Local,
+                    ..info
+                },
+            });
+            log::info!("Enabled local resource pack: {name}");
         }
         self.scan_local_packs();
     }
