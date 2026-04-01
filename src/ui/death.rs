@@ -59,13 +59,28 @@ pub fn build_death_screen(
         });
     }
 
+    let score_label = "Score: ";
+    let score_value = "0";
+    let char_w = fs * 0.6;
+    let label_w = char_w * score_label.len() as f32;
+    let value_w = char_w * score_value.len() as f32;
+    let total_w = label_w + value_w;
+    let score_x = cx - total_w / 2.0;
     elements.push(MenuElement::Text {
-        x: cx,
+        x: score_x,
         y: 100.0 * gs,
-        text: "Score: 0".into(),
+        text: score_label.into(),
+        scale: fs,
+        color: [1.0, 1.0, 1.0, 1.0],
+        centered: false,
+    });
+    elements.push(MenuElement::Text {
+        x: score_x + label_w,
+        y: 100.0 * gs,
+        text: score_value.into(),
         scale: fs,
         color: [1.0, 1.0, 0.33, 1.0],
-        centered: true,
+        centered: false,
     });
 
     let respawn_y = screen_h / 4.0 + 72.0 * gs;
