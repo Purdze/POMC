@@ -732,7 +732,7 @@ impl Renderer {
                     self.hand_pipeline.skin_sampler(),
                 );
             }
-            Err(e) => log::warn!("Failed to load player skin: {e}"),
+            Err(e) => tracing::warn!("Failed to load player skin: {e}"),
         }
     }
 

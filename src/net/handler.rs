@@ -25,7 +25,7 @@ pub fn handle_game_packet(
             });
         }
         ClientboundGamePacket::LevelChunkWithLight(p) => {
-            log::trace!(
+            tracing::trace!(
                 "Chunk [{}, {}] ({} block entities)",
                 p.x,
                 p.z,
@@ -68,7 +68,7 @@ pub fn handle_game_packet(
         }
         ClientboundGamePacket::ChunkBatchFinished(p) => {
             let desired = (p.batch_size as f32).max(25.0);
-            log::trace!(
+            tracing::trace!(
                 "ChunkBatchFinished: batch_size={}, responding with desired={desired}",
                 p.batch_size
             );
@@ -160,7 +160,7 @@ pub fn handle_game_packet(
             }
         }
         ClientboundGamePacket::Disconnect(p) => {
-            log::warn!("Disconnected: {}", p.reason);
+            tracing::warn!("Disconnected: {}", p.reason);
             let _ = event_tx.try_send(NetworkEvent::Disconnected {
                 reason: format!("{}", p.reason),
             });
@@ -264,7 +264,7 @@ pub fn handle_game_packet(
 }
 
 fn send_chat(event_tx: &Sender<NetworkEvent>, text: String) {
-    log::info!("Chat: {text}");
+    tracing::info!("Chat: {text}");
     let _ = event_tx.try_send(NetworkEvent::ChatMessage { text });
 }
 

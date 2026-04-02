@@ -68,7 +68,7 @@ impl BlockRegistry {
         let cache_path = game_dir.join("block_cache.json");
 
         let textures = if let Some(cached) = load_cache(&cache_path) {
-            log::info!("Block registry: {} blocks (cached textures)", cached.len());
+            tracing::info!("Block registry: {} blocks (cached textures)", cached.len());
             cached
         } else {
             let mut textures = model::load_all_block_textures(jar_assets_dir, asset_index);
@@ -81,7 +81,7 @@ impl BlockRegistry {
                 .or_insert_with(|| FaceTextures::uniform("lava_still", Tint::None));
 
             save_cache(&cache_path, &textures);
-            log::info!(
+            tracing::info!(
                 "Block registry: {} blocks (built and cached)",
                 textures.len()
             );
@@ -205,6 +205,6 @@ fn save_cache(path: &Path, textures: &HashMap<String, FaceTextures>) {
     if let Ok(json) = serde_json::to_string(textures)
         && let Err(e) = std::fs::write(path, json)
     {
-        log::warn!("Failed to write block cache: {e}");
+        tracing::warn!("Failed to write block cache: {e}");
     }
 }

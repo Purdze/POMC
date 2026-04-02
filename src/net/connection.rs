@@ -65,7 +65,7 @@ pub fn spawn_connection(rt: &tokio::runtime::Runtime, args: ConnectArgs) -> Conn
         if let Err(e) =
             connect_to_server(args, event_tx.clone(), chat_rx, game_packet_tx, packet_rx).await
         {
-            log::error!("Network error: {e}");
+            tracing::error!("Network error: {e}");
             let reason = friendly_error_reason(&e);
             let _ = event_tx.try_send(NetworkEvent::Disconnected { reason });
         }
@@ -92,7 +92,7 @@ pub async fn connect_to_server(
     let addr = azalea_protocol::resolve::resolve_address(&server_addr)
         .await
         .map_err(|e| ConnectionError::InvalidAddress(format!("{}: {e}", args.server)))?;
-    log::info!("Connecting to {} (resolved: {addr})...", args.server);
+    tracing::info!("Connecting to {} (resolved: {addr})...", args.server);
 
     let mut conn: Connection<_, _> = Connection::new(&addr).await?;
 
@@ -112,18 +112,18 @@ pub async fn connect_to_server(
     })
     .await?;
 
-    log::info!("Sent login hello as {}", args.username);
+    tracing::info!("Sent login hello as {}", args.username);
 
     login_sequence(&mut conn, &args).await?;
 
     conn.write(ServerboundLoginAcknowledged {}).await?;
     let mut conn = conn.config();
 
-    log::info!("Entering configuration phase");
+    tracing::info!("Entering configuration phase");
     let registry_holder = config_sequence(&mut conn, args.view_distance).await?;
 
     let conn = conn.game();
-    log::info!("Entering game state");
+    tracing::info!("Entering game state");
     let biome_colors = extract_biome_climate(&registry_holder);
     let _ = event_tx.try_send(NetworkEvent::BiomeColors {
         colors: biome_colors,
@@ -147,20 +147,20 @@ async fn login_sequence(
 ) -> Result<(), ConnectionError> {
     loop {
         let packet: ClientboundLoginPacket = conn.read().await?;
-        log::info!("Login packet: {:?}", std::mem::discriminant(&packet));
+        tracing::info!("Login packet: {:?}", std::mem::discriminant(&packet));
         match packet {
             ClientboundLoginPacket::Hello(p) => {
                 handle_encryption(conn, &p, args).await?;
             }
             ClientboundLoginPacket::LoginCompression(p) => {
                 conn.set_compression_threshold(p.compression_threshold);
-                log::info!(
+                tracing::info!(
                     "Compression enabled (threshold: {})",
                     p.compression_threshold
                 );
             }
             ClientboundLoginPacket::LoginFinished(p) => {
-                log::info!(
+                tracing::info!(
                     "Login success: {} ({})",
                     p.game_profile.name,
                     p.game_profile.uuid
@@ -180,7 +180,7 @@ async fn login_sequence(
                 .await?;
             }
             _ => {
-                log::debug!("Login packet: {:?}", std::mem::discriminant(&packet));
+                tracing::debug!("Login packet: {:?}", std::mem::discriminant(&packet));
             }
         }
     }
@@ -201,15 +201,15 @@ async fn handle_encryption(
             )
         })?;
 
-        log::info!("Authenticating with session server (uuid: {})", args.uuid);
+        tracing::info!("Authenticating with session server (uuid: {})", args.uuid);
         conn.authenticate(access_token, &args.uuid, e.secret_key, hello, None)
             .await
             .map_err(|e: azalea_auth::sessionserver::ClientSessionServerError| {
                 ConnectionError::Auth(e.to_string())
             })?;
-        log::info!("Session server authentication successful");
+        tracing::info!("Session server authentication successful");
     } else {
-        log::info!("Server does not require authentication");
+        tracing::info!("Server does not require authentication");
     }
 
     conn.write(ServerboundKey {
@@ -219,7 +219,7 @@ async fn handle_encryption(
     .await?;
 
     conn.set_encryption_key(e.secret_key);
-    log::info!("Encryption enabled");
+    tracing::info!("Encryption enabled");
     Ok(())
 }
 
@@ -266,7 +266,7 @@ async fn config_sequence(
                 registry_holder.append(p.registry_id, p.entries);
             }
             ClientboundConfigPacket::UpdateTags(_) => {
-                log::debug!("Received tags");
+                tracing::debug!("Received tags");
             }
             ClientboundConfigPacket::SelectKnownPacks(_) => {
                 conn.write(ServerboundConfigPacket::SelectKnownPacks(
@@ -302,7 +302,7 @@ async fn config_sequence(
                 .await?;
             }
             _ => {
-                log::debug!("Config packet: {:?}", std::mem::discriminant(&packet));
+                tracing::debug!("Config packet: {:?}", std::mem::discriminant(&packet));
             }
         }
     }
@@ -354,7 +354,7 @@ fn extract_biome_climate(
             );
         }
     }
-    log::info!("Extracted {} biome climate entries", result.len());
+    tracing::info!("Extracted {} biome climate entries", result.len());
     result
 }
 
@@ -404,7 +404,7 @@ async fn game_loop(
     tokio::spawn(async move {
         while let Some(packet) = outbound_rx.recv().await {
             if let Err(e) = writer.write(packet).await {
-                log::error!("Failed to write packet: {e}");
+                tracing::error!("Failed to write packet: {e}");
                 break;
             }
         }
@@ -444,7 +444,7 @@ async fn game_loop(
         match reader.read().await {
             Ok(packet) => handle_game_packet(&packet, &sender, event_tx, &registry_holder),
             Err(e) if is_recoverable_read_error(&e) => {
-                log::warn!("Skipping malformed packet: {e}");
+                tracing::warn!("Skipping malformed packet: {e}");
             }
             Err(e) => return Err(e.into()),
         }

@@ -279,7 +279,7 @@ impl SkyPipeline {
             "sky_vertices",
         );
 
-        log::info!(
+        tracing::info!(
             "Sky pipeline initialized ({} top_disc, {} star, 6 sun, 6 moon, {} sunrise, {} dark_disc vertices)",
             geom.top_disc_count,
             geom.star_count,
@@ -791,7 +791,7 @@ fn load_celestial_texture(
 ) -> (vk::Image, vk::ImageView, Allocation) {
     let path = resolve_asset_path(jar_assets_dir, asset_index, key);
     let (pixels, w, h) = util::load_png(&path).unwrap_or_else(|| {
-        log::warn!("Failed to load {key}, using fallback");
+        tracing::warn!("Failed to load {key}, using fallback");
         (vec![255u8; 16 * 16 * 4], 16, 16)
     });
 
@@ -804,7 +804,7 @@ fn load_celestial_texture(
     unsafe { device.destroy_buffer(staging_buf, None) };
     allocator.lock().unwrap().free(staging_alloc).ok();
 
-    log::info!("Sky: loaded {key} ({w}x{h})");
+    tracing::info!("Sky: loaded {key} ({w}x{h})");
     (image, view, allocation)
 }
 

@@ -316,7 +316,7 @@ pub fn load_png(path: &Path) -> Option<(Vec<u8>, u32, u32)> {
             rgba
         }
         other => {
-            log::warn!("Unsupported PNG color type {other:?}: {}", path.display());
+            tracing::warn!("Unsupported PNG color type {other:?}: {}", path.display());
             return None;
         }
     };

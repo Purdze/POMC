@@ -232,7 +232,7 @@ impl App {
     fn sync_render_distance(&mut self) {
         let rd = self.menu.render_distance;
         self.last_render_distance = rd;
-        log::info!("Render distance changed to {rd}");
+        tracing::info!("Render distance changed to {rd}");
         if let Some(sender) = &self.packet_sender {
             use azalea_entity::HumanoidArm;
             use azalea_protocol::common::client_information::*;
@@ -370,18 +370,18 @@ impl App {
             }
             match event {
                 NetworkEvent::Connected => {
-                    log::info!("Connected to server");
+                    tracing::info!("Connected to server");
                     self.state = GameState::Loading;
                 }
                 NetworkEvent::BiomeColors { colors } => {
-                    log::info!("Received {} biome climate entries", colors.len());
+                    tracing::info!("Received {} biome climate entries", colors.len());
                     self.biome_climate = Arc::new(colors);
                     if let Some(dispatcher) = &mut self.mesh_dispatcher {
                         dispatcher.set_biome_climate(self.biome_climate.clone());
                     }
                 }
                 NetworkEvent::DimensionInfo { height, min_y } => {
-                    log::info!("Dimension: height={height}, min_y={min_y}");
+                    tracing::info!("Dimension: height={height}, min_y={min_y}");
                     self.chunk_store =
                         ChunkStore::new_with_dimension(self.menu.render_distance, height, min_y);
                     if let Some(renderer) = &mut self.renderer {
@@ -400,7 +400,7 @@ impl App {
                     block_y_mask,
                 } => {
                     if let Err(e) = self.chunk_store.load_chunk(pos, &data, &heightmaps) {
-                        log::error!("Failed to load chunk [{}, {}]: {e}", pos.x, pos.z);
+                        tracing::error!("Failed to load chunk [{}, {}]: {e}", pos.x, pos.z);
                         continue;
                     }
                     self.chunk_store.store_light(
@@ -419,7 +419,7 @@ impl App {
                     }
                 }
                 NetworkEvent::ChunkCacheCenter { x, z } => {
-                    log::debug!("Chunk cache center: [{x}, {z}]");
+                    tracing::debug!("Chunk cache center: [{x}, {z}]");
                     self.chunk_store
                         .set_center(azalea_core::position::ChunkPos::new(x, z));
                 }
@@ -445,7 +445,7 @@ impl App {
                             renderer.set_camera_position(x, y, z, yaw, pitch);
                         }
                         self.position_set = true;
-                        log::info!("Player position set to ({x:.1}, {y:.1}, {z:.1})");
+                        tracing::info!("Player position set to ({x:.1}, {y:.1}, {z:.1})");
                     }
                 }
                 NetworkEvent::PlayerHealth {
@@ -490,15 +490,15 @@ impl App {
                     }
                 }
                 NetworkEvent::GameModeChanged { game_mode } => {
-                    log::info!("Game mode changed to {game_mode}");
+                    tracing::info!("Game mode changed to {game_mode}");
                     self.player.game_mode = game_mode;
                 }
                 NetworkEvent::ServerViewDistance { distance } => {
-                    log::info!("Server view distance: {distance}");
+                    tracing::info!("Server view distance: {distance}");
                     self.server_render_distance = distance;
                 }
                 NetworkEvent::ServerSimulationDistance { distance } => {
-                    log::info!("Server simulation distance: {distance}");
+                    tracing::info!("Server simulation distance: {distance}");
                     self.server_simulation_distance = distance;
                 }
                 NetworkEvent::BlockChangedAck { seq } => {
@@ -611,7 +611,7 @@ impl App {
                     self.item_entity_store.pickup(item_id, target_pos);
                 }
                 NetworkEvent::Disconnected { reason } => {
-                    log::warn!("Disconnected: {reason}");
+                    tracing::warn!("Disconnected: {reason}");
                     disconnect_reason = Some(reason);
                 }
             }
@@ -816,7 +816,7 @@ impl ApplicationHandler for App {
         let window = match event_loop.create_window(window_attrs) {
             Ok(w) => Arc::new(w),
             Err(e) => {
-                log::error!("Failed to create window: {e}");
+                tracing::error!("Failed to create window: {e}");
                 event_loop.exit();
                 return;
             }
@@ -830,7 +830,7 @@ impl ApplicationHandler for App {
         ) {
             Ok(r) => r,
             Err(e) => {
-                log::error!("Failed to create renderer: {e}");
+                tracing::error!("Failed to create renderer: {e}");
                 event_loop.exit();
                 return;
             }
@@ -1029,7 +1029,7 @@ impl ApplicationHandler for App {
                                     self.input.cursor_pos(),
                                     self.menu.is_main_screen(),
                                 ) {
-                                    log::error!("Render error: {e}");
+                                    tracing::error!("Render error: {e}");
                                 }
 
                                 self.input.clear_click_events();
@@ -1174,7 +1174,7 @@ impl ApplicationHandler for App {
                                     self.input.cursor_pos(),
                                     false,
                                 ) {
-                                    log::error!("Render error: {e}");
+                                    tracing::error!("Render error: {e}");
                                 }
                             }
 
@@ -1444,7 +1444,7 @@ impl ApplicationHandler for App {
                                     &entity_renders,
                                     &item_renders,
                                 ) {
-                                    log::error!("Render error: {e}");
+                                    tracing::error!("Render error: {e}");
                                 }
                             }
 

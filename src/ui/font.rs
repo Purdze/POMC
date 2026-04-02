@@ -51,7 +51,7 @@ impl GlyphMap {
             "minecraft/textures/font/ascii.png",
         );
         let img = load_image(&path)
-            .map_err(|e| log::warn!("Failed to load MC font: {e}"))
+            .map_err(|e| tracing::warn!("Failed to load MC font: {e}"))
             .ok()?
             .to_rgba8();
 

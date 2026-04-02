@@ -491,7 +491,7 @@ fn load_entity_texture(
             util::load_png(&path)
         })
         .unwrap_or_else(|| {
-            log::warn!(
+            tracing::warn!(
                 "Failed to load entity texture {:?}, using fallback",
                 asset_keys
             );

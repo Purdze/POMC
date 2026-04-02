@@ -83,7 +83,7 @@ impl TextureAtlas {
             let (data, img_w, img_h) = match util::load_png(&file_path) {
                 Some(p) => p,
                 None => {
-                    log::warn!("Missing texture: {name}");
+                    tracing::warn!("Missing texture: {name}");
                     regions.insert(name.to_string(), missing_region);
                     continue;
                 }
@@ -134,7 +134,7 @@ impl TextureAtlas {
 
         let sampler = unsafe { util::create_nearest_sampler_mipmapped(device, mip_levels) };
 
-        log::info!("Atlas built: {atlas_size}x{atlas_size}, {slot} textures");
+        tracing::info!("Atlas built: {atlas_size}x{atlas_size}, {slot} textures");
 
         Ok(Self {
             image,

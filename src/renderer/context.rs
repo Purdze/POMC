@@ -90,7 +90,7 @@ impl VulkanContext {
             vec![CString::new("VK_LAYER_KHRONOS_validation").unwrap()]
         } else {
             if cfg!(debug_assertions) {
-                log::warn!(
+                tracing::warn!(
                     "Vulkan validation layers not available - install the Vulkan SDK for debug diagnostics"
                 );
             }
@@ -154,7 +154,7 @@ impl VulkanContext {
             );
             (name, ver)
         };
-        log::info!("GPU: {dev_name} ({vulkan_version})");
+        tracing::info!("GPU: {dev_name} ({vulkan_version})");
 
         let unique_families: Vec<u32> = if graphics_family == present_family {
             vec![graphics_family]
@@ -366,9 +366,9 @@ unsafe extern "system" fn vulkan_debug_callback(
 ) -> vk::Bool32 {
     let msg = unsafe { CStr::from_ptr((*data).p_message) }.to_string_lossy();
     match severity {
-        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => log::error!("[Vulkan] {msg}"),
-        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => log::warn!("[Vulkan] {msg}"),
-        _ => log::debug!("[Vulkan] {msg}"),
+        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => tracing::error!("[Vulkan] {msg}"),
+        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => tracing::warn!("[Vulkan] {msg}"),
+        _ => tracing::debug!("[Vulkan] {msg}"),
     }
     vk::FALSE
 }

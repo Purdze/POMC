@@ -59,7 +59,7 @@ impl ServerList {
         if let Ok(json) = serde_json::to_string_pretty(&self.servers)
             && let Err(e) = std::fs::write(&self.path, json)
         {
-            log::warn!("Failed to save server list: {e}");
+            tracing::warn!("Failed to save server list: {e}");
         }
     }
 

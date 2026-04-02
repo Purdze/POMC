@@ -38,7 +38,7 @@ fn compute_bucket_count(instance: &ash::Instance, physical_device: vk::PhysicalD
     let budget = (device_local_bytes as f64 * VRAM_BUDGET_FRACTION) as u64;
     let buckets = (budget / BYTES_PER_BUCKET) as u32;
     let count = buckets.clamp(MIN_BUCKETS, MAX_BUCKETS);
-    log::info!(
+    tracing::info!(
         "GPU VRAM: {} MB, chunk budget: {} MB, buckets: {}",
         device_local_bytes / (1024 * 1024),
         (count as u64 * BYTES_PER_BUCKET) / (1024 * 1024),
@@ -196,7 +196,7 @@ impl ChunkBufferStore {
         let transfer_cmd = unsafe { device.allocate_command_buffers(&cmd_info) }
             .expect("failed to alloc transfer cmd")[0];
 
-        log::info!(
+        tracing::info!(
             "Chunk buffers: {} (vertex={} MB, index={} MB, staging={} KB)",
             if use_staging {
                 "DEVICE_LOCAL + staging"
@@ -391,7 +391,7 @@ impl ChunkBufferStore {
 
         let num_buckets = mesh.vertices.len().div_ceil(BUCKET_VERTICES as usize) as u32;
         if self.free_buckets.len() < num_buckets as usize {
-            log::warn!(
+            tracing::warn!(
                 "Bucket pool full ({} free, need {}), skipping {:?}",
                 self.free_buckets.len(),
                 num_buckets,

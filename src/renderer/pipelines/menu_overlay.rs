@@ -1626,7 +1626,7 @@ fn build_sprite_atlas(
                 images.push((id, rgba.into_raw(), w, h, border));
             }
             Err(e) => {
-                log::warn!("Failed to load sprite {asset_key}: {e}");
+                tracing::warn!("Failed to load sprite {asset_key}: {e}");
                 images.push((id, vec![255, 0, 255, 255], 1, 1, 0.0));
             }
         }
@@ -1654,7 +1654,7 @@ fn build_sprite_atlas(
             images.push((SpriteId::InventoryBackground, cropped, crop_w, crop_h, 0.0));
         }
         Err(e) => {
-            log::warn!("Failed to load inventory background: {e}");
+            tracing::warn!("Failed to load inventory background: {e}");
             images.push((
                 SpriteId::InventoryBackground,
                 vec![255, 0, 255, 255],
@@ -1679,7 +1679,7 @@ fn build_sprite_atlas(
             row_height = 0;
         }
         if cursor_y + h > atlas_size {
-            log::warn!("Sprite atlas overflow, skipping {:?}", id);
+            tracing::warn!("Sprite atlas overflow, skipping {:?}", id);
             continue;
         }
 
@@ -1800,7 +1800,7 @@ fn build_item_atlas(
 
     for name in &item_names {
         if slot >= ITEM_GRID * ITEM_GRID {
-            log::warn!("Item atlas full, skipping remaining items");
+            tracing::warn!("Item atlas full, skipping remaining items");
             break;
         }
 
@@ -1852,7 +1852,7 @@ fn build_item_atlas(
         slot += 1;
     }
 
-    log::info!(
+    tracing::info!(
         "Item atlas: loaded {} textures into {}x{}",
         regions.len(),
         ITEM_ATLAS_SIZE,

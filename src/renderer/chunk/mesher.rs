@@ -831,7 +831,7 @@ fn mesh_chunk_snapshot(
                     let block: Box<dyn azalea_block::BlockTrait> = state.into();
                     let id = block.id().to_string();
                     if logged_missing.insert(id.clone()) {
-                        log::warn!("Missing model: {id}");
+                        tracing::warn!("Missing model: {id}");
                     }
                     emit_missing_cube(
                         &mut vertices,
