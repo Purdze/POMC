@@ -18,7 +18,7 @@ layout(location = 1) out float v_dist;
 
 void main() {
     vec3 world_pos = position + vec3(camera_pos.x, cloud_height, camera_pos.z);
-    gl_Position = view_proj * vec4(world_pos, 1.0);
-    v_world_xz = vec2(world_pos.x + cloud_offset, world_pos.z + 3.96);
+    gl_Position = view_proj * vec4(world_pos - camera_pos, 1.0);
+    v_world_xz = vec2(world_pos.x + cloud_offset, world_pos.z);
     v_dist = length(world_pos - camera_pos);
 }

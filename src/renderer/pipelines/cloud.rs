@@ -4,14 +4,14 @@ use std::sync::{Arc, Mutex};
 use ash::vk;
 use gpu_allocator::vulkan::{Allocation, Allocator};
 
-use crate::assets::{resolve_asset_path, AssetIndex};
+use crate::assets::{AssetIndex, resolve_asset_path};
+use crate::renderer::MAX_FRAMES_IN_FLIGHT;
 use crate::renderer::camera::Camera;
 use crate::renderer::pipelines::sky::SkyState;
 use crate::renderer::shader;
 use crate::renderer::util;
-use crate::renderer::MAX_FRAMES_IN_FLIGHT;
 
-const CLOUD_HEIGHT: f32 = 192.33;
+const CLOUD_HEIGHT: f32 = 192.0;
 const CLOUD_PLANE_RADIUS: f32 = 2048.0;
 const TICKS_PER_DAY: f32 = 24000.0;
 
@@ -41,12 +41,12 @@ pub struct CloudPipeline {
     uniform_sets: Vec<vk::DescriptorSet>,
     tex_set: vk::DescriptorSet,
     uniform_buffers: Vec<vk::Buffer>,
-    uniform_allocations: Vec<Allocation>,
+    uniform_allocations: Vec<Option<Allocation>>,
     vertex_buffer: vk::Buffer,
-    vertex_allocation: Allocation,
+    vertex_allocation: Option<Allocation>,
     cloud_image: vk::Image,
     cloud_view: vk::ImageView,
-    cloud_allocation: Allocation,
+    cloud_allocation: Option<Allocation>,
     cloud_sampler: vk::Sampler,
 }
 
@@ -131,7 +131,7 @@ impl CloudPipeline {
                 .buffer_info(&buffer_info);
             unsafe { device.update_descriptor_sets(&[write], &[]) };
             uniform_buffers.push(buf);
-            uniform_allocations.push(alloc);
+            uniform_allocations.push(Some(alloc));
         }
 
         let (cloud_image, cloud_view, cloud_allocation, cloud_sampler) = load_cloud_texture(
@@ -176,10 +176,10 @@ impl CloudPipeline {
             uniform_buffers,
             uniform_allocations,
             vertex_buffer,
-            vertex_allocation,
+            vertex_allocation: Some(vertex_allocation),
             cloud_image,
             cloud_view,
-            cloud_allocation,
+            cloud_allocation: Some(cloud_allocation),
             cloud_sampler,
         }
     }
@@ -211,8 +211,9 @@ impl CloudPipeline {
         };
 
         let bytes = bytemuck::bytes_of(&uniform);
-        self.uniform_allocations[frame].mapped_slice_mut().unwrap()[..bytes.len()]
-            .copy_from_slice(bytes);
+        if let Some(alloc) = &mut self.uniform_allocations[frame] {
+            alloc.mapped_slice_mut().unwrap()[..bytes.len()].copy_from_slice(bytes);
+        }
 
         unsafe {
             device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
@@ -236,24 +237,15 @@ impl CloudPipeline {
 
     pub fn destroy(&mut self, device: &ash::Device, allocator: &Arc<Mutex<Allocator>>) {
         unsafe { device.destroy_buffer(self.vertex_buffer, None) };
-        allocator
-            .lock()
-            .unwrap()
-            .free(std::mem::replace(&mut self.vertex_allocation, unsafe {
-                std::mem::zeroed()
-            }))
-            .ok();
+        if let Some(alloc) = self.vertex_allocation.take() {
+            allocator.lock().unwrap().free(alloc).ok();
+        }
 
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             unsafe { device.destroy_buffer(self.uniform_buffers[i], None) };
-            allocator
-                .lock()
-                .unwrap()
-                .free(std::mem::replace(
-                    &mut self.uniform_allocations[i],
-                    unsafe { std::mem::zeroed() },
-                ))
-                .ok();
+            if let Some(alloc) = self.uniform_allocations[i].take() {
+                allocator.lock().unwrap().free(alloc).ok();
+            }
         }
 
         unsafe {
@@ -261,13 +253,9 @@ impl CloudPipeline {
             device.destroy_image_view(self.cloud_view, None);
             device.destroy_image(self.cloud_image, None);
         }
-        allocator
-            .lock()
-            .unwrap()
-            .free(std::mem::replace(&mut self.cloud_allocation, unsafe {
-                std::mem::zeroed()
-            }))
-            .ok();
+        if let Some(alloc) = self.cloud_allocation.take() {
+            allocator.lock().unwrap().free(alloc).ok();
+        }
 
         unsafe {
             device.destroy_pipeline(self.pipeline, None);

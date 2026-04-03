@@ -283,7 +283,7 @@ impl Renderer {
             &ctx.allocator,
             ctx.graphics_queue,
             ctx.command_pool,
-            assets_dir,
+            jar_assets_dir,
             asset_index,
         );
 
