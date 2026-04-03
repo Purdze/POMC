@@ -380,11 +380,12 @@ pub async fn launch_game(
         }
     });
 
+    let app_emitter = app.clone();
     let app_handle = app.clone();
     let last_error_writer = last_error_line.clone();
     tokio::spawn(async move {
         while let Some(line) = rx.recv().await {
-            let _ = app.emit(
+            let _ = app_emitter.emit(
                 "console_message",
                 ConsoleEvent {
                     message_type: ConsoleEventType::Message,

@@ -5,13 +5,24 @@ use crate::{
 
 use std::path::{Path, PathBuf};
 
+const MAX_COPY_DEPTH: u32 = 16;
+
 fn copy_dir(src: &Path, dst: &Path) -> Result<(), InstallationError> {
+    copy_dir_recursive(src, dst, 0)
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path, depth: u32) -> Result<(), InstallationError> {
+    if depth > MAX_COPY_DEPTH {
+        return Err(InstallationError::Other(
+            "directory nesting too deep".into(),
+        ));
+    }
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let dst_path = dst.join(entry.file_name());
         if entry.file_type()?.is_dir() {
-            copy_dir(&entry.path(), &dst_path)?;
+            copy_dir_recursive(&entry.path(), &dst_path, depth + 1)?;
         } else {
             std::fs::copy(entry.path(), dst_path)?;
         }
