@@ -132,7 +132,9 @@ pub enum NetworkEvent {
     ItemPickedUp {
         /// The entity ID of the item being collected.
         item_id: i32,
-        /// The entity ID of the collector (player/mob).
+        /// The entity ID of the collector - will be used to resolve pickup
+        /// target once player entity_id tracking is merged.
+        #[allow(dead_code)]
         collector_id: i32,
     },
     Disconnected {

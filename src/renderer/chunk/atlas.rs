@@ -27,10 +27,6 @@ impl AtlasUVMap {
         self.regions.get(name).copied().unwrap_or(self.missing)
     }
 
-    pub fn try_get_region(&self, name: &str) -> Option<AtlasRegion> {
-        self.regions.get(name).copied()
-    }
-
     pub fn has_region(&self, name: &str) -> bool {
         self.regions.contains_key(name)
     }

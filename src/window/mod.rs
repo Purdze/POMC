@@ -524,7 +524,8 @@ impl App {
                         );
                     }
                     if entity_type == azalea_registry::builtin::EntityKind::Item {
-                        self.item_entity_store.spawn_item(id, glam::DVec3::new(x, y, z));
+                        self.item_entity_store
+                            .spawn_item(id, glam::DVec3::new(x, y, z));
                     }
                 }
                 NetworkEvent::EntityMoved { id, dx, dy, dz } => {
@@ -553,7 +554,8 @@ impl App {
                 } => {
                     self.entity_store.teleport_living(id, x, y, z);
                     self.entity_store.update_living_rotation(id, yaw, pitch);
-                    self.item_entity_store.teleport(id, glam::DVec3::new(x, y, z));
+                    self.item_entity_store
+                        .teleport(id, glam::DVec3::new(x, y, z));
                 }
                 NetworkEvent::EntitiesRemoved { ids } => {
                     for id in &ids {
@@ -570,12 +572,20 @@ impl App {
                     count,
                 } => {
                     log::trace!("Item data: id={id} name={item_name} count={count}");
+                    if let Some(renderer) = &mut self.renderer {
+                        renderer.ensure_item_mesh(&item_name);
+                    }
                     self.item_entity_store.set_item_data(id, item_name, count);
                 }
                 NetworkEvent::EntityBabyFlag { id, is_baby } => {
                     self.entity_store.set_baby(id, is_baby);
                 }
-                NetworkEvent::ItemPickedUp { item_id, collector_id: _ } => {
+                NetworkEvent::ItemPickedUp {
+                    item_id,
+                    collector_id: _,
+                } => {
+                    // TODO: use collector_id to resolve target entity position
+                    // instead of always animating toward the local player
                     let player_pos = glam::DVec3::new(
                         self.player.position.x as f64,
                         self.player.position.y as f64 + 0.81,
@@ -1387,9 +1397,6 @@ impl ApplicationHandler for App {
                                     cam_pos,
                                     partial_tick,
                                 );
-                                for info in &item_renders {
-                                    renderer.ensure_item_mesh(&info.item_name);
-                                }
 
                                 if let Err(e) = renderer.render_world(
                                     window,

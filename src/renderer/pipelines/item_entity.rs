@@ -8,12 +8,12 @@ use gpu_allocator::vulkan::{Allocation, Allocator};
 use crate::renderer::camera::CameraUniform;
 use std::path::Path;
 
-use crate::assets::{resolve_asset_path, AssetIndex};
+use crate::assets::{AssetIndex, resolve_asset_path};
+use crate::renderer::MAX_FRAMES_IN_FLIGHT;
 use crate::renderer::chunk::atlas::{AtlasRegion, AtlasUVMap, TextureAtlas};
 use crate::renderer::chunk::mesher::ChunkVertex;
 use crate::renderer::shader;
 use crate::renderer::util;
-use crate::renderer::MAX_FRAMES_IN_FLIGHT;
 use crate::world::block::model::BakedModel;
 
 const VERTEX_SIZE: usize = std::mem::size_of::<ChunkVertex>();
@@ -105,7 +105,8 @@ impl ItemEntityPipeline {
             .expect("failed to allocate item entity atlas set")[0];
 
         let mut camera_buffers = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
-        let mut camera_allocations: Vec<Option<Allocation>> = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
+        let mut camera_allocations: Vec<Option<Allocation>> =
+            Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
 
         for &set in &camera_sets {
             let (buf, alloc) = util::create_uniform_buffer(
@@ -315,10 +316,10 @@ fn build_item_mesh(model: &BakedModel, uv_map: &AtlasUVMap) -> Vec<ChunkVertex> 
         let region = uv_map.get_region(&quad.texture);
         let u_span = region.u_max - region.u_min;
         let v_span = region.v_max - region.v_min;
-        let tint = if quad.tinted {
-            [0.569, 0.741, 0.349]
-        } else {
+        let tint = if matches!(quad.tint, crate::world::block::registry::Tint::None) {
             [1.0, 1.0, 1.0]
+        } else {
+            [0.569, 0.741, 0.349]
         };
 
         for i in [0, 1, 2, 2, 3, 0] {
@@ -472,11 +473,11 @@ fn build_flat_quad(region: AtlasRegion) -> Vec<ChunkVertex> {
     let h = 0.5;
     let positions = [
         [-h, -h, 0.0],
-        [ h, -h, 0.0],
-        [ h,  h, 0.0],
+        [h, -h, 0.0],
+        [h, h, 0.0],
         [-h, -h, 0.0],
-        [ h,  h, 0.0],
-        [-h,  h, 0.0],
+        [h, h, 0.0],
+        [-h, h, 0.0],
     ];
     let uvs = [
         [region.u_min, region.v_max],

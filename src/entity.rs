@@ -193,17 +193,17 @@ impl ItemEntityStore {
     }
 
     pub fn pickup(&mut self, item_id: i32, target_pos: DVec3) {
-        if let Some(entity) = self.items.remove(&item_id) {
-            if !entity.item_name.is_empty() {
-                self.pickups.push(PickupAnimation {
-                    item_name: entity.item_name,
-                    start_pos: entity.position,
-                    target_pos,
-                    bob_offset: entity.bob_offset,
-                    age: entity.age,
-                    life: 0,
-                });
-            }
+        if let Some(entity) = self.items.remove(&item_id)
+            && !entity.item_name.is_empty()
+        {
+            self.pickups.push(PickupAnimation {
+                item_name: entity.item_name,
+                start_pos: entity.position,
+                target_pos,
+                bob_offset: entity.bob_offset,
+                age: entity.age,
+                life: 0,
+            });
         }
     }
 

@@ -254,7 +254,7 @@ pub fn handle_game_packet(
         ClientboundGamePacket::TakeItemEntity(p) => {
             let _ = event_tx.try_send(NetworkEvent::ItemPickedUp {
                 item_id: p.item_id as i32,
-                collector_id: p.player_id as i32,
+                collector_id: p.player_id.0,
             });
         }
         _other => {}
