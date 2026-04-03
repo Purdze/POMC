@@ -16,7 +16,48 @@ pub struct ChunkVertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
     pub light: f32,
-    pub tint: [f32; 3],
+    pub tint: u32,
+}
+
+impl ChunkVertex {
+    pub const STRIDE: u32 = std::mem::size_of::<Self>() as u32;
+
+    pub fn binding_description() -> ash::vk::VertexInputBindingDescription {
+        ash::vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: Self::STRIDE,
+            input_rate: ash::vk::VertexInputRate::VERTEX,
+        }
+    }
+
+    pub fn attribute_descriptions() -> [ash::vk::VertexInputAttributeDescription; 4] {
+        [
+            ash::vk::VertexInputAttributeDescription {
+                location: 0,
+                binding: 0,
+                format: ash::vk::Format::R32G32B32_SFLOAT,
+                offset: 0,
+            },
+            ash::vk::VertexInputAttributeDescription {
+                location: 1,
+                binding: 0,
+                format: ash::vk::Format::R32G32_SFLOAT,
+                offset: 12,
+            },
+            ash::vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: ash::vk::Format::R32_SFLOAT,
+                offset: 20,
+            },
+            ash::vk::VertexInputAttributeDescription {
+                location: 3,
+                binding: 0,
+                format: ash::vk::Format::R8G8B8A8_UNORM,
+                offset: 24,
+            },
+        ]
+    }
 }
 
 pub struct ChunkMeshData {
@@ -26,6 +67,22 @@ pub struct ChunkMeshData {
 }
 
 const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
+
+pub const fn pack_tint(rgb: [f32; 3]) -> u32 {
+    const fn channel(v: f32) -> u32 {
+        let c = (v * 255.0 + 0.5) as i32;
+        if c < 0 {
+            0
+        } else if c > 255 {
+            255
+        } else {
+            c as u32
+        }
+    }
+    channel(rgb[0]) | (channel(rgb[1]) << 8) | (channel(rgb[2]) << 16)
+}
+
+pub const PACKED_WHITE: u32 = pack_tint([1.0, 1.0, 1.0]);
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum GrassColorModifier {
@@ -56,11 +113,11 @@ impl Default for BiomeClimate {
     }
 }
 
-fn tint_color(tint: Tint, grass: [f32; 3], foliage: [f32; 3]) -> [f32; 3] {
+fn tint_color(tint: Tint, grass: [f32; 3], foliage: [f32; 3]) -> u32 {
     match tint {
-        Tint::None => WHITE,
-        Tint::Grass => grass,
-        Tint::Foliage => foliage,
+        Tint::None => PACKED_WHITE,
+        Tint::Grass => pack_tint(grass),
+        Tint::Foliage => pack_tint(foliage),
     }
 }
 
@@ -945,7 +1002,14 @@ fn emit_cube_faces(
         let is_side = i >= 2;
         if let Some(overlay) = textures.side_overlay.as_deref().filter(|_| is_side) {
             emit_face(
-                vertices, indices, block_pos, &positions, &uvs, lights, region, WHITE,
+                vertices,
+                indices,
+                block_pos,
+                &positions,
+                &uvs,
+                lights,
+                region,
+                PACKED_WHITE,
             );
             let overlay_region = uv_map.get_region(overlay);
             emit_face(
@@ -961,7 +1025,7 @@ fn emit_cube_faces(
         } else {
             let is_tinted =
                 !matches!(textures.tint, Tint::None) && (textures.side_overlay.is_none() || i == 0);
-            let face_tint = if is_tinted { tint } else { WHITE };
+            let face_tint = if is_tinted { tint } else { PACKED_WHITE };
             emit_face(
                 vertices, indices, block_pos, &positions, &uvs, lights, region, face_tint,
             );
@@ -1012,9 +1076,9 @@ fn emit_fluid(
     bz: i32,
 ) {
     let (tex_name, tint) = if fluid == "lava" {
-        ("lava_still", [1.0, 1.0, 1.0])
+        ("lava_still", PACKED_WHITE)
     } else {
-        ("water_still", [0.247, 0.463, 0.894])
+        ("water_still", pack_tint([0.247, 0.463, 0.894]))
     };
     let region = uv_map.get_region(tex_name);
 
@@ -1143,7 +1207,7 @@ fn emit_lod_cube(
     }
 }
 
-const MISSING_TINT: [f32; 3] = [1.0, 0.0, 1.0];
+const MISSING_TINT: u32 = pack_tint([1.0, 0.0, 1.0]);
 
 #[allow(clippy::too_many_arguments)]
 fn emit_missing_cube(
@@ -1199,7 +1263,7 @@ fn emit_face(
     uvs: &[[f32; 2]; 4],
     lights: [f32; 4],
     region: AtlasRegion,
-    tint: [f32; 3],
+    tint: u32,
 ) {
     let base = vertices.len() as u32;
     let u_span = region.u_max - region.u_min;

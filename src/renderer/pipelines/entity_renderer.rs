@@ -546,38 +546,8 @@ fn create_pipeline(
             .name(c"main"),
     ];
 
-    let binding_descs = [vk::VertexInputBindingDescription {
-        binding: 0,
-        stride: std::mem::size_of::<ChunkVertex>() as u32,
-        input_rate: vk::VertexInputRate::VERTEX,
-    }];
-
-    let attr_descs = [
-        vk::VertexInputAttributeDescription {
-            location: 0,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 0,
-        },
-        vk::VertexInputAttributeDescription {
-            location: 1,
-            binding: 0,
-            format: vk::Format::R32G32_SFLOAT,
-            offset: 12,
-        },
-        vk::VertexInputAttributeDescription {
-            location: 2,
-            binding: 0,
-            format: vk::Format::R32_SFLOAT,
-            offset: 20,
-        },
-        vk::VertexInputAttributeDescription {
-            location: 3,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 24,
-        },
-    ];
+    let binding_descs = [ChunkVertex::binding_description()];
+    let attr_descs = ChunkVertex::attribute_descriptions();
 
     let vertex_input = vk::PipelineVertexInputStateCreateInfo::default()
         .vertex_binding_descriptions(&binding_descs)

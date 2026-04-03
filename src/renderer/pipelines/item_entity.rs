@@ -16,8 +16,6 @@ use crate::renderer::shader;
 use crate::renderer::util;
 use crate::world::block::model::BakedModel;
 
-const VERTEX_SIZE: usize = std::mem::size_of::<ChunkVertex>();
-
 pub struct ItemRenderInfo {
     pub item_name: String,
     pub model_matrix: Mat4,
@@ -329,9 +327,9 @@ fn build_item_mesh(model: &BakedModel, uv_map: &AtlasUVMap) -> Vec<ChunkVertex> 
         let u_span = region.u_max - region.u_min;
         let v_span = region.v_max - region.v_min;
         let tint = if matches!(quad.tint, crate::world::block::registry::Tint::None) {
-            [1.0, 1.0, 1.0]
+            crate::renderer::chunk::mesher::PACKED_WHITE
         } else {
-            [0.569, 0.741, 0.349]
+            crate::renderer::chunk::mesher::pack_tint([0.569, 0.741, 0.349])
         };
 
         for i in [0, 1, 2, 2, 3, 0] {
@@ -387,7 +385,7 @@ fn build_extruded_item(img: &image::RgbaImage, region: AtlasRegion) -> Vec<Chunk
             position: front[i],
             tex_coords: front_uvs[i],
             light: 1.0,
-            tint: [1.0, 1.0, 1.0],
+            tint: crate::renderer::chunk::mesher::PACKED_WHITE,
         });
     }
 
@@ -412,7 +410,7 @@ fn build_extruded_item(img: &image::RgbaImage, region: AtlasRegion) -> Vec<Chunk
             position: back[i],
             tex_coords: back_uvs[i],
             light: 1.0,
-            tint: [1.0, 1.0, 1.0],
+            tint: crate::renderer::chunk::mesher::PACKED_WHITE,
         });
     }
 
@@ -476,7 +474,7 @@ fn push_side_quad(
             position: *p,
             tex_coords: [u, v],
             light,
-            tint: [1.0, 1.0, 1.0],
+            tint: crate::renderer::chunk::mesher::PACKED_WHITE,
         });
     }
 }
@@ -506,7 +504,7 @@ fn build_flat_quad(region: AtlasRegion) -> Vec<ChunkVertex> {
             position: *p,
             tex_coords: *uv,
             light: 1.0,
-            tint: [1.0, 1.0, 1.0],
+            tint: crate::renderer::chunk::mesher::PACKED_WHITE,
         })
         .collect()
 }
@@ -532,37 +530,8 @@ fn create_pipeline(
             .name(c"main"),
     ];
 
-    let binding = [vk::VertexInputBindingDescription {
-        binding: 0,
-        stride: VERTEX_SIZE as u32,
-        input_rate: vk::VertexInputRate::VERTEX,
-    }];
-    let attrs = [
-        vk::VertexInputAttributeDescription {
-            location: 0,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 0,
-        },
-        vk::VertexInputAttributeDescription {
-            location: 1,
-            binding: 0,
-            format: vk::Format::R32G32_SFLOAT,
-            offset: 12,
-        },
-        vk::VertexInputAttributeDescription {
-            location: 2,
-            binding: 0,
-            format: vk::Format::R32_SFLOAT,
-            offset: 20,
-        },
-        vk::VertexInputAttributeDescription {
-            location: 3,
-            binding: 0,
-            format: vk::Format::R32G32B32_SFLOAT,
-            offset: 24,
-        },
-    ];
+    let binding = [ChunkVertex::binding_description()];
+    let attrs = ChunkVertex::attribute_descriptions();
 
     let vertex_input = vk::PipelineVertexInputStateCreateInfo::default()
         .vertex_binding_descriptions(&binding)

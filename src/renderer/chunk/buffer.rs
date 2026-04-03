@@ -615,6 +615,26 @@ impl ChunkBufferStore {
             self.meta_dirty = false;
         }
 
+        self.cached_meta.sort_unstable_by(|a, b| {
+            let center_a = [
+                (a.aabb_min[0] + a.aabb_max[0]) * 0.5 - camera_pos[0],
+                (a.aabb_min[1] + a.aabb_max[1]) * 0.5 - camera_pos[1],
+                (a.aabb_min[2] + a.aabb_max[2]) * 0.5 - camera_pos[2],
+            ];
+            let center_b = [
+                (b.aabb_min[0] + b.aabb_max[0]) * 0.5 - camera_pos[0],
+                (b.aabb_min[1] + b.aabb_max[1]) * 0.5 - camera_pos[1],
+                (b.aabb_min[2] + b.aabb_max[2]) * 0.5 - camera_pos[2],
+            ];
+            let dist_a =
+                center_a[0] * center_a[0] + center_a[1] * center_a[1] + center_a[2] * center_a[2];
+            let dist_b =
+                center_b[0] * center_b[0] + center_b[1] * center_b[1] + center_b[2] * center_b[2];
+            dist_a
+                .partial_cmp(&dist_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         let count = self.cached_meta.len() as u32;
         let meta_bytes = bytemuck::cast_slice(&self.cached_meta);
         self.meta_allocs[frame].mapped_slice_mut().unwrap()[..meta_bytes.len()]
