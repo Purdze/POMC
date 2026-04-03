@@ -241,7 +241,7 @@ pub fn load_all_block_textures(
         Some(())
     });
 
-    log::info!(
+    tracing::info!(
         "Loaded {} block texture mappings from vanilla assets",
         results.len()
     );
@@ -320,14 +320,14 @@ pub fn bake_all_models(
     });
     missing_names.sort();
     let baked_count = results.len() + multipart_results.len();
-    log::info!(
+    tracing::info!(
         "Baked models for {}/{} blocks ({} missing)",
         baked_count,
         total,
         missing_names.len()
     );
     if !missing_names.is_empty() {
-        log::warn!("Missing baked models: {}", missing_names.join(", "));
+        tracing::warn!("Missing baked models: {}", missing_names.join(", "));
     }
     (results, multipart_results)
 }
@@ -351,14 +351,14 @@ fn for_each_blockstate(
     mut callback: impl FnMut(&str, &BlockstateFile) -> Option<()>,
 ) {
     let Some(blockstates_dir) = resolve_blockstates_dir(jar_assets_dir) else {
-        log::warn!("Blockstates directory not found");
+        tracing::warn!("Blockstates directory not found");
         return;
     };
 
     let entries = match std::fs::read_dir(&blockstates_dir) {
         Ok(e) => e,
         Err(e) => {
-            log::warn!("Failed to read blockstates dir: {e}");
+            tracing::warn!("Failed to read blockstates dir: {e}");
             return;
         }
     };

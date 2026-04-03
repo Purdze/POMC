@@ -153,7 +153,9 @@ impl HandPipeline {
             "hand_vertices",
         );
 
-        log::info!("Hand pipeline initialized ({vertex_count} vertices, skin {skin_w}x{skin_h})");
+        tracing::info!(
+            "Hand pipeline initialized ({vertex_count} vertices, skin {skin_w}x{skin_h})"
+        );
 
         Self {
             pipeline,
@@ -287,7 +289,7 @@ impl HandPipeline {
         self.skin_allocation = allocation;
         update_skin_descriptor(device, self.skin_set, self.skin_view, self.skin_sampler);
 
-        log::info!("Skin reloaded: {width}x{height}");
+        tracing::info!("Skin reloaded: {width}x{height}");
     }
 
     pub fn recreate_pipeline(&mut self, device: &ash::Device, render_pass: vk::RenderPass) {
@@ -434,7 +436,7 @@ fn load_skin_texture(
     let skin_path = resolve_asset_path(jar_assets_dir, asset_index, skin_key);
 
     let (pixels, width, height) = util::load_png(&skin_path).unwrap_or_else(|| {
-        log::warn!(
+        tracing::warn!(
             "Failed to load skin from {}, using fallback",
             skin_path.display()
         );

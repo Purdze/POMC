@@ -12,7 +12,7 @@ impl PacketSender {
 
     pub fn send(&self, packet: ServerboundGamePacket) {
         if let Err(e) = self.tx.send(packet) {
-            log::error!("Failed to queue outbound packet: {e}");
+            tracing::error!("Failed to queue outbound packet: {e}");
         }
     }
 }

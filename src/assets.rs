@@ -30,10 +30,10 @@ impl AssetIndex {
         let index_path = indexes_dir.join(format!("{version}.json"));
 
         let content = std::fs::read_to_string(&index_path)
-            .map_err(|e| log::warn!("Failed to read asset index: {e}"))
+            .map_err(|e| tracing::warn!("Failed to read asset index: {e}"))
             .ok()?;
         let parsed: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| log::warn!("Failed to parse asset index: {e}"))
+            .map_err(|e| tracing::warn!("Failed to parse asset index: {e}"))
             .ok()?;
 
         let objects = parsed.get("objects")?.as_object()?;

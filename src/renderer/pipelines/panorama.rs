@@ -349,7 +349,7 @@ fn load_cubemap(
         let path = match resolve_panorama_face(i, jar_assets_dir, asset_index) {
             Some(p) => p,
             None => {
-                log::info!("Panorama face {i} not found, skipping cubemap");
+                tracing::info!("Panorama face {i} not found, skipping cubemap");
                 return create_fallback_cubemap(device, allocator);
             }
         };
@@ -360,7 +360,7 @@ fn load_cubemap(
                 faces.push(data);
             }
             _ => {
-                log::info!("Panorama face {i} is a placeholder, skipping cubemap");
+                tracing::info!("Panorama face {i} is a placeholder, skipping cubemap");
                 return create_fallback_cubemap(device, allocator);
             }
         }
@@ -403,7 +403,7 @@ fn load_cubemap(
     let sampler = unsafe { device.create_sampler(&sampler_info, None) }
         .expect("failed to create cubemap sampler");
 
-    log::info!("Panorama cubemap loaded: {face_w}x{face_h} per face, {mip_levels} mip levels");
+    tracing::info!("Panorama cubemap loaded: {face_w}x{face_h} per face, {mip_levels} mip levels");
 
     (
         image,

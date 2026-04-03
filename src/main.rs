@@ -3,6 +3,7 @@ mod assets;
 mod dirs;
 mod discord;
 mod entity;
+mod logging;
 mod net;
 mod physics;
 mod player;
@@ -15,12 +16,9 @@ use clap::Parser;
 use net::connection::ConnectArgs;
 use std::sync::Arc;
 
-const SUPPORTED_VERSIONS: &[&str] = &["26.1", "26.1.1-rc-1", "26.1.1"];
-const _: () = assert!(!SUPPORTED_VERSIONS.is_empty());
+const SUPPORTED_VERSIONS: [&str; 3] = ["26.1", "26.1.1-rc-1", "26.1.1"];
 
 fn main() {
-    env_logger::init();
-
     let args = args::LaunchArgs::parse();
 
     if !cfg!(debug_assertions) && !args.dev {
@@ -47,9 +45,8 @@ fn main() {
         .unwrap_or_else(|| SUPPORTED_VERSIONS.first().unwrap());
 
     if !SUPPORTED_VERSIONS.contains(&version) {
-        log::error!(
-            "{} is not currently supported. Supported versions: {:?}",
-            version,
+        eprintln!(
+            "{version} is not currently supported. Supported versions: {:#?}",
             SUPPORTED_VERSIONS
         );
         if !cfg!(debug_assertions) && !args.dev {
@@ -64,13 +61,19 @@ fn main() {
         args.game_dir.as_deref(),
     );
 
+    let log_dir = data_dirs.game_dir.join("logs");
+    std::fs::create_dir_all(&log_dir).unwrap();
+    if let Err(e) = logging::rotate(&log_dir) {
+        eprintln!("Failed to rotate logs: {e}. latest.log will probably be overwritten.");
+    }
+    let _guard = logging::init(&log_dir);
+
     if let Err(e) = data_dirs.verify() {
-        log::error!("Failed to verify directories: {e}");
+        eprintln!("Failed to verify directories: {e}");
         std::process::exit(1);
     }
     data_dirs.ensure_game_dir().ok();
-
-    log::info!("Installation directory: {}", data_dirs.game_dir.display());
+    tracing::info!("Installation directory: {}", data_dirs.game_dir.display());
 
     let rt = Arc::new(tokio::runtime::Runtime::new().expect("Failed to create tokio runtime"));
 
@@ -104,7 +107,7 @@ fn main() {
     };
 
     let presence = crate::discord::DiscordPresence::start(version)
-        .inspect_err(|e| log::warn!("Discord rich presence unavailable: {e}"))
+        .inspect_err(|e| tracing::warn!("Discord rich presence unavailable: {e}"))
         .ok();
 
     if let Err(e) = window::run(
@@ -115,7 +118,7 @@ fn main() {
         launch_auth,
         presence,
     ) {
-        log::error!("Fatal: {e}");
+        tracing::error!("Fatal: {e}");
         std::process::exit(1);
     }
 }
