@@ -172,7 +172,7 @@ pub fn build_hud(
             tint: WHITE,
         });
 
-        let fill_px = (experience_progress.clamp(0.0, 1.0) * 183.0) as i32;
+        let fill_px = (experience_progress.clamp(0.0, 1.0) * XP_BAR_W).ceil() as i32;
         if fill_px > 0 {
             let fill_w = fill_px as f32 * gs;
             elements.push(MenuElement::ScissorPush {
