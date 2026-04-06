@@ -39,7 +39,7 @@ impl BakedEntityModel {
 
             let local = Mat4::from_translation(offset)
                 * Mat4::from_rotation_x(-rot.x)
-                * Mat4::from_rotation_y(rot.y)
+                * Mat4::from_rotation_y(-rot.y)
                 * Mat4::from_rotation_z(rot.z);
 
             let transform = if let Some(parent_idx) = part.parent {
