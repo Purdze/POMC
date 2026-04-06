@@ -105,8 +105,8 @@ impl TabList {
     pub fn sorted_listed(&self) -> Vec<&TabListPlayer> {
         let mut out: Vec<&TabListPlayer> = self.players.values().filter(|p| p.listed).collect();
         out.sort_by(|a, b| {
-            b.list_order
-                .cmp(&a.list_order)
+            a.list_order
+                .cmp(&b.list_order)
                 .then_with(|| (a.game_mode == 3).cmp(&(b.game_mode == 3)))
                 .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
