@@ -176,7 +176,7 @@ function App() {
           setLaunchingStatus("installing");
         }
         await invoke("ensure_assets", { version });
-        setDownloadedVersions((prev) => prev.add(version));
+        setDownloadedVersions((prev) => new Set([...prev, version]));
         return true;
       } catch (e) {
         setStatus(`${e}`);

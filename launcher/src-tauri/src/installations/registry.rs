@@ -1,9 +1,4 @@
 use crate::installations::{Id, Installation, InstallationDraft, InstallationError, fs};
-use fslock;
-
-pub fn lock() -> fslock::LockFile {
-    fslock::LockFile::open(&fs::registry_file()).unwrap()
-}
 
 pub fn load() -> Result<Vec<Installation>, InstallationError> {
     let contents = std::fs::read_to_string(fs::registry_file())?;
@@ -23,10 +18,7 @@ pub fn find_by_id(id: &Id) -> Result<Installation, InstallationError> {
 
     list.into_iter()
         .find(|i| i.id == *id)
-        .ok_or(InstallationError::Other(format!(
-            "Installation not found: {}",
-            id.0
-        )))
+        .ok_or(InstallationError::InstallNotFound(id.clone()))
 }
 
 pub fn register(install: Installation) -> Result<(), InstallationError> {
