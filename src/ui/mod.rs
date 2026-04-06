@@ -8,4 +8,5 @@ pub mod hud;
 pub mod inventory;
 pub mod menu;
 pub mod pause;
+pub mod player_tab;
 pub mod server_list;

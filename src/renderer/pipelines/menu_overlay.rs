@@ -1299,6 +1299,9 @@ pub enum SpriteId {
     FoodEmpty,
     FoodFull,
     FoodHalf,
+    AirFull,
+    AirBursting,
+    AirEmpty,
     InventoryBackground,
     EmptyHelmet,
     EmptyChestplate,
@@ -1339,6 +1342,7 @@ pub enum SpriteId {
     Pinging5,
     Incompatible,
     Unreachable,
+    SteveHead,
 }
 
 struct SpriteRegion {
@@ -1416,6 +1420,21 @@ fn build_sprite_atlas(
         (
             SpriteId::FoodHalf,
             "minecraft/textures/gui/sprites/hud/food_half.png",
+            0.0,
+        ),
+        (
+            SpriteId::AirFull,
+            "minecraft/textures/gui/sprites/hud/air.png",
+            0.0,
+        ),
+        (
+            SpriteId::AirBursting,
+            "minecraft/textures/gui/sprites/hud/air_bursting.png",
+            0.0,
+        ),
+        (
+            SpriteId::AirEmpty,
+            "minecraft/textures/gui/sprites/hud/air_empty.png",
             0.0,
         ),
         (
@@ -1629,6 +1648,52 @@ fn build_sprite_atlas(
                 tracing::warn!("Failed to load sprite {asset_key}: {e}");
                 images.push((id, vec![255, 0, 255, 255], 1, 1, 0.0));
             }
+        }
+    }
+
+    // Steve head: 8x8 face composited with the 8x8 hat overlay from the wide skin.
+    let steve_path = resolve_asset_path(
+        jar_assets_dir,
+        asset_index,
+        "minecraft/textures/entity/player/wide/steve.png",
+    );
+    match crate::assets::load_image(&steve_path) {
+        Ok(img) => {
+            let rgba = img.to_rgba8();
+            let sw = rgba.width();
+            let sh = rgba.height();
+            // Skins are 64x64 (or 64x32 legacy). Face at (8,8), hat at (40,8).
+            if sw >= 48 && sh >= 16 {
+                let raw = rgba.as_raw();
+                let mut out = vec![0u8; 8 * 8 * 4];
+                for y in 0..8u32 {
+                    for x in 0..8u32 {
+                        let face_off = (((8 + y) * sw + (8 + x)) * 4) as usize;
+                        let dst = ((y * 8 + x) * 4) as usize;
+                        out[dst..dst + 4].copy_from_slice(&raw[face_off..face_off + 4]);
+                        // Composite hat over face (ignore fully transparent hat pixels).
+                        let hat_off = (((8 + y) * sw + (40 + x)) * 4) as usize;
+                        let ha = raw[hat_off + 3];
+                        if ha > 0 {
+                            let a = ha as f32 / 255.0;
+                            for c in 0..3 {
+                                let fg = raw[hat_off + c] as f32;
+                                let bg = out[dst + c] as f32;
+                                out[dst + c] = (fg * a + bg * (1.0 - a)) as u8;
+                            }
+                            out[dst + 3] = out[dst + 3].max(ha);
+                        }
+                    }
+                }
+                images.push((SpriteId::SteveHead, out, 8, 8, 0.0));
+            } else {
+                tracing::warn!("Steve skin too small: {sw}x{sh}");
+                images.push((SpriteId::SteveHead, vec![255, 0, 255, 255], 1, 1, 0.0));
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to load Steve skin: {e}");
+            images.push((SpriteId::SteveHead, vec![255, 0, 255, 255], 1, 1, 0.0));
         }
     }
 

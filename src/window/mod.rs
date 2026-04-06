@@ -105,6 +105,7 @@ struct App {
     tokio_rt: Arc<tokio::runtime::Runtime>,
     player: LocalPlayer,
     tick_accumulator: f32,
+    time_tick_accumulator: f32,
     prev_player_pos: glam::Vec3,
     biome_climate:
         Arc<std::collections::HashMap<u32, crate::renderer::chunk::mesher::BiomeClimate>>,
@@ -121,6 +122,7 @@ struct App {
     respawn_sent: bool,
     inventory_open: bool,
     chat: ChatState,
+    tab_list: crate::player::tab_list::TabList,
     panorama_scroll: f32,
     interaction: InteractionState,
     sky_state: crate::renderer::SkyState,
@@ -146,6 +148,8 @@ struct App {
     benchmark: Option<crate::benchmark::Benchmark>,
     benchmark_result: Option<crate::benchmark::BenchmarkResult>,
     audio_handle: SoundManager,
+    last_player_chunk: azalea_core::position::ChunkPos,
+    meshed_lod: std::collections::HashMap<azalea_core::position::ChunkPos, u32>,
 }
 
 struct PackDownloadResult {
@@ -237,6 +241,7 @@ impl App {
             item_entity_store: ItemEntityStore::new(),
             player: LocalPlayer::new(),
             tick_accumulator: 0.0,
+            time_tick_accumulator: 0.0,
             prev_player_pos: glam::Vec3::ZERO,
             biome_climate: Arc::new(std::collections::HashMap::new()),
             player_walk_pos: 0.0,
@@ -252,6 +257,7 @@ impl App {
             respawn_sent: false,
             inventory_open: false,
             chat: ChatState::new(),
+            tab_list: crate::player::tab_list::TabList::new(),
             panorama_scroll: 0.0,
             interaction: InteractionState::new(),
             sky_state: crate::renderer::SkyState::default_day(),
@@ -271,6 +277,8 @@ impl App {
             benchmark: None,
             benchmark_result: None,
             audio_handle: SoundManager::new(asset_index),
+            last_player_chunk: azalea_core::position::ChunkPos::new(0, 0),
+            meshed_lod: std::collections::HashMap::new(),
         }
     }
 
@@ -480,6 +488,7 @@ impl App {
                 }
                 NetworkEvent::ChunkUnloaded { pos } => {
                     self.chunk_store.unload_chunk(&pos);
+                    self.meshed_lod.remove(&pos);
                     if let Some(renderer) = &mut self.renderer {
                         renderer.remove_chunk_mesh(&pos);
                     }
@@ -589,7 +598,9 @@ impl App {
                     day_time,
                 } => {
                     self.sky_state.game_time = game_time;
-                    self.sky_state.day_time = day_time;
+                    if let Some(dt) = day_time {
+                        self.sky_state.day_time = dt;
+                    }
                 }
                 NetworkEvent::EntitySpawned {
                     id,
@@ -742,6 +753,16 @@ impl App {
                 NetworkEvent::Disconnected { reason } => {
                     tracing::warn!("Disconnected: {reason}");
                     disconnect_reason = Some(reason);
+                    self.tab_list.clear();
+                }
+                NetworkEvent::PlayerInfoUpdate { actions, entries } => {
+                    self.tab_list.apply_update(&actions, &entries);
+                }
+                NetworkEvent::PlayerInfoRemove { uuids } => {
+                    self.tab_list.remove(&uuids);
+                }
+                NetworkEvent::TabListHeaderFooter { header, footer } => {
+                    self.tab_list.set_header_footer(header, footer);
                 }
                 NetworkEvent::PlaySound {
                     sound,
@@ -809,7 +830,20 @@ impl App {
             );
             for pos in chunks_to_mesh {
                 let lod = chunk_lod(pos, player_chunk);
+                self.meshed_lod.insert(pos, lod);
                 dispatcher.enqueue(&self.chunk_store, pos, lod);
+            }
+
+            if player_chunk != self.last_player_chunk {
+                self.last_player_chunk = player_chunk;
+                for pos in self.chunk_store.loaded_positions() {
+                    let new_lod = chunk_lod(pos, player_chunk);
+                    let old_lod = self.meshed_lod.get(&pos).copied();
+                    if old_lod != Some(new_lod) {
+                        self.meshed_lod.insert(pos, new_lod);
+                        dispatcher.enqueue(&self.chunk_store, pos, new_lod);
+                    }
+                }
             }
         }
     }
@@ -1458,6 +1492,15 @@ impl ApplicationHandler for App {
                                 }
                             }
 
+                            // Sky time ticks unconditionally so it keeps flowing in menus;
+                            // server SetTime packets reconcile drift.
+                            self.time_tick_accumulator = (self.time_tick_accumulator + dt).min(1.0);
+                            while self.time_tick_accumulator >= TICK_RATE {
+                                self.sky_state.day_time = self.sky_state.day_time.wrapping_add(1);
+                                self.sky_state.game_time = self.sky_state.game_time.wrapping_add(1);
+                                self.time_tick_accumulator -= TICK_RATE;
+                            }
+
                             if !self.paused && !self.inventory_open && !self.chat.is_open() {
                                 if let Some(renderer) = &mut self.renderer {
                                     renderer.update_camera(&mut self.input);
@@ -1578,11 +1621,28 @@ impl ApplicationHandler for App {
                                     self.player.health,
                                     self.player.food,
                                     self.player.air_supply,
+                                    self.player.eyes_in_water,
                                     self.player.inventory.hotbar_slots(),
                                     renderer.is_first_person(),
                                     debug.as_ref(),
                                     self.menu.gui_scale_setting,
                                 );
+
+                                if self.input.tab_held()
+                                    && !self.paused
+                                    && !self.inventory_open
+                                    && !self.chat.is_open()
+                                    && !self.dead
+                                {
+                                    let r = &*renderer;
+                                    crate::ui::player_tab::build_player_tab_overlay(
+                                        &mut elements,
+                                        sw,
+                                        &self.tab_list,
+                                        gs,
+                                        &|t, s| r.menu_text_width(t, s),
+                                    );
+                                }
 
                                 if let Some(ref mut bench) = self.benchmark {
                                     let entity_count = self.entity_store.living.len() as u32;
@@ -1830,10 +1890,13 @@ impl ApplicationHandler for App {
                                     });
                                 }
 
+                                let sky_partial_tick =
+                                    (self.time_tick_accumulator / TICK_RATE).clamp(0.0, 1.0);
                                 let sky = crate::renderer::SkyState {
                                     day_time: self.sky_state.day_time,
                                     game_time: self.sky_state.game_time,
                                     rain_level: self.sky_state.rain_level,
+                                    partial_tick: sky_partial_tick,
                                 };
                                 if self.show_chunk_borders {
                                     renderer.update_chunk_borders(

@@ -137,12 +137,7 @@ pub fn handle_game_packet(
             let _ = event_tx.try_send(NetworkEvent::BlockChangedAck { seq: p.seq });
         }
         ClientboundGamePacket::SetTime(p) => {
-            let day_time = p
-                .clock_updates
-                .values()
-                .next()
-                .map(|c| c.total_ticks)
-                .unwrap_or(0);
+            let day_time = p.clock_updates.values().next().map(|c| c.total_ticks);
             let _ = event_tx.try_send(NetworkEvent::TimeUpdate {
                 game_time: p.game_time,
                 day_time,
@@ -335,6 +330,42 @@ pub fn handle_game_packet(
                 volume: audio.volume,
                 pitch: audio.pitch,
                 seed: audio.seed,
+              }
+        }
+        ClientboundGamePacket::PlayerInfoUpdate(p) => {
+            use crate::player::tab_list::{PlayerInfoActions, PlayerInfoEntry};
+            let actions = PlayerInfoActions {
+                add_player: p.actions.add_player,
+                update_game_mode: p.actions.update_game_mode,
+                update_listed: p.actions.update_listed,
+                update_latency: p.actions.update_latency,
+                update_display_name: p.actions.update_display_name,
+                update_list_order: p.actions.update_list_order,
+            };
+            let entries = p
+                .entries
+                .iter()
+                .map(|e| PlayerInfoEntry {
+                    uuid: e.profile.uuid,
+                    name: e.profile.name.clone(),
+                    game_mode: e.game_mode.to_id(),
+                    listed: e.listed,
+                    latency: e.latency,
+                    display_name: e.display_name.as_ref().map(|c| c.to_string()),
+                    list_order: e.list_order,
+                })
+                .collect();
+            let _ = event_tx.try_send(NetworkEvent::PlayerInfoUpdate { actions, entries });
+        }
+        ClientboundGamePacket::PlayerInfoRemove(p) => {
+            let _ = event_tx.try_send(NetworkEvent::PlayerInfoRemove {
+                uuids: p.profile_ids.clone(),
+            });
+        }
+        ClientboundGamePacket::TabList(p) => {
+            let _ = event_tx.try_send(NetworkEvent::TabListHeaderFooter {
+                header: p.header.to_string(),
+                footer: p.footer.to_string(),
             });
         }
         _other => {}

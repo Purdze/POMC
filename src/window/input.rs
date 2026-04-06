@@ -123,6 +123,10 @@ impl InputState {
         std::mem::take(&mut self.tab_pressed)
     }
 
+    pub fn tab_held(&self) -> bool {
+        self.pressed.contains(&KeyCode::Tab)
+    }
+
     pub fn f5_pressed(&mut self) -> bool {
         std::mem::take(&mut self.f5_pressed)
     }

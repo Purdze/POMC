@@ -73,7 +73,7 @@ pub enum NetworkEvent {
     },
     TimeUpdate {
         game_time: u64,
-        day_time: u64,
+        day_time: Option<u64>,
     },
     GameModeChanged {
         game_mode: u8,
@@ -169,5 +169,16 @@ pub enum NetworkEvent {
         volume: f32,
         pitch: f32,
         seed: u64,
+    },
+    PlayerInfoUpdate {
+        actions: crate::player::tab_list::PlayerInfoActions,
+        entries: Vec<crate::player::tab_list::PlayerInfoEntry>,
+    },
+    PlayerInfoRemove {
+        uuids: Vec<uuid::Uuid>,
+    },
+    TabListHeaderFooter {
+        header: String,
+        footer: String,
     },
 }
