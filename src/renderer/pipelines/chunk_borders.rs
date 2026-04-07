@@ -33,7 +33,8 @@ pub struct ChunkBorderPipeline {
 impl ChunkBorderPipeline {
     pub fn new(
         device: &ash::Device,
-        render_pass: vk::RenderPass,
+        color_format: vk::Format,
+        depth_format: vk::Format,
         allocator: &Arc<Mutex<gpu_allocator::vulkan::Allocator>>,
     ) -> Self {
         let binding = vk::DescriptorSetLayoutBinding::default()
@@ -127,6 +128,11 @@ impl ChunkBorderPipeline {
         let dynamic_state =
             vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
 
+        let color_formats = [color_format];
+        let mut rendering_info = vk::PipelineRenderingCreateInfo::default()
+            .color_attachment_formats(&color_formats)
+            .depth_attachment_format(depth_format);
+
         let pipeline_info = [vk::GraphicsPipelineCreateInfo::default()
             .stages(&stages)
             .vertex_input_state(&vertex_input)
@@ -138,8 +144,7 @@ impl ChunkBorderPipeline {
             .color_blend_state(&color_blending)
             .dynamic_state(&dynamic_state)
             .layout(pipeline_layout)
-            .render_pass(render_pass)
-            .subpass(0)];
+            .push_next(&mut rendering_info)];
 
         let pipeline = unsafe {
             device.create_graphics_pipelines(vk::PipelineCache::null(), &pipeline_info, None)

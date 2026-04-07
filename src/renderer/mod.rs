@@ -140,11 +140,15 @@ impl Renderer {
             vk::SwapchainKHR::null(),
         )?;
 
+        let color_format = swapchain_state.format.format;
+        let depth_format = swapchain_state.depth_format();
+
         let mut menu_pipeline = MenuOverlayPipeline::new(
             &ctx.device,
             ctx.graphics_queue,
             ctx.command_pool,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             jar_assets_dir,
             asset_index,
@@ -183,7 +187,8 @@ impl Renderer {
 
         let chunk_pipeline = ChunkPipeline::new(
             &ctx.device,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             &atlas,
         );
@@ -192,7 +197,8 @@ impl Renderer {
             &ctx.device,
             ctx.graphics_queue,
             ctx.command_pool,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             jar_assets_dir,
             asset_index,
@@ -202,7 +208,8 @@ impl Renderer {
             &ctx.device,
             ctx.graphics_queue,
             ctx.command_pool,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             jar_assets_dir,
             asset_index,
@@ -214,7 +221,8 @@ impl Renderer {
             &ctx.device,
             ctx.graphics_queue,
             ctx.command_pool,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             jar_assets_dir,
             asset_index,
@@ -224,7 +232,8 @@ impl Renderer {
             &ctx.device,
             ctx.graphics_queue,
             ctx.command_pool,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             jar_assets_dir,
             asset_index,
@@ -234,7 +243,8 @@ impl Renderer {
 
         let skin_preview = SkinPreviewPipeline::new(
             &ctx.device,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             hand_pipeline.skin_view(),
             hand_pipeline.skin_sampler(),
@@ -252,7 +262,8 @@ impl Renderer {
             &ctx.device,
             ctx.graphics_queue,
             ctx.command_pool,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             jar_assets_dir,
             asset_index,
@@ -260,7 +271,8 @@ impl Renderer {
 
         let chunk_border_pipeline = pipelines::chunk_borders::ChunkBorderPipeline::new(
             &ctx.device,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
         );
 
@@ -274,7 +286,8 @@ impl Renderer {
 
         let item_entity_pipeline = pipelines::item_entity::ItemEntityPipeline::new(
             &ctx.device,
-            swapchain_state.render_pass,
+            color_format,
+            depth_format,
             &ctx.allocator,
             &atlas,
         );
@@ -394,31 +407,39 @@ impl Renderer {
                 .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
             ctx.device.begin_command_buffer(cmd, &begin_info)?;
 
-            let clear_values = [
-                vk::ClearValue {
+            util::transition_image_layout(
+                &ctx.device,
+                cmd,
+                swapchain.images[image_index as usize],
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                vk::PipelineStageFlags2::TOP_OF_PIPE,
+                vk::AccessFlags2::empty(),
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                vk::ImageAspectFlags::COLOR,
+            );
+
+            let color_attachment = vk::RenderingAttachmentInfo::default()
+                .image_view(swapchain.image_views[image_index as usize])
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .clear_value(vk::ClearValue {
                     color: vk::ClearColorValue {
                         float32: [0.0, 0.0, 0.0, 1.0],
                     },
-                },
-                vk::ClearValue {
-                    depth_stencil: vk::ClearDepthStencilValue {
-                        depth: 1.0,
-                        stencil: 0,
-                    },
-                },
-            ];
-
-            let render_pass_info = vk::RenderPassBeginInfo::default()
-                .render_pass(swapchain.render_pass)
-                .framebuffer(swapchain.framebuffers[image_index as usize])
+                });
+            let color_attachments = [color_attachment];
+            let rendering_info = vk::RenderingInfo::default()
                 .render_area(vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
                     extent: swapchain.extent,
                 })
-                .clear_values(&clear_values);
+                .layer_count(1)
+                .color_attachments(&color_attachments);
 
-            ctx.device
-                .cmd_begin_render_pass(cmd, &render_pass_info, vk::SubpassContents::INLINE);
+            ctx.device.cmd_begin_rendering(cmd, &rendering_info);
 
             let viewport = vk::Viewport {
                 x: 0.0,
@@ -438,7 +459,21 @@ impl Renderer {
 
             menu.draw(&ctx.device, cmd, sw, sh, &elements);
 
-            ctx.device.cmd_end_render_pass(cmd);
+            ctx.device.cmd_end_rendering(cmd);
+
+            util::transition_image_layout(
+                &ctx.device,
+                cmd,
+                swapchain.images[image_index as usize],
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                vk::ImageLayout::PRESENT_SRC_KHR,
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                vk::PipelineStageFlags2::BOTTOM_OF_PIPE,
+                vk::AccessFlags2::empty(),
+                vk::ImageAspectFlags::COLOR,
+            );
+
             ctx.device.end_command_buffer(cmd)?;
 
             ctx.timeline_value.set(ctx.timeline_value.get() + 1);
@@ -524,29 +559,17 @@ impl Renderer {
             &self.ctx.allocator,
         );
 
+        let color_format = self.swapchain.format.format;
+        let depth_format = self.swapchain.depth_format();
+
         self.chunk_pipeline = ChunkPipeline::new(
             &self.ctx.device,
-            self.swapchain.render_pass,
+            color_format,
+            depth_format,
             &self.ctx.allocator,
             &self.atlas,
         );
 
-        self.hand_pipeline
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.block_overlay_pipeline
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.sky_pipeline
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.panorama_pipeline
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.menu_pipeline
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.skin_preview
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.entity_renderer
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
-        self.item_entity_pipeline
-            .recreate_pipeline(&self.ctx.device, self.swapchain.render_pass);
         self.blur_pipeline.resize(
             &self.ctx.device,
             &self.ctx.allocator,
@@ -859,7 +882,8 @@ impl Renderer {
                 );
                 self.skin_preview = SkinPreviewPipeline::new(
                     &self.ctx.device,
-                    self.swapchain.render_pass,
+                    self.swapchain.format.format,
+                    self.swapchain.depth_format(),
                     &self.ctx.allocator,
                     self.hand_pipeline.skin_view(),
                     self.hand_pipeline.skin_sampler(),
@@ -998,48 +1022,65 @@ impl Renderer {
                     .dispatch_cull(&self.ctx.device, cmd, frame, &frustum, cam_pos);
             }
 
-            let clear_values = [
-                vk::ClearValue {
+            let swapchain_image = self.swapchain.images[image_index as usize];
+
+            util::transition_image_layout(
+                &self.ctx.device,
+                cmd,
+                swapchain_image,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                vk::PipelineStageFlags2::TOP_OF_PIPE,
+                vk::AccessFlags2::empty(),
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                vk::ImageAspectFlags::COLOR,
+            );
+            util::transition_image_layout(
+                &self.ctx.device,
+                cmd,
+                self.swapchain.depth_image,
+                vk::ImageLayout::UNDEFINED,
+                vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                vk::PipelineStageFlags2::TOP_OF_PIPE,
+                vk::AccessFlags2::empty(),
+                vk::PipelineStageFlags2::EARLY_FRAGMENT_TESTS,
+                vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                vk::ImageAspectFlags::DEPTH,
+            );
+
+            let color_attachment = vk::RenderingAttachmentInfo::default()
+                .image_view(self.swapchain.image_views[image_index as usize])
+                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .clear_value(vk::ClearValue {
                     color: vk::ClearColorValue {
                         float32: clear_color,
                     },
-                },
-                vk::ClearValue {
+                });
+            let depth_attachment = vk::RenderingAttachmentInfo::default()
+                .image_view(self.swapchain.depth_view)
+                .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                .clear_value(vk::ClearValue {
                     depth_stencil: vk::ClearDepthStencilValue {
                         depth: 1.0,
                         stencil: 0,
                     },
-                },
-            ];
-
-            let use_blur = matches!(&mode, RenderMode::MainMenu { blur, .. } if *blur > 0.01);
-
-            let (rp, fb) = if use_blur {
-                (
-                    self.swapchain.render_pass_scene,
-                    self.swapchain.framebuffers_scene[image_index as usize],
-                )
-            } else {
-                (
-                    self.swapchain.render_pass,
-                    self.swapchain.framebuffers[image_index as usize],
-                )
-            };
-
-            let render_pass_info = vk::RenderPassBeginInfo::default()
-                .render_pass(rp)
-                .framebuffer(fb)
+                });
+            let color_attachments = [color_attachment];
+            let rendering_info = vk::RenderingInfo::default()
                 .render_area(vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
                     extent: self.swapchain.extent,
                 })
-                .clear_values(&clear_values);
+                .layer_count(1)
+                .color_attachments(&color_attachments)
+                .depth_attachment(&depth_attachment);
 
-            self.ctx.device.cmd_begin_render_pass(
-                cmd,
-                &render_pass_info,
-                vk::SubpassContents::INLINE,
-            );
+            self.ctx.device.cmd_begin_rendering(cmd, &rendering_info);
 
             let viewport = vk::Viewport {
                 x: 0.0,
@@ -1155,9 +1196,8 @@ impl Renderer {
                         .draw(&self.ctx.device, cmd, *scroll, aspect, 0.0);
 
                     if *blur > 0.01 {
-                        self.ctx.device.cmd_end_render_pass(cmd);
+                        self.ctx.device.cmd_end_rendering(cmd);
 
-                        let swapchain_image = self.swapchain.images[image_index as usize];
                         let iterations = ((*blur * 3.0).ceil() as u32).clamp(1, 4);
                         self.blur_pipeline.execute(
                             &self.ctx.device,
@@ -1174,19 +1214,47 @@ impl Renderer {
                             self.blur_pipeline.blurred_sampler(),
                         );
 
-                        let load_rp_info = vk::RenderPassBeginInfo::default()
-                            .render_pass(self.swapchain.render_pass_load)
-                            .framebuffer(self.swapchain.framebuffers_load[image_index as usize])
+                        // Re-enter rendering with LOAD to preserve blurred content
+                        util::transition_image_layout(
+                            &self.ctx.device,
+                            cmd,
+                            swapchain_image,
+                            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                            vk::PipelineStageFlags2::BLIT,
+                            vk::AccessFlags2::TRANSFER_WRITE,
+                            vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE
+                                | vk::AccessFlags2::COLOR_ATTACHMENT_READ,
+                            vk::ImageAspectFlags::COLOR,
+                        );
+
+                        let load_color = vk::RenderingAttachmentInfo::default()
+                            .image_view(self.swapchain.image_views[image_index as usize])
+                            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                            .load_op(vk::AttachmentLoadOp::LOAD)
+                            .store_op(vk::AttachmentStoreOp::STORE);
+                        let load_depth = vk::RenderingAttachmentInfo::default()
+                            .image_view(self.swapchain.depth_view)
+                            .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                            .load_op(vk::AttachmentLoadOp::CLEAR)
+                            .store_op(vk::AttachmentStoreOp::DONT_CARE)
+                            .clear_value(vk::ClearValue {
+                                depth_stencil: vk::ClearDepthStencilValue {
+                                    depth: 1.0,
+                                    stencil: 0,
+                                },
+                            });
+                        let load_colors = [load_color];
+                        let load_info = vk::RenderingInfo::default()
                             .render_area(vk::Rect2D {
                                 offset: vk::Offset2D { x: 0, y: 0 },
                                 extent: self.swapchain.extent,
                             })
-                            .clear_values(&clear_values);
-                        self.ctx.device.cmd_begin_render_pass(
-                            cmd,
-                            &load_rp_info,
-                            vk::SubpassContents::INLINE,
-                        );
+                            .layer_count(1)
+                            .color_attachments(&load_colors)
+                            .depth_attachment(&load_depth);
+                        self.ctx.device.cmd_begin_rendering(cmd, &load_info);
                         self.ctx.device.cmd_set_viewport(cmd, 0, &[viewport]);
                         self.ctx.device.cmd_set_scissor(cmd, 0, &[scissor]);
                     }
@@ -1211,7 +1279,20 @@ impl Renderer {
                 }
             }
 
-            self.ctx.device.cmd_end_render_pass(cmd);
+            self.ctx.device.cmd_end_rendering(cmd);
+
+            util::transition_image_layout(
+                &self.ctx.device,
+                cmd,
+                swapchain_image,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                vk::ImageLayout::PRESENT_SRC_KHR,
+                vk::PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                vk::PipelineStageFlags2::BOTTOM_OF_PIPE,
+                vk::AccessFlags2::empty(),
+                vk::ImageAspectFlags::COLOR,
+            );
 
             self.ctx.device.end_command_buffer(cmd)?;
 

@@ -194,7 +194,8 @@ impl SkyPipeline {
         device: &ash::Device,
         queue: vk::Queue,
         command_pool: vk::CommandPool,
-        render_pass: vk::RenderPass,
+        color_format: vk::Format,
+        depth_format: vk::Format,
         allocator: &Arc<Mutex<Allocator>>,
         jar_assets_dir: &Path,
         asset_index: &Option<AssetIndex>,
@@ -222,7 +223,8 @@ impl SkyPipeline {
         let pipeline_layout = unsafe { device.create_pipeline_layout(&layout_info, None) }
             .expect("failed to create sky pipeline layout");
 
-        let (pipeline, overlay_pipeline) = create_pipelines(device, render_pass, pipeline_layout);
+        let (pipeline, overlay_pipeline) =
+            create_pipelines(device, color_format, depth_format, pipeline_layout);
 
         let pool_sizes = [
             vk::DescriptorPoolSize {
@@ -491,16 +493,6 @@ impl SkyPipeline {
                 device.cmd_draw(cmd, self.star_count, 1, self.star_offset, 0);
             }
         }
-    }
-
-    pub fn recreate_pipeline(&mut self, device: &ash::Device, render_pass: vk::RenderPass) {
-        unsafe {
-            device.destroy_pipeline(self.pipeline, None);
-            device.destroy_pipeline(self.overlay_pipeline, None);
-        }
-        let (p, o) = create_pipelines(device, render_pass, self.pipeline_layout);
-        self.pipeline = p;
-        self.overlay_pipeline = o;
     }
 
     pub fn destroy(&mut self, device: &ash::Device, allocator: &Arc<Mutex<Allocator>>) {
@@ -913,7 +905,8 @@ fn bind_texture_set(
 
 fn create_pipelines(
     device: &ash::Device,
-    render_pass: vk::RenderPass,
+    color_format: vk::Format,
+    depth_format: vk::Format,
     layout: vk::PipelineLayout,
 ) -> (vk::Pipeline, vk::Pipeline) {
     let vert_spv = shader::include_spirv!("sky.vert.spv");
@@ -1009,6 +1002,11 @@ fn create_pipelines(
     let overlay_blending =
         vk::PipelineColorBlendStateCreateInfo::default().attachments(&overlay_blend);
 
+    let color_formats = [color_format];
+    let mut rendering_info = vk::PipelineRenderingCreateInfo::default()
+        .color_attachment_formats(&color_formats)
+        .depth_attachment_format(depth_format);
+
     let base = vk::GraphicsPipelineCreateInfo::default()
         .stages(&stages)
         .vertex_input_state(&vertex_input)
@@ -1019,8 +1017,7 @@ fn create_pipelines(
         .depth_stencil_state(&depth_stencil)
         .dynamic_state(&dynamic_state)
         .layout(layout)
-        .render_pass(render_pass)
-        .subpass(0);
+        .push_next(&mut rendering_info);
 
     let infos = [
         base.color_blend_state(&translucent_blending),

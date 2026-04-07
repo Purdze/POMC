@@ -181,7 +181,8 @@ impl MenuOverlayPipeline {
         device: &ash::Device,
         queue: vk::Queue,
         command_pool: vk::CommandPool,
-        render_pass: vk::RenderPass,
+        color_format: vk::Format,
+        depth_format: vk::Format,
         allocator: &Arc<Mutex<Allocator>>,
         jar_assets_dir: &Path,
         asset_index: &Option<AssetIndex>,
@@ -247,7 +248,7 @@ impl MenuOverlayPipeline {
         let pipeline_layout = unsafe { device.create_pipeline_layout(&layout_info, None) }
             .expect("failed to create menu overlay pipeline layout");
 
-        let pipeline = create_pipeline(device, render_pass, pipeline_layout);
+        let pipeline = create_pipeline(device, color_format, depth_format, pipeline_layout);
 
         let pool_sizes = [
             vk::DescriptorPoolSize {
@@ -1093,11 +1094,6 @@ impl MenuOverlayPipeline {
             })
             .sum();
         raw.ceil()
-    }
-
-    pub fn recreate_pipeline(&mut self, device: &ash::Device, render_pass: vk::RenderPass) {
-        unsafe { device.destroy_pipeline(self.pipeline, None) };
-        self.pipeline = create_pipeline(device, render_pass, self.pipeline_layout);
     }
 
     pub fn destroy(&mut self, device: &ash::Device, allocator: &Arc<Mutex<Allocator>>) {
@@ -2442,7 +2438,8 @@ fn push_mc_glyph(
 
 fn create_pipeline(
     device: &ash::Device,
-    render_pass: vk::RenderPass,
+    color_format: vk::Format,
+    depth_format: vk::Format,
     layout: vk::PipelineLayout,
 ) -> vk::Pipeline {
     let vert_spv = shader::include_spirv!("menu_overlay.vert.spv");
@@ -2547,6 +2544,11 @@ fn create_pipeline(
     let dynamic_state =
         vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
 
+    let color_formats = [color_format];
+    let mut rendering_info = vk::PipelineRenderingCreateInfo::default()
+        .color_attachment_formats(&color_formats)
+        .depth_attachment_format(depth_format);
+
     let pipeline_info = [vk::GraphicsPipelineCreateInfo::default()
         .stages(&stages)
         .vertex_input_state(&vertex_input)
@@ -2558,8 +2560,7 @@ fn create_pipeline(
         .color_blend_state(&color_blending)
         .dynamic_state(&dynamic_state)
         .layout(layout)
-        .render_pass(render_pass)
-        .subpass(0)];
+        .push_next(&mut rendering_info)];
 
     let pipeline = unsafe {
         device.create_graphics_pipelines(vk::PipelineCache::null(), &pipeline_info, None)

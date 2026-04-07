@@ -24,7 +24,8 @@ pub struct ChunkPipeline {
 impl ChunkPipeline {
     pub fn new(
         device: &ash::Device,
-        render_pass: vk::RenderPass,
+        color_format: vk::Format,
+        depth_format: vk::Format,
         allocator: &Arc<Mutex<Allocator>>,
         atlas: &TextureAtlas,
     ) -> Self {
@@ -44,7 +45,7 @@ impl ChunkPipeline {
         let pipeline_layout = unsafe { device.create_pipeline_layout(&layout_info, None) }
             .expect("failed to create pipeline layout");
 
-        let pipeline = create_pipeline(device, render_pass, pipeline_layout);
+        let pipeline = create_pipeline(device, color_format, depth_format, pipeline_layout);
 
         let pool_sizes = [
             vk::DescriptorPoolSize {
@@ -186,7 +187,8 @@ impl ChunkPipeline {
 
 fn create_pipeline(
     device: &ash::Device,
-    render_pass: vk::RenderPass,
+    color_format: vk::Format,
+    depth_format: vk::Format,
     layout: vk::PipelineLayout,
 ) -> vk::Pipeline {
     let vert_spv = shader::include_spirv!("chunk.vert.spv");
@@ -247,6 +249,11 @@ fn create_pipeline(
     let dynamic_state =
         vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
 
+    let color_formats = [color_format];
+    let mut rendering_info = vk::PipelineRenderingCreateInfo::default()
+        .color_attachment_formats(&color_formats)
+        .depth_attachment_format(depth_format);
+
     let pipeline_info = [vk::GraphicsPipelineCreateInfo::default()
         .stages(&stages)
         .vertex_input_state(&vertex_input)
@@ -258,8 +265,7 @@ fn create_pipeline(
         .color_blend_state(&color_blending)
         .dynamic_state(&dynamic_state)
         .layout(layout)
-        .render_pass(render_pass)
-        .subpass(0)];
+        .push_next(&mut rendering_info)];
 
     let pipeline = unsafe {
         device.create_graphics_pipelines(vk::PipelineCache::null(), &pipeline_info, None)

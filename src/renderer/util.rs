@@ -340,6 +340,41 @@ pub const DEPTH_SUBRESOURCE_RANGE: vk::ImageSubresourceRange = vk::ImageSubresou
     layer_count: 1,
 };
 
+#[allow(clippy::too_many_arguments)]
+pub fn transition_image_layout(
+    device: &ash::Device,
+    cmd: vk::CommandBuffer,
+    image: vk::Image,
+    old_layout: vk::ImageLayout,
+    new_layout: vk::ImageLayout,
+    src_stage: vk::PipelineStageFlags2,
+    src_access: vk::AccessFlags2,
+    dst_stage: vk::PipelineStageFlags2,
+    dst_access: vk::AccessFlags2,
+    aspect: vk::ImageAspectFlags,
+) {
+    let barrier = vk::ImageMemoryBarrier2::default()
+        .image(image)
+        .old_layout(old_layout)
+        .new_layout(new_layout)
+        .src_stage_mask(src_stage)
+        .src_access_mask(src_access)
+        .dst_stage_mask(dst_stage)
+        .dst_access_mask(dst_access)
+        .subresource_range(vk::ImageSubresourceRange {
+            aspect_mask: aspect,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+        });
+    let barriers = [barrier];
+    let dep_info = vk::DependencyInfo::default().image_memory_barriers(&barriers);
+    unsafe {
+        device.cmd_pipeline_barrier2(cmd, &dep_info);
+    }
+}
+
 pub unsafe fn create_nearest_sampler(device: &ash::Device) -> vk::Sampler {
     unsafe { create_nearest_sampler_mipmapped(device, 1) }
 }
