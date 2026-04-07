@@ -482,26 +482,31 @@ impl SkyPipeline {
             }))
             .ok();
 
-        unsafe {
-            device.destroy_sampler(self.sun_sampler, None);
-            device.destroy_image_view(self.sun_view, None);
-        }
-        alloc
-            .free(std::mem::replace(&mut self.sun_allocation, unsafe {
-                std::mem::zeroed()
-            }))
-            .ok();
-        unsafe { device.destroy_image(self.sun_image, None) };
+        let mut destroy_texture =
+            |view: &mut vk::ImageView, image: &mut vk::Image, allocation: &mut Allocation| {
+                unsafe {
+                    device.destroy_image_view(*view, None);
+                }
+                alloc
+                    .free(std::mem::replace(allocation, unsafe { std::mem::zeroed() }))
+                    .ok();
+                unsafe { device.destroy_image(*image, None) };
+            };
+
+        unsafe { device.destroy_sampler(self.sun_sampler, None) };
+        destroy_texture(
+            &mut self.sun_view,
+            &mut self.sun_image,
+            &mut self.sun_allocation,
+        );
 
         unsafe { device.destroy_sampler(self.moon_sampler, None) };
         for i in 0..8 {
-            unsafe { device.destroy_image_view(self.moon_views[i], None) };
-            alloc
-                .free(std::mem::replace(&mut self.moon_allocations[i], unsafe {
-                    std::mem::zeroed()
-                }))
-                .ok();
-            unsafe { device.destroy_image(self.moon_images[i], None) };
+            destroy_texture(
+                &mut self.moon_views[i],
+                &mut self.moon_images[i],
+                &mut self.moon_allocations[i],
+            );
         }
 
         drop(alloc);
