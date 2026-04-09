@@ -41,7 +41,7 @@ struct MojangContent {
     body: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct PatchNote {
     pub title: String,
     pub version: String,
@@ -72,6 +72,7 @@ struct ConsoleEvent {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_patch_notes(count: Option<usize>) -> Result<Vec<PatchNote>, String> {
     let limit = count.unwrap_or(20);
     let resp: MojangPatchNotes = reqwest::get(PATCH_NOTES_URL)
@@ -100,6 +101,7 @@ pub async fn get_patch_notes(count: Option<usize>) -> Result<Vec<PatchNote>, Str
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_patch_content(content_path: String) -> Result<String, String> {
     let url = format!("{IMAGE_BASE}/v2/{content_path}");
     let content: MojangContent = reqwest::get(&url)
@@ -138,6 +140,7 @@ struct SkinTexture {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_skin_url(uuid: String) -> Result<String, String> {
     let clean_uuid = uuid.replace('-', "");
     let url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{clean_uuid}");
@@ -164,16 +167,19 @@ pub async fn get_skin_url(uuid: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_all_accounts() -> Vec<crate::auth::AuthAccount> {
     crate::auth::get_all_accounts()
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn add_account() -> Result<crate::auth::AuthAccount, String> {
     crate::auth::oauth_sign_in().await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn remove_account(uuid: String) {
     crate::auth::remove_account(&uuid);
 }
@@ -203,7 +209,7 @@ pub struct Versions {
     pub versions: Vec<GameVersion>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, specta::Type)]
 pub struct GameVersion {
     pub id: String,
     pub version_type: String,
@@ -239,6 +245,7 @@ pub async fn fetch_versions() -> Result<&'static Versions, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_versions(show_snapshots: Option<bool>) -> Result<Vec<GameVersion>, String> {
     let all = fetch_versions().await?;
     let include_snapshots = show_snapshots.unwrap_or(false);
@@ -251,6 +258,7 @@ pub async fn get_versions(show_snapshots: Option<bool>) -> Result<Vec<GameVersio
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn refresh_account(uuid: String) -> Result<crate::auth::AuthAccount, String> {
     crate::auth::try_restore_or_refresh(&uuid)
         .await
@@ -258,6 +266,7 @@ pub async fn refresh_account(uuid: String) -> Result<crate::auth::AuthAccount, S
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn ensure_assets(app: AppHandle, version: String) -> Result<(), String> {
     if crate::downloader::needs_download(&version) {
         crate::downloader::download(&app, &version).await?;
@@ -266,11 +275,13 @@ pub async fn ensure_assets(app: AppHandle, version: String) -> Result<(), String
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_downloaded_versions() -> Vec<String> {
     crate::downloader::get_downloaded_versions().await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn launch_game(
     app: AppHandle,
     version: String,
@@ -436,6 +447,7 @@ pub async fn launch_game(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_client_logs(state: State<'_, AppState>) -> Result<VecDeque<String>, ()> {
     let logs = state.client_logs.lock().await;
     Ok(logs.clone())
@@ -474,32 +486,38 @@ fn find_client_binary() -> Result<std::path::PathBuf, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_launcher_settings() -> LauncherSettings {
     let settings = LauncherSettings::get().await;
     settings.clone()
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn set_launcher_language(language: String) -> Result<(), String> {
     LauncherSettings::update(|s| s.language = language).await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn set_keep_launcher_open(keep: bool) -> Result<(), String> {
     LauncherSettings::update(|s| s.keep_launcher_open = keep).await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn set_launch_with_console(launch: bool) -> Result<(), String> {
     LauncherSettings::update(|s| s.launch_with_console = launch).await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn ping_server(address: String) -> crate::ping::ServerStatus {
     crate::ping::ping_server(&address).await
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_servers() -> Vec<crate::ping::SavedServer> {
     let path = servers_path();
     std::fs::read_to_string(&path)
@@ -509,6 +527,7 @@ pub async fn load_servers() -> Vec<crate::ping::SavedServer> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn save_servers(servers: Vec<crate::ping::SavedServer>) -> Result<(), String> {
     let path = servers_path();
     let _ = std::fs::create_dir_all(path.parent().unwrap());
@@ -523,6 +542,7 @@ fn servers_path() -> std::path::PathBuf {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_installations(
     state: State<'_, AppState>,
 ) -> Result<Vec<Installation>, InstallationError> {
@@ -531,6 +551,7 @@ pub async fn load_installations(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn create_installation(
     state: State<'_, AppState>,
     payload: InstallationDraft,
@@ -540,6 +561,7 @@ pub async fn create_installation(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_installation(
     state: State<'_, AppState>,
     id: String,
@@ -549,6 +571,7 @@ pub async fn delete_installation(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn duplicate_installation(
     state: State<'_, AppState>,
     old_id: String,
@@ -559,6 +582,7 @@ pub async fn duplicate_installation(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn edit_installation(
     state: State<'_, AppState>,
     id: String,

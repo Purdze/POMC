@@ -25,7 +25,7 @@ const FORBIDDEN_CHAR: &[char] = &[':', '*', '?', '"', '<', '>', '|'];
 const INSTALLATIONS_LATEST_RELEASE_INDEX: usize = 0;
 const INSTALLATIONS_LATEST_SNAPSHOT_INDEX: usize = 1;
 
-#[derive(Debug, thiserror::Error, Serialize)]
+#[derive(Debug, thiserror::Error, Serialize, specta::Type)]
 #[serde(tag = "kind", content = "detail")]
 pub enum InstallationError {
     #[error("Invalid name")]
@@ -67,7 +67,7 @@ impl From<String> for InstallationError {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, specta::Type)]
 pub struct Id(String);
 impl Id {
     pub fn new(created_at: u64) -> Self {
@@ -100,7 +100,7 @@ impl Display for Id {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, specta::Type)]
 pub struct Name(String);
 impl TryFrom<String> for Name {
     type Error = InstallationError;
@@ -129,7 +129,7 @@ impl From<Name> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, specta::Type)]
 pub struct Version(String);
 impl From<String> for Version {
     fn from(value: String) -> Self {
@@ -152,7 +152,7 @@ impl From<Version> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct TimeStamp(NonZeroU64);
 impl TimeStamp {
     pub fn now() -> Self {
@@ -176,7 +176,7 @@ impl From<NonZeroU64> for TimeStamp {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, specta::Type)]
 pub struct Directory(PathBuf);
 impl TryFrom<String> for Directory {
     type Error = InstallationError;
@@ -244,7 +244,7 @@ impl From<Directory> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct Installation {
     pub id: Id,
     pub name: Name,
@@ -306,7 +306,7 @@ impl TryFrom<InstallationDraft> for Installation {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct InstallationDraft {
     pub name: String,
     pub version: String,
