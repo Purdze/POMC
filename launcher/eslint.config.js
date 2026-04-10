@@ -24,10 +24,11 @@ export default [
       ...reactHooks.configs.recommended.rules,
       "react-hooks/preserve-manual-memoization": "off",
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
         },
       ],
       "@typescript-eslint/no-explicit-any": "warn",
