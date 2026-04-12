@@ -91,8 +91,8 @@ pub fn build_hud(
 
     let hotbar_w = HOTBAR_W * gs;
     let hotbar_h = HOTBAR_H * gs;
-    let hotbar_x = cx - hotbar_w / 2.0;
-    let hotbar_y = screen_h - hotbar_h;
+    let hotbar_x = (cx - hotbar_w / 2.0).round();
+    let hotbar_y = (screen_h - hotbar_h).round();
 
     elements.push(MenuElement::Image {
         x: hotbar_x,
@@ -105,8 +105,8 @@ pub fn build_hud(
 
     let sel_w = SELECTION_W * gs;
     let sel_h = SELECTION_H * gs;
-    let sel_x = hotbar_x - 1.0 * gs + selected_slot as f32 * SLOT_STRIDE * gs;
-    let sel_y = hotbar_y - 1.0 * gs;
+    let sel_x = (hotbar_x - 1.0 * gs + selected_slot as f32 * SLOT_STRIDE * gs).round();
+    let sel_y = (hotbar_y - 1.0 * gs).round();
     elements.push(MenuElement::Image {
         x: sel_x,
         y: sel_y,
@@ -119,8 +119,8 @@ pub fn build_hud(
     let item_size = 16.0 * gs;
     for (i, item) in hotbar.iter().enumerate().take(9) {
         if let ItemStack::Present(data) = item {
-            let ix = hotbar_x + 3.0 * gs + i as f32 * SLOT_STRIDE * gs;
-            let iy = hotbar_y + 3.0 * gs;
+            let ix = (hotbar_x + 3.0 * gs + i as f32 * SLOT_STRIDE * gs).round();
+            let iy = (hotbar_y + 3.0 * gs).round();
             elements.push(MenuElement::ItemIcon {
                 x: ix,
                 y: iy,
@@ -135,7 +135,7 @@ pub fn build_hud(
         }
     }
 
-    let status_bar_y = hotbar_y - (XP_BAR_H + 1.0 + 2.0) * gs;
+    let status_bar_y = (hotbar_y - (XP_BAR_H + 1.0 + 2.0) * gs).round();
     build_status_bar(
         elements,
         hotbar_x,
@@ -160,7 +160,7 @@ pub fn build_hud(
     );
 
     if armor > 0 {
-        let armor_y = status_bar_y - (ICON_SIZE + 1.0) * gs;
+        let armor_y = (status_bar_y - (ICON_SIZE + 1.0) * gs).round();
         build_status_bar(
             elements,
             hotbar_x,
@@ -177,8 +177,8 @@ pub fn build_hud(
     if game_mode == 0 || game_mode == 2 {
         let xp_w = XP_BAR_W * gs;
         let xp_h = XP_BAR_H * gs;
-        let xp_x = cx - xp_w / 2.0;
-        let xp_y = hotbar_y - xp_h - 2.0 * gs;
+        let xp_x = (cx - xp_w / 2.0).round();
+        let xp_y = (hotbar_y - xp_h - 2.0 * gs).round();
 
         elements.push(MenuElement::Image {
             x: xp_x,
@@ -191,7 +191,7 @@ pub fn build_hud(
 
         let fill_px = (experience_progress.clamp(0.0, 1.0) * XP_BAR_W).ceil() as i32;
         if fill_px > 0 {
-            let fill_w = fill_px as f32 * gs;
+            let fill_w = (fill_px as f32 * gs).round();
             elements.push(MenuElement::ScissorPush {
                 x: xp_x,
                 y: xp_y,
@@ -212,7 +212,7 @@ pub fn build_hud(
         if experience_level > 0 {
             let text = experience_level.to_string();
             let fs = FONT_SIZE * gs;
-            let ty = xp_y - 6.0 * gs;
+            let ty = (xp_y - 6.0 * gs).round();
             let shadow = [0.0, 0.0, 0.0, 1.0];
             let main = [0.5, 1.0, 0.125, 1.0];
             for (dx, dy) in [
@@ -226,8 +226,8 @@ pub fn build_hud(
                 (-1.0, -1.0),
             ] {
                 elements.push(MenuElement::Text {
-                    x: cx + dx * gs,
-                    y: ty + dy * gs,
+                    x: (cx + dx * gs).round(),
+                    y: (ty + dy * gs).round(),
                     text: text.clone(),
                     scale: fs,
                     color: shadow,
@@ -256,7 +256,7 @@ pub fn build_hud(
         let empty_bubbles = 10 - bubble_count(empty_delay);
         let is_popping = full_bubbles != popping_pos;
 
-        let bubble_y = status_bar_y - ICON_SIZE * gs - 1.0 * gs;
+        let bubble_y = (status_bar_y - ICON_SIZE * gs - 1.0 * gs).round();
         let stride = ICON_STRIDE * gs;
         let icon_size = ICON_SIZE * gs;
         for b in 1..=10i32 {
@@ -269,7 +269,7 @@ pub fn build_hud(
             } else {
                 SpriteId::AirEmpty
             };
-            let x = hotbar_x + hotbar_w - (b - 1) as f32 * stride - icon_size;
+            let x = (hotbar_x + hotbar_w - (b - 1) as f32 * stride - icon_size).round();
             elements.push(MenuElement::Image {
                 x,
                 y: bubble_y,
@@ -320,11 +320,11 @@ fn build_status_bar(
 
     for i in 0..10u8 {
         let x = if right_to_left {
-            x_start - (i as f32 + 1.0) * stride
+            (x_start - (i as f32 + 1.0) * stride).round()
         } else {
-            x_start + i as f32 * stride
+            (x_start + i as f32 * stride).round()
         };
-        let iy = y - icon_size;
+        let iy = (y - icon_size).round();
 
         let sprite = if i < full_icons {
             full
