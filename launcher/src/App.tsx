@@ -96,7 +96,7 @@ function App() {
         loadSkin(accs[0].uuid);
       }
     });
-    invoke<PatchNote[]>("get_patch_notes", { count: 6 })
+    invoke<PatchNote[]>("get_patch_notes", { count: 15 })
       .then(setNews)
       .catch((e) => console.error("Failed to fetch news:", e));
     invoke<GameVersion[]>("get_versions", { showSnapshots: false })
