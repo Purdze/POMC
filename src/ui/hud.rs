@@ -326,21 +326,32 @@ fn build_status_bar(
         };
         let iy = (y - icon_size).round();
 
-        let sprite = if i < full_icons {
-            full
-        } else if i == full_icons && has_half {
-            half
-        } else {
-            bg
-        };
         elements.push(MenuElement::Image {
             x,
             y: iy,
             w: icon_size,
             h: icon_size,
-            sprite,
+            sprite: bg,
             tint: WHITE,
         });
+
+        let overlay = if i < full_icons {
+            Some(full)
+        } else if i == full_icons && has_half {
+            Some(half)
+        } else {
+            None
+        };
+        if let Some(sprite) = overlay {
+            elements.push(MenuElement::Image {
+                x,
+                y: iy,
+                w: icon_size,
+                h: icon_size,
+                sprite,
+                tint: WHITE,
+            });
+        }
     }
 }
 
