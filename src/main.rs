@@ -44,7 +44,7 @@ fn main() {
     let version = args
         .version
         .as_deref()
-        .unwrap_or_else(|| SUPPORTED_VERSIONS.first().unwrap());
+        .unwrap_or_else(|| SUPPORTED_VERSIONS.last().unwrap());
 
     if !SUPPORTED_VERSIONS.contains(&version) {
         eprintln!(
