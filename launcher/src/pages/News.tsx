@@ -1,3 +1,4 @@
+import { HiExternalLink } from "react-icons/hi";
 import { HiArrowLeft } from "react-icons/hi2";
 import { useAppStateContext } from "../lib/state";
 import { PatchNote } from "../lib/types";
@@ -25,8 +26,11 @@ export default function NewsPage({
               />
             </div>
             <div className="note-header-content">
-              <span className="news-type-badge">{selectedNote.entry_type}</span>
-              <span className="note-header-date">{selectedNote.date?.replace(/-/g, ".")}</span>
+              <div className="note-header-meta">
+                <span className="note-header-date">{selectedNote.date?.replace(/-/g, ".")}</span>
+                <span className="note-header-meta-divider" />
+                <span className="note-header-type">{selectedNote.entry_type}</span>
+              </div>
               <h2 className="note-header-title">{selectedNote.title}</h2>
             </div>
           </div>
@@ -60,6 +64,15 @@ export default function NewsPage({
             ))}
             {news.length === 0 && <p className="news-loading">Loading patch notes...</p>}
           </div>
+
+          <a
+            className="news-more-link"
+            href="https://aka.ms/MorePatchNotes"
+            target="_blank"
+            rel="noreferrer"
+          >
+            More patch notes <HiExternalLink />
+          </a>
         </>
       )}
     </div>
