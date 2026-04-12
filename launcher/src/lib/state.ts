@@ -85,6 +85,8 @@ const useAppState = () => {
     title: string;
     body: string;
     image_url: string;
+    entry_type: string;
+    date: string;
   } | null>(null);
 
   return {

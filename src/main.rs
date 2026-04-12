@@ -27,7 +27,8 @@ const VERSION_PROTOCOL_MAP: [(&str, i32); 3] =
 fn main() {
     let args = args::LaunchArgs::parse();
 
-    if !cfg!(debug_assertions) && !args.dev {
+    #[cfg(not(debug_assertions))]
+    {
         match &args.launch_token {
             Some(path) => {
                 let token_path = std::path::Path::new(path);
@@ -48,7 +49,7 @@ fn main() {
     let version = args
         .version
         .as_deref()
-        .unwrap_or_else(|| VERSION_PROTOCOL_MAP.first().unwrap().0);
+        .unwrap_or_else(|| VERSION_PROTOCOL_MAP.last().unwrap().0);
 
     if !VERSION_PROTOCOL_MAP.iter().any(|(v, _)| v == &version) {
         eprintln!(
@@ -59,9 +60,8 @@ fn main() {
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        if !cfg!(debug_assertions) && !args.dev {
-            std::process::exit(1);
-        }
+        #[cfg(not(debug_assertions))]
+        std::process::exit(1);
     }
 
     let data_dirs = dirs::DataDirs::resolve(

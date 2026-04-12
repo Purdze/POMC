@@ -6,19 +6,18 @@ Thanks for your interest in contributing to Pomme!
 
 1. Fork the repository
 2. Clone your fork and set up the development environment:
+
    ```bash
    git clone https://github.com/<your-username>/Pomme-Client.git
    cd Pomme-Client
-   rustup override set nightly
    ```
-3. Extract vanilla 1.21.11 assets into `reference/assets/`:
-   ```bash
-   unzip ~/.minecraft/versions/1.21.11/1.21.11.jar -d reference/assets/
-   ```
-4. Build and run:
+
+3. Build and run:
+
    ```bash
    cargo build
-   cargo run -- --server localhost:25565 --username Steve
+   cd launcher
+   pnpm tauri dev
    ```
 
 ## Before Submitting a PR
@@ -75,13 +74,14 @@ Every PR must include:
 ```
 
 For bug fixes, also include:
+
 - What the issue was
 - What caused it
 - How it was fixed
 
 ## Project Structure
 
-```
+```text
 src/
 ├── main.rs          # Entry point
 ├── args.rs          # CLI arguments
@@ -105,7 +105,8 @@ launcher/
 
 ## Reporting Issues
 
-Include reproduction steps and your system info (OS, GPU, Rust version) for bug reports.
+Include reproduction steps and your system info (OS, GPU, Rust version)
+for bug reports.
 
 ## Code of Conduct
 
