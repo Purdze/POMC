@@ -421,8 +421,6 @@ pub async fn launch_game(
             }
             .emit(&app);
         }
-
-        println!("client status was: {}", status);
     });
 
     Ok(format!("Launched as {username}"))
