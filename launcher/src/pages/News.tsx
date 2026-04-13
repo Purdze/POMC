@@ -1,7 +1,9 @@
-import { HiExternalLink } from "react-icons/hi";
-import { HiArrowLeft } from "react-icons/hi2";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { HiArrowLeft, HiArrowTopRightOnSquare } from "react-icons/hi2";
 import { useAppStateContext } from "../lib/state";
 import { PatchNote } from "../lib/types";
+
+const MORE_PATCH_NOTES_URL = "https://aka.ms/MorePatchNotes";
 
 export default function NewsPage({
   openPatchNote,
@@ -67,11 +69,13 @@ export default function NewsPage({
 
           <a
             className="news-more-link"
-            href="https://aka.ms/MorePatchNotes"
-            target="_blank"
-            rel="noreferrer"
+            href={MORE_PATCH_NOTES_URL}
+            onClick={(e) => {
+              e.preventDefault();
+              openUrl(MORE_PATCH_NOTES_URL);
+            }}
           >
-            More patch notes <HiExternalLink />
+            More patch notes <HiArrowTopRightOnSquare />
           </a>
         </>
       )}
