@@ -15,40 +15,17 @@ Thanks for your interest in contributing to Pomme!
 3. Build and run:
 
    ```bash
-   cargo build
-   cd launcher
-   pnpm tauri dev
+   pnpm client:build-debug
+   pnpm launcher:dev
    ```
 
 ## Before Submitting a PR
 
 All of these must pass. CI will reject your PR if they don't.
 
-### Client (Rust)
-
 ```bash
-cargo fmt -- --check
-cargo clippy --release --all-targets --all-features -- -D warnings
-cargo build --release
-```
-
-### Launcher Backend (Rust)
-
-```bash
-cd launcher/src-tauri
-cargo fmt -- --check
-cargo clippy --release --all-targets --all-features -- -D warnings
-```
-
-### Launcher Frontend (TypeScript)
-
-```bash
-cd launcher
-pnpm install
-pnpm format:check
-pnpm lint
-pnpm exec tsc --noEmit
-pnpm exec vite build
+pnpm client:pre-pr          # Client (Rust)
+pnpm launcher:pre-pr        # Launcher (Rust & TypeScript)
 ```
 
 ## Development Guidelines
@@ -75,16 +52,18 @@ Every PR must include:
 
 For bug fixes, also include:
 
+```markdown
 - What the issue was
 - What caused it
 - How it was fixed
+```
 
 ## Project Structure
 
 ```bash
 Pomme/
-├── pomme-client        # Minecraft client (Vulkan, Rust)
-└── pomme-launcher      # Launcher app (Tauri, React, TypeScript)
+├── pomme-client            # Minecraft client (Vulkan, Rust)
+└── pomme-launcher          # Launcher app (Tauri, React, TypeScript)
 ```
 
 ### Pomme client
@@ -111,9 +90,9 @@ pomme-client/
 
 ```bash
 pomme-launcher/
-├── src/                # React frontend (TypeScript)
-├── src-tauri/          # Tauri backend (Rust)
-└── package.json        # Node dependencies
+├── src/                    # React frontend (TypeScript)
+├── src-tauri/              # Tauri backend (Rust)
+└── package.json            # Node dependencies
 ```
 
 ## Reporting Issues

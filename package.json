@@ -1,10 +1,10 @@
 {
   "scripts": {
     "launcher:dev": "pnpm --filter pomme-launcher tauri dev",
-    "launcher:build": "pnpm --filter pomme-launcher tauri build --debug",
+    "launcher:build-debug": "pnpm --filter pomme-launcher tauri build --debug",
     "launcher:build-release": "pnpm --filter pomme-launcher tauri build",
     "client:dev": "cargo run -p pomme-client",
-    "client:build": "cargo build -p pomme-client",
+    "client:build-debug": "cargo build -p pomme-client",
     "client:build-release": "cargo build -p pomme-client --release"
   }
 }
