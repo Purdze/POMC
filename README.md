@@ -104,7 +104,7 @@ Running the standalone client requires minecraft assets, for which you have 2 op
    mkdir -p reference/versions/26.1.1/extracted
    mkdir -p reference/game-dir
    
-    # 30 is the asset index id for 26.1.1
+   # 30 is the asset index id for 26.1.1
    cp ~/.minecraft/assets/indexes/30.json reference/assets/indexes/26.1.1.json
    cp -r ~/.minecraft/assets/objects/. reference/assets/objects/
    cp ~/.minecraft/versions/26.1.1/26.1.1.jar reference/versions/26.1.1/
