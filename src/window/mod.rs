@@ -495,29 +495,89 @@ impl App {
                     self.chunk_store
                         .set_center(azalea_core::position::ChunkPos::new(x, z));
                 }
-                NetworkEvent::PlayerPosition {
-                    x,
-                    y,
-                    z,
-                    yaw,
-                    pitch,
-                    ..
-                } => {
+                NetworkEvent::PlayerPosition { change, relative } => {
+                    let apply = |rel: bool, base: f64, change: f64| {
+                        if rel { base + change } else { change }
+                    };
+                    let new_pos = azalea_core::position::Vec3 {
+                        x: apply(relative.x, self.player.position.x as f64, change.pos.x),
+                        y: apply(relative.y, self.player.position.y as f64, change.pos.y),
+                        z: apply(relative.z, self.player.position.z as f64, change.pos.z),
+                    };
+                    let new_look = azalea_entity::LookDirection::new(
+                        apply(
+                            relative.y_rot,
+                            self.player.yaw.to_degrees() as f64,
+                            change.look_direction.y_rot() as f64,
+                        ) as f32,
+                        apply(
+                            relative.x_rot,
+                            self.player.pitch.to_degrees() as f64,
+                            change.look_direction.x_rot() as f64,
+                        ) as f32,
+                    );
+                    let new_vel = glam::Vec3::new(
+                        apply(
+                            relative.delta_x,
+                            self.player.velocity.x as f64,
+                            change.delta.x,
+                        ) as f32,
+                        apply(
+                            relative.delta_y,
+                            self.player.velocity.y as f64,
+                            change.delta.y,
+                        ) as f32,
+                        apply(
+                            relative.delta_z,
+                            self.player.velocity.z as f64,
+                            change.delta.z,
+                        ) as f32,
+                    );
+
+                    self.player.position =
+                        glam::Vec3::new(new_pos.x as f32, new_pos.y as f32, new_pos.z as f32);
+                    self.player.velocity = new_vel;
+                    self.player.yaw = new_look.y_rot().to_radians();
+                    self.player.pitch = new_look.x_rot().to_radians();
+                    self.prev_player_pos = self.player.position;
+
                     self.chunk_store
                         .set_center(azalea_core::position::ChunkPos::new(
-                            (x as i32).div_euclid(16),
-                            (z as i32).div_euclid(16),
+                            (new_pos.x as i32).div_euclid(16),
+                            (new_pos.z as i32).div_euclid(16),
                         ));
+
+                    if let Some(renderer) = &mut self.renderer {
+                        renderer.set_camera_position(
+                            new_pos.x,
+                            new_pos.y,
+                            new_pos.z,
+                            new_look.y_rot(),
+                            new_look.x_rot(),
+                        );
+                    }
+
                     if !self.position_set {
-                        self.player.position = glam::Vec3::new(x as f32, y as f32, z as f32);
-                        self.player.yaw = yaw.to_radians();
-                        self.player.pitch = pitch.to_radians();
-                        self.prev_player_pos = self.player.position;
-                        if let Some(renderer) = &mut self.renderer {
-                            renderer.set_camera_position(x, y, z, yaw, pitch);
-                        }
                         self.position_set = true;
-                        tracing::info!("Player position set to ({x:.1}, {y:.1}, {z:.1})");
+                        tracing::info!(
+                            "Player position set to ({:.1}, {:.1}, {:.1})",
+                            new_pos.x,
+                            new_pos.y,
+                            new_pos.z
+                        );
+                    }
+
+                    if let Some(sender) = &self.packet_sender {
+                        sender.send(ServerboundGamePacket::MovePlayerPosRot(
+                            azalea_protocol::packets::game::s_move_player_pos_rot::ServerboundMovePlayerPosRot {
+                                pos: new_pos,
+                                look_direction: new_look,
+                                flags: azalea_protocol::common::movements::MoveFlags {
+                                    on_ground: false,
+                                    horizontal_collision: false,
+                                },
+                            },
+                        ));
                     }
                 }
                 NetworkEvent::PlayerHealth {
