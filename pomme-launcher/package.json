@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "pnpm run generate-bindings && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint src/",
