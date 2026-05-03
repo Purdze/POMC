@@ -57,9 +57,6 @@ jobs:
       - name: Build
         run: pnpm --filter pomme-launcher tauri build --target ${{ matrix.target }}
 
-      - name: Bundle
-        run: pnpm --filter pomme-launcher tauri bundle --target ${{ matrix.target }}
-
       - name: Package
         shell: bash
         run: |
