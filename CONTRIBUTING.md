@@ -95,6 +95,15 @@ pomme-launcher/
 └── package.json            # Node dependencies
 ```
 
+## Releases
+
+Releases are cut by pushing tags:
+
+- `client-v*` (e.g. `client-v0.1.1`) builds and publishes the client.
+- `launcher-v*` (e.g. `launcher-v0.1.1`) builds and publishes the launcher.
+
+A plain `v*` tag does nothing.
+
 ## Reporting Issues
 
 Include reproduction steps and your system info (OS, GPU, Rust version)
