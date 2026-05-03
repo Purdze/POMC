@@ -881,12 +881,17 @@ impl MainMenu {
         let Some(field_idx) = self.focused_field else {
             return;
         };
-        let is_edit_form = matches!(self.screen, Screen::AddServer | Screen::EditServer(_));
-        let text = match (is_edit_form, field_idx) {
-            (true, 0) => &mut self.edit_name,
-            (true, 1) => &mut self.edit_address,
-            (false, 0) => &mut self.edit_address,
+        let target = match (&self.screen, field_idx) {
+            (Screen::AddServer | Screen::EditServer(_), 0) => TextTarget::EditName,
+            (Screen::AddServer | Screen::EditServer(_), 1) => TextTarget::EditAddress,
+            (Screen::DirectConnect, 0) => TextTarget::EditAddress,
+            (Screen::OptionsResourcePacks, 0) => TextTarget::PackSearch,
             _ => return,
+        };
+        let text: &mut String = match target {
+            TextTarget::EditName => &mut self.edit_name,
+            TextTarget::EditAddress => &mut self.edit_address,
+            TextTarget::PackSearch => &mut self.pack_search,
         };
 
         if input.copy
@@ -1011,6 +1016,12 @@ impl MainMenu {
 }
 
 const UNDO_STACK_LIMIT: usize = 50;
+
+enum TextTarget {
+    EditName,
+    EditAddress,
+    PackSearch,
+}
 
 fn push_undo(stack: &mut Vec<(u8, String)>, field_idx: u8, prev: String) {
     if stack.len() >= UNDO_STACK_LIMIT {

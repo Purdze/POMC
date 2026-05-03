@@ -564,6 +564,9 @@ impl MainMenu {
                             self.rescan_packs = true;
                         }
                         self.set_screen(target.clone_screen());
+                        if matches!(self.screen, Screen::OptionsResourcePacks) {
+                            self.focused_field = Some(0);
+                        }
                     }
                     if label.starts_with("GUI Scale:") {
                         let max = crate::ui::hud::max_gui_scale(sw, sh);
@@ -703,6 +706,8 @@ impl MainMenu {
             return empty_result(2.0);
         }
 
+        self.handle_text_input(input, 1);
+
         let gs = crate::ui::hud::gui_scale(sw, sh, self.gui_scale_setting);
         let fs = common::FONT_SIZE * gs;
         let btn_h = common::BTN_H * gs;
@@ -749,16 +754,10 @@ impl MainMenu {
         });
         header_y += fs + pad;
 
-        for ch in &input.typed_chars {
-            self.pack_search.push(*ch);
-        }
-        if input.backspace {
-            self.pack_search.pop();
-        }
-
+        let field_x = cx - list_w / 2.0;
         push_text_field(
             &mut elements,
-            cx - list_w / 2.0,
+            field_x,
             header_y,
             list_w,
             field_h,
@@ -769,11 +768,14 @@ impl MainMenu {
             } else {
                 &self.pack_search
             },
-            true,
-            false,
+            self.focused_field == Some(0),
+            self.focused_field == Some(0) && self.field_all_selected,
             &self.cursor_blink,
             text_width_fn,
         );
+        if clicked && common::hit_test(cursor, [field_x, header_y, list_w, field_h]) {
+            self.on_field_click(0);
+        }
         header_y += field_h + pad;
 
         let content_top = header_y;
