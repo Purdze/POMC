@@ -21,6 +21,7 @@ pub struct InputState {
     f5_pressed: bool,
     select_all_pressed: bool,
     copy_pressed: bool,
+    cut_pressed: bool,
     undo_pressed: bool,
 }
 
@@ -52,6 +53,7 @@ impl InputState {
             f5_pressed: false,
             select_all_pressed: false,
             copy_pressed: false,
+            cut_pressed: false,
             undo_pressed: false,
         }
     }
@@ -110,6 +112,10 @@ impl InputState {
                 }
                 KeyCode::KeyC if self.modifiers.state().control_key() => {
                     self.copy_pressed = true;
+                    return;
+                }
+                KeyCode::KeyX if self.modifiers.state().control_key() => {
+                    self.cut_pressed = true;
                     return;
                 }
                 KeyCode::KeyZ if self.modifiers.state().control_key() => {
@@ -173,6 +179,10 @@ impl InputState {
 
     pub fn copy_pressed(&mut self) -> bool {
         std::mem::take(&mut self.copy_pressed)
+    }
+
+    pub fn cut_pressed(&mut self) -> bool {
+        std::mem::take(&mut self.cut_pressed)
     }
 
     pub fn undo_pressed(&mut self) -> bool {

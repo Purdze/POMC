@@ -894,11 +894,13 @@ impl MainMenu {
             TextTarget::PackSearch => &mut self.pack_search,
         };
 
-        if input.copy
-            && !text.is_empty()
-            && let Ok(mut cb) = arboard::Clipboard::new()
-        {
-            let _ = cb.set_text(text.clone());
+        if input.copy && !text.is_empty() {
+            write_clipboard(text);
+        }
+
+        if input.cut && !text.is_empty() && write_clipboard(text) {
+            text.clear();
+            self.field_all_selected = false;
         }
 
         if input.undo
@@ -1028,4 +1030,10 @@ fn push_undo(stack: &mut Vec<(u8, String)>, field_idx: u8, prev: String) {
         stack.remove(0);
     }
     stack.push((field_idx, prev));
+}
+
+fn write_clipboard(text: &str) -> bool {
+    arboard::Clipboard::new()
+        .and_then(|mut cb| cb.set_text(text.to_string()))
+        .is_ok()
 }

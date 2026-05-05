@@ -1029,6 +1029,7 @@ impl App {
             f5: input.f5_pressed(),
             select_all: input.select_all_pressed(),
             copy: input.copy_pressed(),
+            cut: input.cut_pressed(),
             undo: input.undo_pressed(),
             scroll_delta: input.consume_menu_scroll(),
         }

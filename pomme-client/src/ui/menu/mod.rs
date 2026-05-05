@@ -144,6 +144,7 @@ pub struct MenuInput {
     pub f5: bool,
     pub select_all: bool,
     pub copy: bool,
+    pub cut: bool,
     pub undo: bool,
     pub scroll_delta: f32,
 }
